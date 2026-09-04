@@ -306,3 +306,23 @@ def test_scene_terms_skip_chinese_desc_when_no_hints():
 def test_scene_terms_use_ascii_desc_when_no_hints():
     from xhs_manager.video_pipeline.stages.stage3_materials import _search_terms_for_scene
     assert _search_terms_for_scene({"visual_desc": "person typing on laptop"}) == ["person typing on laptop"]
+
+
+# ── 断点续跑 ──────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("detail,expected", [
+    ("[render_videos] 所有视频渲染均失败", PipelineStatus.RENDERING),
+    ("[rendering] boom", PipelineStatus.RENDERING),
+    ("[collect_trends] 全部平台不可用", PipelineStatus.COLLECTING),
+    ("[publish_videos] x", PipelineStatus.PUBLISHING),
+])
+def test_stage_parsed_from_error_prefix(detail, expected):
+    from xhs_manager.video_pipeline.pipeline import _stage_from_error
+    assert _stage_from_error(detail) == expected
+
+
+@pytest.mark.parametrize("detail", [None, "", "no prefix", "[unknown_stage] x", "[] x"])
+def test_stage_from_error_returns_none_when_unparseable(detail):
+    from xhs_manager.video_pipeline.pipeline import _stage_from_error
+    assert _stage_from_error(detail) is None

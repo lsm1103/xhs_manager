@@ -69,10 +69,27 @@ class VideoPipeline:
 
     # ── 执行全部阶段 ──────────────────────────────────────────────
 
-    def run(self, run_date: Optional[date] = None) -> dict[str, Any]:
-        """执行完整的 6 阶段流水线。"""
+    def run(
+        self,
+        run_date: Optional[date] = None,
+        start_from: Optional[PipelineStatus] = None,
+    ) -> dict[str, Any]:
+        """执行流水线。同日已有运行时**从当前阶段续跑**，不会重复执行已完成阶段。
+
+        - 运行处于某阶段（如 rendering）→ 从该阶段继续
+        - 运行已 completed → 直接返回，不重跑
+        - 运行 failed → 从失败的那个阶段重试（阶段名记录在 error_detail 前缀）
+        - start_from 显式指定 → 无视上述规则，从该阶段开始
+        """
         run_id = self.create_run(run_date)
         result: dict[str, Any] = {"run_id": run_id, "stages": {}}
+
+        resume_at = start_from or self._resume_stage(run_id)
+        if resume_at is None:
+            logger.info("运行 %s 已完成，跳过", run_id)
+            result["status"] = "completed"
+            result["skipped"] = True
+            return result
 
         stage_order = [
             PipelineStatus.COLLECTING,
@@ -82,6 +99,10 @@ class VideoPipeline:
             PipelineStatus.RENDERING,
             PipelineStatus.PUBLISHING,
         ]
+        stage_order = stage_order[stage_order.index(resume_at):]
+        if resume_at != PipelineStatus.COLLECTING:
+            logger.info("从阶段 %s 续跑", resume_at.value)
+            result["resumed_from"] = resume_at.value
 
         for stage in stage_order:
             try:
@@ -159,6 +180,22 @@ class VideoPipeline:
 
     # ── 内部方法 ──────────────────────────────────────────────────
 
+    def _resume_stage(self, run_id: str) -> Optional[PipelineStatus]:
+        """根据运行当前状态决定从哪个阶段续跑。返回 None 表示已完成无需执行。"""
+        with self.session_factory() as session:
+            run = session.get(VideoPipelineRun, run_id)
+            status = run.status if run else PipelineStatus.COLLECTING.value
+            error_detail = run.error_detail if run else None
+
+        if status == PipelineStatus.COMPLETED.value:
+            return None
+        if status == PipelineStatus.FAILED.value:
+            return _stage_from_error(error_detail) or PipelineStatus.COLLECTING
+        try:
+            return PipelineStatus(status)
+        except ValueError:
+            return PipelineStatus.COLLECTING
+
     def _update_status(self, run_id: str, status: PipelineStatus) -> None:
         with self.session_factory() as session:
             run = session.get(VideoPipelineRun, run_id)
@@ -201,3 +238,26 @@ class VideoPipeline:
             "render_resolution": self.settings.render_resolution,
             "publish_platforms": self.settings.publish_platforms,
         }
+
+
+# 阶段名 → 该阶段对应的运行状态。StageError 用的是 handler 名（collect_trends），
+# 而 run() 记录的是状态名（collecting），两种前缀都要能解析。
+_STAGE_ALIASES: dict[str, PipelineStatus] = {
+    "collect_trends": PipelineStatus.COLLECTING,
+    "select_topics": PipelineStatus.SELECTING,
+    "collect_materials": PipelineStatus.MATERIALIZING,
+    "compose_html": PipelineStatus.COMPOSING,
+    "render_videos": PipelineStatus.RENDERING,
+    "publish_videos": PipelineStatus.PUBLISHING,
+    **{st.value: st for st in PipelineStatus},
+}
+
+
+def _stage_from_error(error_detail: Optional[str]) -> Optional[PipelineStatus]:
+    """从 "[stage] message" 形式的错误文本里解析出失败阶段。"""
+    if not error_detail or not error_detail.startswith("["):
+        return None
+    end = error_detail.find("]")
+    if end <= 1:
+        return None
+    return _STAGE_ALIASES.get(error_detail[1:end].strip())

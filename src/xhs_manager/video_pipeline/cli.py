@@ -51,7 +51,8 @@ def cmd_run(args) -> None:
     pipeline = VideoPipeline(build_session_factory(), settings)
 
     run_date = date.fromisoformat(args.date) if args.date else None
-    result = pipeline.run(run_date)
+    start_from = PipelineStatus(args.start_from) if args.start_from else None
+    result = pipeline.run(run_date, start_from=start_from)
 
     print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
     sys.exit(0 if result.get("status") == "completed" else 1)
@@ -192,6 +193,10 @@ def main() -> None:
     # run
     run_parser = subparsers.add_parser("run", help="执行完整的视频流水线")
     run_parser.add_argument("--date", help="运行日期 (YYYY-MM-DD)，默认今天")
+    run_parser.add_argument(
+        "--from", dest="start_from", metavar="STAGE",
+        help="强制从指定阶段开始（默认按运行当前状态自动续跑）",
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # stage
