@@ -191,9 +191,16 @@
 **验收**：单条命令从采集到发布全程无人工干预，产出 3 条视频。
 **依赖**：T11
 
-### T13 ⬜ 补视频 pipeline 单元测试
-**做什么**：为 domain 状态机、模型、pipeline 编排、各 stage 的纯逻辑部分写测试（外部调用 mock）。
-**验收**：新增测试全绿，总测试数 > 45。
+### T13 ✅ 补视频 pipeline 单元测试
+**做什么**：为状态机、热度归一化、去重摘要、CLI 输出解析、种子数据写测试。
+**验收**：✅ **新增 28 个测试全绿，总数 32 → 60**。
+**完成时间**：2026-09-03
+**测试聚焦在「已经踩过的坑」上，而非追求覆盖率**：
+- `test_normalize_spreads_scores_across_full_range` —— 守住「热度分全部撞顶 100」的回归
+- `test_parses_result_json_from_noisy_stdout` —— 守住 MPT 日志混杂时的路径提取
+- `test_generated_task_id_is_valid_uuid` —— 守住 MPT 强制 UUID 的约束
+- `test_seed_every_scene_has_narration_and_search_hint` —— 守住缺旁白/缺提示导致的降级
+- `test_seed_platform_metadata_respects_title_limits` —— 守住各平台标题长度上限
 
 ### T14 ⬜ 每日定时调度
 **做什么**：实现 `scheduler.py`，支持按 `daily_trigger_hour` 触发；提供 launchd/cron 配置样例。
@@ -266,3 +273,4 @@ Stage1 改为**多后端架构**：优先用公开 API（无需登录、更稳�
 | 2026-09-03 | T08 ✅ | Python playwright 渲染器跑通，HTML→MP4 端到端验证（1080x1920/H.264/6.0s）|
 | 2026-09-03 | T06 ✅ | Stage3 跑通，6 场景全部拿到真实素材；修复 TTS 被 continue 跳过、音轨冗余两个 bug || 2026-09-03 | T07 ✅ | Stage4 跑通；修复视频素材完全没进 HTML 的严重 bug + 主副标题并排的排版 bug |
 | 2026-09-03 | T09 ✅ | **渲染出第一个真实视频** 8.3MB/35.35s/1080x1920，6 场景画面全部验证正常 |
+| 2026-09-03 | T10+T13 ✅ | MPT 渲染路径验证通过；新增 28 个单元测试（总数 32→60）|
