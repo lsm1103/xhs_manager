@@ -407,3 +407,27 @@ def test_group_timeout_returns_rc_and_output_on_success():
     from xhs_manager.video_pipeline.stages.stage6_publish import _run_with_group_timeout
     rc, out, _ = _run_with_group_timeout([sys.executable, "-c", "print('hi')"], 10)
     assert rc == 0 and out.strip() == "hi"
+
+
+# ── opencli 输出解析：JSON 后追加的更新提示不能让整批采集归零 ──────
+
+
+def test_leading_json_tolerates_trailing_update_notice():
+    from xhs_manager.video_pipeline.integrations.collectors import _parse_leading_json
+    raw = '[{"rank":1,"title":"t"}]\n\n  Update available: v1.8.6 → v1.8.7\n  Run: npm install -g @jackwener/opencli\n'
+    assert _parse_leading_json(raw) == [{"rank": 1, "title": "t"}]
+
+
+def test_leading_json_handles_object_and_garbage():
+    from xhs_manager.video_pipeline.integrations.collectors import _parse_leading_json
+    assert _parse_leading_json('{"ok":true,"data":[]} trailing') == {"ok": True, "data": []}
+    assert _parse_leading_json("not json at all") is None
+    assert _parse_leading_json("") is None
+
+
+def test_opencli_collector_parses_real_shaped_output():
+    from xhs_manager.video_pipeline.integrations.collectors import OpenCliCollector
+    raw = ('[{"rank":1,"title":"AI工具","author":"A","likes":"1.2万",'
+           '"published_at":"2026-09-01","url":"https://x/1"}]\n  Update available: v1.8.6 → v1.8.7\n')
+    items = OpenCliCollector("xiaohongshu")._parse(raw)
+    assert len(items) == 1 and items[0].title == "AI工具" and items[0].likes == 12000

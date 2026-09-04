@@ -246,9 +246,8 @@ class OpenCliCollector:
         if not text:
             return items
 
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
+        data = _parse_leading_json(text)
+        if data is None:
             logger.debug("opencli 输出非 JSON: %s", text[:200])
             return items
 
@@ -281,6 +280,22 @@ class OpenCliCollector:
             ))
         return items
 
+
+
+def _parse_leading_json(text: str):
+    """解析 stdout 开头的 JSON，忽略其后追加的非 JSON 文本。
+
+    opencli 会把 "Update available: v1.8.6 → v1.8.7 / Run: npm install ..."
+    提示直接追加在 JSON 之后输出到 stdout，整段 json.loads 必然失败。
+    """
+    text = text.lstrip()
+    if not text or text[0] not in "[{":
+        return None
+    try:
+        obj, _ = json.JSONDecoder().raw_decode(text)
+        return obj
+    except json.JSONDecodeError:
+        return None
 
 def _as_int(v: Any) -> int:
     """把 '1.2万' / '1234' / 1234 统一转成 int。"""
