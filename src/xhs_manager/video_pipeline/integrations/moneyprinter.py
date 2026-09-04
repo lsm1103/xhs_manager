@@ -11,6 +11,7 @@ API: POST http://127.0.0.1:8080/api/v1/videos (需要 x-api-key: xma)
 
 import json
 import logging
+import re
 import subprocess
 import uuid
 from pathlib import Path
@@ -54,7 +55,7 @@ class MoneyPrinterTurbo:
 
         使用 --stop-at materials 模式，只执行到素材下载阶段。
         """
-        task_id = task_id or str(uuid.uuid4())
+        task_id = task_id or self._new_task_id()
         terms_str = ",".join(search_terms)
 
         cmd = [
@@ -69,20 +70,35 @@ class MoneyPrinterTurbo:
             "--no-subtitle-enabled",
         ]
 
-        result = self._run_cli(cmd, timeout=120)
+        result = self._run_cli(cmd, timeout=300)
         if not result["success"]:
             return result
 
-        # 收集下载的素材文件
-        task_dir = self.tasks_path / task_id
-        materials = self._collect_task_files(task_dir, extensions=[".mp4", ".webm"])
+        # 素材路径由 CLI 的 stdout JSON 返回（文件实际落在 cache_videos/，非任务目录）
+        payload = self._parse_result_json(result.get("stdout", ""))
+        paths = (payload.get("result") or {}).get("materials", [])
 
+        materials = []
+        for pth in paths:
+            f = Path(pth)
+            if f.exists():
+                materials.append({
+                    "path": str(f),
+                    "name": f.name,
+                    "size": f.stat().st_size,
+                    "size_mb": round(f.stat().st_size / 1024 / 1024, 2),
+                })
+
+        task_dir = self.tasks_path / task_id
         return {
-            "success": True,
+            "success": bool(materials),
             "task_id": task_id,
             "task_dir": str(task_dir),
             "materials": materials,
             "count": len(materials),
+            # 素材阶段会顺带产出音频和字幕
+            "audio_path": str(task_dir / "audio.mp3") if (task_dir / "audio.mp3").exists() else None,
+            "subtitle_path": str(task_dir / "subtitle.srt") if (task_dir / "subtitle.srt").exists() else None,
         }
 
     # ── TTS 语音生成 ──────────────────────────────────────────
@@ -98,7 +114,7 @@ class MoneyPrinterTurbo:
 
         使用 --stop-at audio 模式。
         """
-        task_id = task_id or str(uuid.uuid4())
+        task_id = task_id or self._new_task_id()
 
         cmd = [
             self.python, str(self.cli_path),
@@ -144,7 +160,7 @@ class MoneyPrinterTurbo:
         task_id: str | None = None,
     ) -> dict[str, Any]:
         """一站式生成完整视频，返回最终视频文件路径。"""
-        task_id = task_id or str(uuid.uuid4())
+        task_id = task_id or self._new_task_id()
 
         cmd = [
             self.python, str(self.cli_path),
@@ -177,6 +193,13 @@ class MoneyPrinterTurbo:
 
         task_dir = self.tasks_path / task_id
         final_videos = self._collect_task_files(task_dir, extensions=[".mp4"], prefix="final")
+        if not final_videos:
+            payload = self._parse_result_json(result.get("stdout", ""))
+            vp = (payload.get("result") or {}).get("video_path")
+            if vp and Path(vp).exists():
+                f = Path(vp)
+                final_videos = [{"path": str(f), "name": f.name, "size": f.stat().st_size,
+                                 "size_mb": round(f.stat().st_size/1024/1024, 2)}]
 
         if not final_videos:
             return {
@@ -207,7 +230,7 @@ class MoneyPrinterTurbo:
         task_id: str | None = None,
     ) -> dict[str, Any]:
         """从已有脚本生成视频，跳过 LLM 脚本生成阶段。"""
-        task_id = task_id or str(uuid.uuid4())
+        task_id = task_id or self._new_task_id()
 
         cmd = [
             self.python, str(self.cli_path),
@@ -238,6 +261,23 @@ class MoneyPrinterTurbo:
         }
 
     # ── 内部方法 ──────────────────────────────────────────────
+
+    @staticmethod
+    def _new_task_id() -> str:
+        """MoneyPrinterTurbo 要求 task-id 必须是合法 UUID。"""
+        return str(uuid.uuid4())
+
+    @staticmethod
+    def _parse_result_json(stdout: str) -> dict[str, Any]:
+        """从 CLI stdout 中提取结果 JSON（最后一行是 {"task_id":..., "result":...}）。"""
+        for line in reversed(stdout.strip().splitlines()):
+            line = line.strip()
+            if line.startswith("{") and '"task_id"' in line:
+                try:
+                    return json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+        return {}
 
     def _run_cli(self, cmd: list[str], timeout: int = 120) -> dict[str, Any]:
         """执行 MoneyPrinterTurbo CLI 命令。"""

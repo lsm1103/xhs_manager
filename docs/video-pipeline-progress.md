@@ -113,9 +113,17 @@
 **验收**：`video_topics` 有 3 条选题，`video_scripts` 有 3 份含 5-10 场景的脚本。
 **依赖**：T02, T03
 
-### T05 ⬜ 验证 MoneyPrinterTurbo 素材搜索参数
-**做什么**：手工跑 `python cli.py --video-terms "..." --stop-at materials` 确认参数组合有效、产物落在哪。
-**验收**：拿到下载的视频素材文件路径。
+### T05 ✅ 验证 MoneyPrinterTurbo 素材搜索参数
+**做什么**：手工跑 `--stop-at materials` 确认参数组合有效、产物落在哪。
+**验收**：✅ 实测下载 9 个 Pexels 素材，集成层改造后再测拿到 8 个。
+**完成时间**：2026-09-03
+**关键发现（都和原代码假设不符）**：
+1. **`--task-id` 必须是合法 UUID**，自定义字符串会被拒绝
+2. **素材文件不在任务目录**，落在 `storage/cache_videos/`（跨任务共享缓存）
+3. **真实路径由 stdout 最后一行 JSON 返回**：`{"task_id":..., "result":{"materials":[...]}}`
+4. **`--stop-at materials` 会顺带产出 `audio.mp3`**（任务目录下），省一次 TTS 调用
+**修正**：`moneyprinter.py` 增加 `_new_task_id()` 和 `_parse_result_json()`，
+素材路径改为解析 stdout 而非扫描任务目录。
 
 ### T06 ⬜ Stage3 素材收集跑通
 **做什么**：按 T05 的真实参数修正 `moneyprinter.py`，跑 `cli.py stage materializing`。
@@ -222,3 +230,4 @@ Stage1 改为**多后端架构**：优先用公开 API（无需登录、更稳�
 | 2026-09-03 | T01 ✅ | 验证 opencli 命令格式；发现 B站/V2EX 公开 API 可用，3 平台待启用 Chrome 扩展 |
 | 2026-09-03 | T02 ✅ | Stage1 跑通，147 条真实热点入库（B站138 + V2EX9）；3 平台因扩展未启用跳过 |
 | 2026-09-03 | T03 🔄 | 修正 output_config.format 结构（少一层嵌套）；实际调用受 429 限流阻塞 |
+| 2026-09-03 | T05 ✅ | MoneyPrinterTurbo 素材下载跑通；修正 task-id 需 UUID、素材在 cache_videos、路径从 stdout 取 |
