@@ -363,3 +363,25 @@ def test_xhs_plan_uses_configured_session_name():
     from xhs_manager.video_pipeline.stages.stage6_publish import _xhs_upload_plan
     steps = _xhs_upload_plan("my-sess", "/v.mp4", "t", "c", "draft")
     assert all(x[2] == "my-sess" for x in steps)
+
+
+# ── 成片时长回写 ──────────────────────────────────────────────────
+
+
+def test_probe_duration_reads_real_length(tmp_path):
+    """用 ffmpeg 生成 2 秒静音黑屏，确认 probe 读到 ~2.0 而非其它。"""
+    import shutil as _sh
+    import subprocess as _sp
+    from xhs_manager.video_pipeline.integrations.renderer import probe_duration
+    if not _sh.which("ffmpeg"):
+        pytest.skip("无 ffmpeg")
+    out = tmp_path / "t.mp4"
+    _sp.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=64x64:d=2",
+             "-pix_fmt", "yuv420p", str(out)], check=True, timeout=60)
+    d = probe_duration(out)
+    assert d is not None and abs(d - 2.0) < 0.15
+
+
+def test_probe_duration_returns_none_for_missing_file(tmp_path):
+    from xhs_manager.video_pipeline.integrations.renderer import probe_duration
+    assert probe_duration(tmp_path / "nope.mp4") is None

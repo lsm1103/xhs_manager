@@ -105,9 +105,12 @@ def render_videos(
                 render_time = time.monotonic() - start_time
                 file_size = output_path.stat().st_size
 
+                from xhs_manager.video_pipeline.integrations.renderer import probe_duration
+
                 render.output_path = str(output_path)
                 render.file_size = file_size
-                render.duration = comp.total_duration
+                # 以成片真实时长为准（旁白比脚本短时 -shortest 会截断）
+                render.duration = probe_duration(output_path) or comp.total_duration
                 render.render_time = round(render_time, 2)
                 render.status = "completed"
                 render.completed_at = utcnow()
@@ -125,7 +128,8 @@ def render_videos(
                     "render_method": render_method,
                     "output_path": str(output_path),
                     "file_size_mb": round(file_size / 1024 / 1024, 2),
-                    "duration": comp.total_duration,
+                    "duration": render.duration,
+                    "script_duration": comp.total_duration,
                     "render_time": round(render_time, 1),
                 })
             else:

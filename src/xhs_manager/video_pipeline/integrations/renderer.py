@@ -268,3 +268,17 @@ def extract_covers(
             covers[platform] = str(out)
 
     return covers
+
+
+def probe_duration(video_path: Path) -> Optional[float]:
+    """用 ffprobe 读真实时长（秒）。有旁白时 ffmpeg -shortest 会按音轨截断，
+    成片时长可能短于脚本时长，必须以此为准回写数据库。"""
+    try:
+        r = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", str(video_path)],
+            capture_output=True, text=True, timeout=30,
+        )
+        return round(float(r.stdout.strip()), 3) if r.returncode == 0 and r.stdout.strip() else None
+    except (subprocess.TimeoutExpired, ValueError):
+        return None
