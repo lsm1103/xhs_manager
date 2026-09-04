@@ -99,10 +99,15 @@ python -m xhs_manager.video_pipeline.cli status                      # 看运行
 python -m xhs_manager.video_pipeline.cli schedule-config launchd --hour 8   # 生成每日定时配置
 ```
 
-### 3.4 需要用户操作的唯一阻塞
+### 3.4 需要用户操作
 
-**启用 OpenCLI Chrome 扩展**：`chrome://extensions/` → OpenCLI → 启用 → `opencli doctor` 显示 `Extension: connected`。
-解锁后：① 小红书/抖音/X 三个采集源自动接入；② `stage publishing` 可实测小红书视频上传（失败会留截图，按图调 3-4 个定位器）。
+1. ~~启用 OpenCLI Chrome 扩展~~ ✅ **已完成**（2026-09-04）。小红书/抖音/X 三个采集源已解锁；
+   顺带发现并修复了「opencli 在 JSON 后追加更新提示导致解析失败」的 bug。
+2. **一次性小红书登录**（发布链路的最后一步）：
+   ```bash
+   python -m xhs_manager.video_pipeline.cli xhs-login
+   ```
+   发布走 Playwright 独立 profile，与 opencli 扩展无关（原因见 T11）。
 
 ### 3.5 已知限制与后续方向
 
@@ -220,22 +225,30 @@ python -m xhs_manager.video_pipeline.cli schedule-config launchd --hour 8   # �
 **验收**：MPT 路径也能产出 MP4。
 **依赖**：T05
 
-### T11 🔄 Stage6 小红书视频发布（代码就绪，待扩展启用后实测）
-**做什么**：核对 opencli 小红书发布命令的真实能力，重写 Stage6 小红书路径。
-**关键发现（原代码整个路径都是错的）**：
-- `opencli xiaohongshu save_draft` **不存在**，真实命令是 `publish <content>`
-- `publish` **只支持 `--images` 图文笔记，没有任何视频参数**，`--draft` 可存草稿
-- 结论：opencli 没有小红书视频上传的现成命令，必须走创作者中心 UI 自动化
-**已做**：
-- 新增 `_xhs_upload_plan()` 纯函数生成 `opencli browser <session>` 命令序列
-  （open → wait → upload `input[type=file]` → fill 标题/正文 → 暂存离线 / 发布）
-- 语义定位器（`--role/--name/--text`）比 CSS 抗改版
-- 失败自动截图到视频同目录，便于对照页面调定位器
-- 配置 `XHS_VIDEO_XHS_PUBLISH_MODE=draft|publish`，默认 `draft`（对齐图文系统「只存草稿、人工确认」的安全边界）
-- 4 个离线测试守住命令序列结构
-**待验证**：页面上的按钮文案/输入框 placeholder 是我按创作者中心现状写的，
-**未在真实浏览器跑过**。扩展启用后跑一次 `stage publishing`，失败会留截图，按图调 3-4 个定位器即可。
-**依赖**：用户在 `chrome://extensions/` 启用 OpenCLI 扩展
+### T11 🔄 Stage6 小红书视频发布（代码就绪，待一次性登录后实测）
+**扩展启用后的实测结论：opencli 无法完成小红书视频上传。**
+1. `opencli xiaohongshu` 没有视频命令：`save_draft` 不存在，`publish` 只收 `--images`
+2. `opencli browser upload` 走「点击元素 → 等 `Page.fileChooserOpened`」，而小红书的
+   `input.upload-input` 是隐藏的（`visible:false`）。**Chrome 要求真实用户手势才会打开
+   文件选择器**，扩展的合成点击不满足 —— 用数字 ref、强制把 input 变可见，都仍然超时
+3. 拷贝用户 Chrome profile 也不行：macOS 的 App-Bound Encryption 把 cookie 绑定到原始
+   安装与路径，拷过去必然跳登录页
+
+**最终方案：Playwright + 独立 Chrome profile**
+- `set_input_files` 走 CDP `DOM.setFileInputFiles`，不需要 fileChooser 也不需要用户手势，
+  对隐藏 input 同样有效
+- 独立 profile 不与用户的交互式 Chrome 争用 user-data-dir，适合无人值守
+- 新增 `integrations/xhs_publisher.py`：`interactive_login` / `logged_in` / `publish_video`
+- CLI 新增 `xhs-login`（一次性扫码）、`xhs-check`（校验登录态）
+- 失败自动整页截图到视频同目录
+
+**待用户操作（一次即可，之后长期复用）**：
+```bash
+python -m xhs_manager.video_pipeline.cli xhs-login   # 打开浏览器扫码
+python -m xhs_manager.video_pipeline.cli xhs-check   # 确认登录态
+```
+登录后页面选择器（标题框 / 正文 contenteditable /「暂存离线」按钮）需实测校准，
+失败会留截图。
 
 ### T12 ✅ 端到端串联跑通（编排层）
 **做什么**：`cli.py run` 串起 6 个阶段，验证断点续跑与失败可恢复。
