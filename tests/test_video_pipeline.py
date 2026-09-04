@@ -202,3 +202,79 @@ def test_seed_platform_metadata_respects_title_limits():
         limit = PLATFORM_LIMITS[platform]["title_max"]
         title = meta.get("title") or meta.get("text", "")
         assert len(title) <= limit, f"{name} 标题 {len(title)} 字超过上限 {limit}"
+
+
+# ── 调度器 ────────────────────────────────────────────────────────
+
+
+def _utc(*args):
+    from datetime import datetime, timezone
+    return datetime(*args, tzinfo=timezone.utc)
+
+
+def test_scheduler_fires_only_at_trigger_hour():
+    from xhs_manager.video_pipeline.scheduler import DailyScheduler
+    s = DailyScheduler(trigger_hour_utc=3, job=lambda: None)
+    assert not s.should_fire(_utc(2026, 9, 3, 2, 59))
+    assert s.should_fire(_utc(2026, 9, 3, 3, 0))
+    assert s.should_fire(_utc(2026, 9, 3, 3, 59))
+    assert not s.should_fire(_utc(2026, 9, 3, 4, 0))
+
+
+def test_scheduler_fires_at_most_once_per_day():
+    """同一小时内会被轮询多次，必须只执行一次。"""
+    from xhs_manager.video_pipeline.scheduler import DailyScheduler
+    calls = []
+    s = DailyScheduler(trigger_hour_utc=0, job=lambda: calls.append(1))
+    assert s.run_once_if_due(_utc(2026, 9, 3, 0, 1)) is True
+    assert s.run_once_if_due(_utc(2026, 9, 3, 0, 30)) is False
+    assert s.run_once_if_due(_utc(2026, 9, 3, 0, 59)) is False
+    assert calls == [1]
+
+
+def test_scheduler_fires_again_next_day():
+    from xhs_manager.video_pipeline.scheduler import DailyScheduler
+    calls = []
+    s = DailyScheduler(trigger_hour_utc=0, job=lambda: calls.append(1))
+    s.run_once_if_due(_utc(2026, 9, 3, 0, 0))
+    s.run_once_if_due(_utc(2026, 9, 4, 0, 0))
+    assert calls == [1, 1]
+
+
+def test_scheduler_marks_day_done_even_if_job_raises():
+    """任务抛异常不能导致同一小时内无限重试。"""
+    from xhs_manager.video_pipeline.scheduler import DailyScheduler
+
+    def boom():
+        raise RuntimeError("流水线崩了")
+
+    s = DailyScheduler(trigger_hour_utc=0, job=boom)
+    assert s.run_once_if_due(_utc(2026, 9, 3, 0, 0)) is True
+    assert s.run_once_if_due(_utc(2026, 9, 3, 0, 5)) is False
+
+
+@pytest.mark.parametrize("bad_hour", [-1, 24, 99])
+def test_scheduler_rejects_invalid_hour(bad_hour):
+    from xhs_manager.video_pipeline.scheduler import DailyScheduler
+    with pytest.raises(ValueError):
+        DailyScheduler(trigger_hour_utc=bad_hour, job=lambda: None)
+
+
+def test_crontab_line_uses_project_venv_python():
+    from pathlib import Path
+    from xhs_manager.video_pipeline.scheduler import render_crontab_line
+    line = render_crontab_line(8, Path("/proj"))
+    assert line.startswith("0 8 * * * ")
+    assert "/proj/.venv/bin/python" in line
+    assert "xhs_manager.video_pipeline.cli run" in line
+
+
+def test_launchd_plist_is_well_formed_xml():
+    import xml.etree.ElementTree as ET
+    from pathlib import Path
+    from xhs_manager.video_pipeline.scheduler import render_launchd_plist
+    xml = render_launchd_plist(8, Path("/proj"))
+    root = ET.fromstring(xml)
+    assert root.tag == "plist"
+    assert "com.xhs.video-pipeline" in xml
+    assert "<integer>8</integer>" in xml

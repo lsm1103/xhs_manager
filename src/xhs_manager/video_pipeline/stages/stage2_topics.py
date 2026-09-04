@@ -1,12 +1,12 @@
 """Stage 2: 选题 + 脚本生成 — 从热点信号中选出 3 个视频选题并生成分镜脚本。
 
-使用 Anthropic Python SDK 的结构化输出（output_config.format + json_schema），
-确保 LLM 响应严格匹配预定义 schema，无需手动 JSON 解析。
+通过 Claude Code headless 模式（`claude -p --json-schema`）调用，
+走 Max 订阅通道，无需 API Key，响应严格匹配预定义 schema。
 
 流程:
   1. 读取当次运行的所有热点信号
-  2. 调用 Claude API（结构化输出）进行选题评分
-  3. 对每个选题调用 Claude API（结构化输出）生成分镜脚本
+  2. 调用 Claude（结构化输出）进行选题评分
+  3. 对每个选题调用 Claude（结构化输出）生成分镜脚本
   4. 各平台标题/说明/标签由 schema 约束格式
 """
 
@@ -19,10 +19,7 @@ from sqlalchemy.orm import Session
 from xhs_manager.domain import new_id, utcnow
 from xhs_manager.video_pipeline.config import VideoPipelineSettings
 from xhs_manager.video_pipeline.domain import StageError, VideoType
-from xhs_manager.video_pipeline.integrations.llm_client import (
-    call_structured,
-    create_client,
-)
+from xhs_manager.video_pipeline.integrations.llm_client import call_structured
 from xhs_manager.video_pipeline.models import (
     VideoPipelineRun,
     VideoScript,
@@ -246,10 +243,7 @@ def select_topics(
     if not signals:
         raise StageError("select_topics", "没有可用的热点信号")
 
-    # 2. 创建 Claude 客户端
-    client = create_client(settings)
-
-    # 3. 调用结构化输出进行选题评分
+    # 2. 调用结构化输出进行选题评分（走 claude -p 通道）
     signals_text = _format_signals_for_llm(signals)
     user_prompt = (
         f"以下是今天从多个平台采集到的热门话题信号：\n\n"
@@ -259,14 +253,10 @@ def select_topics(
 
     try:
         topics_data = call_structured(
-            client=client,
-            model=settings.claude_model,
+            user_prompt,
+            TOPIC_SELECTION_SCHEMA,
             system=TOPIC_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}],
-            json_schema=TOPIC_SELECTION_SCHEMA,
-            schema_name="topic_selection",
-            effort="high",
-            max_tokens=8192,
+            model=settings.claude_model,
         )
     except Exception as e:
         raise StageError("select_topics", f"选题评分调用失败: {e}") from e
@@ -301,7 +291,7 @@ def select_topics(
         if not topic:
             continue
         try:
-            _generate_script(session, client, topic, settings)
+            _generate_script(session, topic, settings)
             scripts_created += 1
         except Exception as e:
             logger.error("选题「%s」脚本生成失败: %s", topic.title[:20], e)
@@ -327,7 +317,6 @@ def select_topics(
 
 def _generate_script(
     session: Session,
-    client,
     topic: VideoTopic,
     settings: VideoPipelineSettings,
 ) -> VideoScript:
@@ -346,14 +335,10 @@ def _generate_script(
     prompt_hash = hashlib.sha256(user_prompt.encode()).hexdigest()[:32]
 
     script_data = call_structured(
-        client=client,
-        model=settings.claude_model,
+        user_prompt,
+        SCRIPT_GENERATION_SCHEMA,
         system=SCRIPT_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
-        json_schema=SCRIPT_GENERATION_SCHEMA,
-        schema_name="video_script",
-        effort="high",
-        max_tokens=16000,
+        model=settings.claude_model,
     )
 
     script = VideoScript(

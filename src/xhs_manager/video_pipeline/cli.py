@@ -131,6 +131,44 @@ def cmd_seed(args) -> None:
         }, indent=2, ensure_ascii=False))
 
 
+def cmd_schedule(args) -> None:
+    """常驻进程：每日定时触发完整流水线。"""
+    from xhs_manager.video_pipeline.scheduler import DailyScheduler
+
+    settings = get_video_settings()
+    pipeline = VideoPipeline(build_session_factory(), settings)
+
+    def job() -> None:
+        result = pipeline.run()
+        logging.getLogger(__name__).info(
+            "流水线结束: status=%s run_id=%s",
+            result.get("status"), result.get("run_id"),
+        )
+
+    hour = args.hour if args.hour is not None else settings.daily_trigger_hour
+    DailyScheduler(trigger_hour_utc=hour, job=job).run_forever()
+
+
+def cmd_schedule_config(args) -> None:
+    """输出 cron / launchd 配置，用于系统级定时。"""
+    from pathlib import Path
+
+    from xhs_manager.video_pipeline.scheduler import (
+        render_crontab_line,
+        render_launchd_plist,
+    )
+
+    settings = get_video_settings()
+    project = Path(__file__).resolve().parents[3]
+    hour = args.hour if args.hour is not None else settings.daily_trigger_hour
+
+    if args.kind == "cron":
+        print("# 加入 crontab -e（注意 cron 用本机时区，此处小时按你的本地时间填）")
+        print(render_crontab_line(hour, project))
+    else:
+        print(render_launchd_plist(hour, project))
+
+
 def cmd_config(args) -> None:
     """显示当前配置。"""
     settings = get_video_settings()
@@ -171,6 +209,17 @@ def main() -> None:
     seed_parser = subparsers.add_parser("seed", help="插入示例选题+脚本（跳过 LLM）")
     seed_parser.add_argument("--run-id", help="流水线运行 ID，默认最近一次")
     seed_parser.set_defaults(func=cmd_seed)
+
+    # schedule
+    sch = subparsers.add_parser("schedule", help="常驻进程，每日定时触发流水线")
+    sch.add_argument("--hour", type=int, help="触发小时（UTC），默认读配置")
+    sch.set_defaults(func=cmd_schedule)
+
+    # schedule-config
+    sc = subparsers.add_parser("schedule-config", help="输出 cron/launchd 配置")
+    sc.add_argument("kind", choices=["cron", "launchd"])
+    sc.add_argument("--hour", type=int, help="触发小时，默认读配置")
+    sc.set_defaults(func=cmd_schedule_config)
 
     # config
     config_parser = subparsers.add_parser("config", help="显示当前配置")

@@ -1,218 +1,145 @@
-"""Claude API 客户端封装 — 使用 Anthropic Python SDK。
+"""Claude 客户端 —— 通过 Claude Code headless 模式（`claude -p`）调用。
 
-认证方式（按优先级自动解析，无需手动配 API Key）:
-  1. 显式传入的 claude_api_key
-  2. 环境变量 ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN
-  3. Claude Code 的 OAuth 凭证（macOS Keychain，`claude auth login` 后自动可用）
+为什么不用 Anthropic SDK 直连:
+  Claude Code 的 OAuth token 是给 Claude Code 自己用的。
+  拿它直接打 API 端点会被当作异常用法持续 429（返回的 message 只有 "Error"）。
+  正确做法是让 Claude Code 自己发请求 —— 走 Max 订阅通道，无需 API Key，无限流问题。
 
-API 规范:
-  - 自适应思考: thinking={type: "adaptive"}
-  - 结构化输出: output_config.format + json_schema
-  - 努力程度: output_config.effort
+能力:
+  - `--json-schema` 原生结构化输出，返回已解析的 dict
+  - `--system-prompt` 系统提示
+  - `--model` 指定模型
+  - `--tools ""` 禁用工具（纯文本生成场景不需要）
+  - `--no-session-persistence` 不污染会话历史
 """
 
 import json
 import logging
+import shutil
 import subprocess
-import time
 from typing import Any, Optional
-
-import anthropic
-
-from xhs_manager.video_pipeline.config import VideoPipelineSettings
 
 logger = logging.getLogger(__name__)
 
-# Claude Code 在 macOS Keychain 中的凭证条目名
-KEYCHAIN_SERVICE = "Claude Code-credentials"
 
-# OAuth token 调用 API 时需要的 beta header
-OAUTH_BETA_HEADER = "oauth-2025-04-20"
+class ClaudeCliError(Exception):
+    """claude CLI 调用失败。"""
 
 
-class AuthError(Exception):
-    """认证凭证解析失败。"""
-
-
-def read_claude_code_token() -> Optional[str]:
-    """从 macOS Keychain 读取 Claude Code 的 OAuth access token。
-
-    需要先执行 `claude auth login`。返回 None 表示凭证不可用。
-    """
-    try:
-        result = subprocess.run(
-            ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode != 0:
-            return None
-
-        creds = json.loads(result.stdout)
-        oauth = creds.get("claudeAiOauth")
-        if not oauth:
-            return None
-
-        token = oauth.get("accessToken")
-        if not token:
-            return None
-
-        # 检查是否过期
-        expires_at = oauth.get("expiresAt")
-        if expires_at and time.time() * 1000 > expires_at:
-            logger.warning("Claude Code OAuth token 已过期，请重新执行 `claude auth login`")
-            return None
-
-        # 检查是否有推理权限
-        scopes = oauth.get("scopes", [])
-        if "user:inference" not in scopes:
-            logger.warning("Claude Code 凭证缺少 user:inference 权限")
-            return None
-
-        return token
-
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError) as e:
-        logger.debug("读取 Claude Code 凭证失败: %s", e)
-        return None
-
-
-def create_client(settings: VideoPipelineSettings) -> anthropic.Anthropic:
-    """创建 Anthropic 客户端，自动解析可用凭证。
-
-    解析顺序:
-      1. settings.claude_api_key（显式配置）
-      2. ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN 环境变量（SDK 自动读取）
-      3. Claude Code OAuth token（Keychain）
-    """
-    # 方式 1: 显式 API Key
-    if settings.claude_api_key:
-        logger.debug("使用显式配置的 API Key")
-        return anthropic.Anthropic(api_key=settings.claude_api_key)
-
-    # 方式 2: 环境变量（让 SDK 自己解析）
-    import os
-    if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"):
-        logger.debug("使用环境变量中的凭证")
-        return anthropic.Anthropic()
-
-    # 方式 3: Claude Code OAuth
-    token = read_claude_code_token()
-    if token:
-        logger.debug("使用 Claude Code OAuth 凭证")
-        return anthropic.Anthropic(
-            auth_token=token,
-            default_headers={"anthropic-beta": OAUTH_BETA_HEADER},
-        )
-
-    raise AuthError(
-        "找不到可用的 Claude 凭证。请任选一种方式:\n"
-        "  1. 执行 `claude auth login`（推荐，无需 API Key）\n"
-        "  2. 设置环境变量 ANTHROPIC_API_KEY\n"
-        "  3. 在 .env 中配置 XHS_VIDEO_CLAUDE_API_KEY"
-    )
+def available() -> bool:
+    """claude CLI 是否可用。"""
+    return shutil.which("claude") is not None
 
 
 def call_structured(
-    client: anthropic.Anthropic,
-    model: str,
-    messages: list[dict[str, Any]],
+    prompt: str,
     json_schema: dict[str, Any],
-    schema_name: str = "response",
     *,
     system: Optional[str] = None,
-    effort: str = "high",
-    max_tokens: int = 16000,
+    model: Optional[str] = None,
+    timeout: int = 300,
 ) -> dict[str, Any]:
-    """调用 Claude API 并获取结构化 JSON 输出。
+    """调用 Claude 并获取严格匹配 schema 的结构化输出。
 
-    使用 output_config.format 确保响应严格匹配 JSON Schema，
-    无需手动解析或处理格式错误。
+    Returns:
+        已解析的 dict（来自 CLI 响应的 `structured_output` 字段）
+    Raises:
+        ClaudeCliError: CLI 不可用 / 执行失败 / 响应格式异常
     """
-    kwargs: dict[str, Any] = {
-        "model": model,
-        "max_tokens": max_tokens,
-        "messages": messages,
-        "thinking": {"type": "adaptive"},
-        "output_config": {
-            "effort": effort,
-            "format": {
-                "type": "json_schema",
-                "schema": json_schema,
-            },
-        },
-    }
+    if not available():
+        raise ClaudeCliError("找不到 claude 命令，请确认 Claude Code 已安装且在 PATH 中")
 
+    cmd = [
+        "claude", "-p", prompt,
+        "--json-schema", json.dumps(json_schema, ensure_ascii=False),
+        "--output-format", "json",
+        "--tools", "",
+        "--no-session-persistence",
+    ]
     if system:
-        kwargs["system"] = system
+        cmd += ["--system-prompt", system]
+    if model:
+        cmd += ["--model", model]
 
-    try:
-        response = client.messages.create(**kwargs)
-    except anthropic.BadRequestError as e:
-        logger.error("API 请求格式错误: %s", e.message)
-        raise
-    except anthropic.AuthenticationError:
-        logger.error("API 认证失败: 请执行 `claude auth login` 或设置 ANTHROPIC_API_KEY")
-        raise
-    except anthropic.RateLimitError as e:
-        retry_after = e.response.headers.get("retry-after", "60")
-        logger.warning("API 限流，建议 %ss 后重试", retry_after)
-        raise
-    except anthropic.APIStatusError as e:
-        if e.status_code >= 500:
-            logger.error("API 服务端错误 (%d): %s", e.status_code, e.message)
-        raise
+    payload = _run(cmd, timeout)
 
-    if response.stop_reason == "refusal":
-        detail = ""
-        if response.stop_details:
-            detail = f" (类别: {response.stop_details.category})"
-        raise ValueError(f"Claude 拒绝了此请求{detail}")
+    structured = payload.get("structured_output")
+    if isinstance(structured, dict):
+        return structured
 
-    json_text = None
-    for block in response.content:
-        if block.type == "text":
-            json_text = block.text
-            break
+    # 兜底：某些版本只在 result 里给 JSON 字符串
+    result = payload.get("result")
+    if isinstance(result, str):
+        try:
+            parsed = json.loads(result)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
 
-    if not json_text:
-        raise ValueError("响应中没有文本内容")
-
-    result = json.loads(json_text)
-
-    logger.debug(
-        "Claude API 完成: model=%s, in=%d, out=%d",
-        model, response.usage.input_tokens, response.usage.output_tokens,
+    raise ClaudeCliError(
+        f"响应中没有可用的结构化输出。result 前 200 字: {str(result)[:200]}"
     )
-    return result
 
 
 def call_text(
-    client: anthropic.Anthropic,
-    model: str,
-    messages: list[dict[str, Any]],
+    prompt: str,
     *,
     system: Optional[str] = None,
-    effort: str = "high",
-    max_tokens: int = 16000,
+    model: Optional[str] = None,
+    timeout: int = 300,
 ) -> str:
-    """调用 Claude API 获取纯文本响应。"""
-    kwargs: dict[str, Any] = {
-        "model": model,
-        "max_tokens": max_tokens,
-        "messages": messages,
-        "thinking": {"type": "adaptive"},
-        "output_config": {"effort": effort},
-    }
+    """调用 Claude 获取纯文本响应。"""
+    if not available():
+        raise ClaudeCliError("找不到 claude 命令")
+
+    cmd = [
+        "claude", "-p", prompt,
+        "--output-format", "json",
+        "--tools", "",
+        "--no-session-persistence",
+    ]
     if system:
-        kwargs["system"] = system
+        cmd += ["--system-prompt", system]
+    if model:
+        cmd += ["--model", model]
 
-    response = client.messages.create(**kwargs)
+    payload = _run(cmd, timeout)
+    result = payload.get("result")
+    if not isinstance(result, str):
+        raise ClaudeCliError("响应中没有文本内容")
+    return result
 
-    if response.stop_reason == "refusal":
-        raise ValueError("Claude 拒绝了此请求")
 
-    for block in response.content:
-        if block.type == "text":
-            return block.text
-    return ""
+def _run(cmd: list[str], timeout: int) -> dict[str, Any]:
+    """执行 claude CLI，返回解析后的 JSON 响应。"""
+    try:
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as e:
+        raise ClaudeCliError(f"claude 调用超时 ({timeout}s)") from e
+    except FileNotFoundError as e:
+        raise ClaudeCliError("找不到 claude 命令") from e
+
+    if proc.returncode != 0:
+        raise ClaudeCliError(
+            f"claude 退出码 {proc.returncode}: {(proc.stderr or proc.stdout)[-800:]}"
+        )
+
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError as e:
+        raise ClaudeCliError(f"claude 输出不是 JSON: {proc.stdout[:300]}") from e
+
+    if payload.get("is_error"):
+        raise ClaudeCliError(f"claude 返回错误: {payload.get('result', '')[:500]}")
+
+    usage = payload.get("usage", {})
+    logger.debug(
+        "claude 调用完成: model=%s in=%s out=%s cost=$%.4f",
+        list(payload.get("modelUsage", {}).keys()),
+        usage.get("input_tokens"), usage.get("output_tokens"),
+        payload.get("total_cost_usd", 0),
+    )
+    return payload

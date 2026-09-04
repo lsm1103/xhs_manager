@@ -65,7 +65,7 @@
 
 ### 2.5 测试
 
-**60 个测试全绿**（原 32 + 视频 pipeline 新增 28）。
+**69 passed，全绿**（原 32 + 视频 pipeline 新增 37）。
 
 ---
 
@@ -224,14 +224,26 @@ daemon 正常、Chrome 正常、扩展文件已在磁盘，但未加载启用。
 - `test_seed_every_scene_has_narration_and_search_hint` —— 守住缺旁白/缺提示导致的降级
 - `test_seed_platform_metadata_respects_title_limits` —— 守住各平台标题长度上限
 
-### T14 ⬜ 每日定时调度
-**做什么**：实现 `scheduler.py`，支持按 `daily_trigger_hour` 触发；提供 launchd/cron 配置样例。
-**验收**：能配置成每天定时自动跑。
-**依赖**：T12
+### T14 ✅ 每日定时调度
+**做什么**：新建 `scheduler.py`，CLI 接入 `schedule`（常驻进程）和 `schedule-config`（输出 cron/launchd）。
+**验收**：✅ 逻辑测试通过（只在触发小时执行、每日至多一次、任务抛异常不重试、次日再触发）；
+`schedule-config cron/launchd` 能输出可直接粘贴的配置。
+**完成时间**：2026-09-03
+**幂等**：`VideoPipelineRun.run_date` 唯一约束保证同日重复触发只返回已有运行，不会重跑。
+**用法**：
+```bash
+python -m xhs_manager.video_pipeline.cli schedule --hour 0                 # 常驻进程
+python -m xhs_manager.video_pipeline.cli schedule-config cron --hour 8     # 系统 cron
+python -m xhs_manager.video_pipeline.cli schedule-config launchd --hour 8  # macOS launchd
+```
 
-### T15 ⬜ 规范化数据库迁移
-**做什么**：把 `create_all` 建的表改为通过 alembic 迁移管理，验证 upgrade/downgrade。
-**验收**：`alembic upgrade head` 能在干净库上建出全部表。
+### T15 ✅ 规范化数据库迁移
+**做什么**：在干净库验证完整迁移链；给真实库 `stamp head`。
+**验收**：✅ 干净库 `upgrade head` 走完 4 步迁移建出 29 张表（含 8 张 video_）；
+`downgrade -1` 正确删 8 张 video_ 表，再 `upgrade head` 恢复。
+**完成时间**：2026-09-03
+**处理的遗留问题**：真实库原用 `create_all` 建表，`alembic_version` 停在 `3a7d2b4e5f90`，
+后续新迁移会因表已存在而失败。已 `stamp head` 到 `4b8c5d6e7f01`，`upgrade head` 现为 no-op。
 
 ### 四.5 平台采集后端实测结论（T01 产出）
 
@@ -296,3 +308,4 @@ Stage1 改为**多后端架构**：优先用公开 API（无需登录、更稳�
 | 2026-09-03 | T06 ✅ | Stage3 跑通，6 场景全部拿到真实素材；修复 TTS 被 continue 跳过、音轨冗余两个 bug || 2026-09-03 | T07 ✅ | Stage4 跑通；修复视频素材完全没进 HTML 的严重 bug + 主副标题并排的排版 bug |
 | 2026-09-03 | T09 ✅ | **渲染出第一个真实视频** 8.3MB/35.35s/1080x1920，6 场景画面全部验证正常 |
 | 2026-09-03 | T10+T13 ✅ | MPT 渲染路径验证通过；新增 28 个单元测试（总数 32→60）|
+| 2026-09-03 | T14+T15 ✅ | 每日调度器 + alembic 迁移链验证；真实库 stamp 到 head；测试 69 passed |
