@@ -27,12 +27,12 @@
 | 编排器 | `video_pipeline/pipeline.py` | 203 | ✅ 6 阶段串联 |
 | CLI | `video_pipeline/cli.py` | 147 | ✅ run/stage/status/config |
 | Stage1 热点采集 | `stages/stage1_trends.py` | 143 | ✅ **已跑通**，147 条真实数据 |
-| Stage2 选题脚本 | `stages/stage2_topics.py` | 417 | ⚠️ 代码就绪，**受限流阻塞** |
+| Stage2 选题脚本 | `stages/stage2_topics.py` | 417 | ✅ **已跑通**，真实 LLM 生成 3 选题 3 脚本 |
 | Stage3 素材收集 | `stages/stage3_materials.py` | 455 | ✅ **已跑通**，6 场景真实素材 |
 | Stage4 HTML构建 | `stages/stage4_compose.py` | 568 | ✅ **已跑通**，视频正确嵌入 |
 | Stage5 视频渲染 | `stages/stage5_render.py` | 260 | ✅ **已跑通**，双路径均出片 |
 | Stage6 多平台发布 | `stages/stage6_publish.py` | 317 | ⚠️ 受 Chrome 扩展阻塞 |
-| Claude 客户端 | `integrations/llm_client.py` | 221 | ✅ OAuth 认证已验证 |
+| Claude 客户端 | `integrations/llm_client.py` | 130 | ✅ **claude -p 通道**，无需 Key |
 | MoneyPrinterTurbo | `integrations/moneyprinter.py` | 316 | ✅ **已跑通**，素材+渲染 |
 | 采集器 | `integrations/collectors.py` | 300 | ✅ **已跑通**，B站/V2EX |
 | 渲染器 | `integrations/renderer.py` | 215 | ✅ **已跑通**，HTML→MP4 |
@@ -71,15 +71,10 @@
 
 ## 三、当前阻塞项
 
-### 3.1 Claude API 限流（阻塞 T04）
+### 3.1 ~~Claude API 限流~~ → 已解决（T03）
 
-OAuth 认证本身已验证可用（服务端接受、格式修正后不再报 400），
-但**持续返回 429**，因为交互式 Claude Code 会话与流水线共享同一 Max 套餐额度。
-整个开发过程中多次间隔重试（最长间隔 40+ 分钟）均未成功。
-
-**影响**：Stage2 选题+脚本生成无法用真实 LLM 验证。
-**当前对策**：`seed.py` 提供手写脚本，下游 Stage3-5 已全部验证通过。
-**解决路径**：在无交互会话的时段跑一次，或改用独立 API Key / DeepSeek。
+之前的判断是错的：429 是因为拿 Claude Code 的 OAuth token 直打 API 端点。
+改走 `claude -p` 通道后无任何限流，T04 已用真实 LLM 跑通。
 
 ### 3.2 OpenCLI Chrome 扩展未启用（阻塞 T11 及 3 个采集平台）
 
@@ -116,24 +111,24 @@ daemon 正常、Chrome 正常、扩展文件已在磁盘，但未加载启用。
 - 配置默认平台加入 `v2ex`
 - 修复 `cli.py` 的 `from xhs_manager.db import engine` 导入错误（该模块只导出工厂函数）
 
-### T03 🔄 验证 Claude 结构化输出 + OAuth 实际调用
-**做什么**：用 OAuth token 调 `output_config.format` 确认结构化输出可用。
-**进展**：
-- ✅ **修正了 format 结构错误**。API 明确报错指出正确格式：
-  ```python
-  # ❌ 错误（多套了一层 json_schema）
-  "format": {"type":"json_schema", "json_schema":{"name":..., "schema":{...}}}
-  # ✅ 正确
-  "format": {"type":"json_schema", "schema": {...}}
-  ```
-- ⚠️ **实际调用受限流阻塞**：修正格式后不再报 400，但持续返回 429。
-  原因是当前交互式 Claude Code 会话在重度消耗同一 Max 套餐额度。
-- **待办**：在会话空闲时段重试验证。格式正确性已通过「400 消失」间接确认。
+### T03 ✅ 验证 Claude ACP 调用通道
+**做什么**：找到正确的 ACP 调用方式并验证结构化输出。
+**完成时间**：2026-09-03
+**根因（之前判断错了）**：429 不是"配额被交互会话吃掉"，而是**用错了通道**。
+我一直拿 Claude Code 的 OAuth token 直打 Anthropic API 端点 —— 那个 token 是给 Claude Code
+自己用的，直打 API 会被判为异常用法持续 429（返回的 message 只有一个 "Error"，不是正常限流提示）。
+**正确做法**：`claude -p`（headless 模式）让 Claude Code 自己发请求，走 Max 订阅通道：
+- 无需 API Key，无 429
+- `--json-schema` 原生结构化输出，响应里直接给已解析的 `structured_output` 字段
+- `--system-prompt` / `--model` / `--tools ""`（禁工具）/ `--no-session-persistence`
+**代码**：`llm_client.py` 重写为 `subprocess` 调 `claude -p`，移除 `anthropic` SDK 依赖。
 
-### T04 ⬜ Stage2 用真实信号跑通选题+脚本生成
-**做什么**：基于 T02 采集到的真实信号，跑 `cli.py stage selecting`。
-**验收**：`video_topics` 有 3 条选题，`video_scripts` 有 3 份含 5-10 场景的脚本。
-**依赖**：T02, T03
+### T04 ✅ Stage2 用真实信号跑通选题+脚本生成
+**做什么**：基于 148 条真实热点（B站+V2EX），走 `claude -p` 跑 `stage selecting`。
+**验收**：✅ **3 条选题 + 3 份脚本**，全部由真实 LLM 从真实热点生成，
+场景数与时长均落在 schema 约束内（7-8 场景 / 60-75s），四平台标题/标签齐全。
+**完成时间**：2026-09-03
+**耗时**：4 次 LLM 调用（1 选题 + 3 脚本）约 3 分钟。
 
 ### T05 ✅ 验证 MoneyPrinterTurbo 素材搜索参数
 **做什么**：手工跑 `--stop-at materials` 确认参数组合有效、产物落在哪。
@@ -309,3 +304,4 @@ Stage1 改为**多后端架构**：优先用公开 API（无需登录、更稳�
 | 2026-09-03 | T09 ✅ | **渲染出第一个真实视频** 8.3MB/35.35s/1080x1920，6 场景画面全部验证正常 |
 | 2026-09-03 | T10+T13 ✅ | MPT 渲染路径验证通过；新增 28 个单元测试（总数 32→60）|
 | 2026-09-03 | T14+T15 ✅ | 每日调度器 + alembic 迁移链验证；真实库 stamp 到 head；测试 69 passed |
+| 2026-09-03 | T03+T04 ✅ | 找到正确 ACP 通道 `claude -p`（之前直打 API 是错的）；Stage2 真实 LLM 生成 3 选题 3 脚本 |
