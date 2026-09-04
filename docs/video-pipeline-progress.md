@@ -1,0 +1,158 @@
+# 视频 Pipeline 开发进度
+
+> 本文档是视频自动化流水线的**唯一进度看板**。每完成一个 TODO 即更新此文档并 commit。
+> 最后更新：2026-09-03
+
+---
+
+## 一、目标
+
+每天自动产出 **3 条短视频**并发布到多平台，全流程无人值守：
+
+```
+热点采集 → 选题+脚本 → 素材收集 → HTML构建 → 视频录制 → 多平台发布
+```
+
+---
+
+## 二、已完成（截至 2026-09-03）
+
+### 2.1 架构与代码骨架 ✅
+
+| 模块 | 文件 | 行数 | 状态 |
+|------|------|------|------|
+| 领域模型 | `video_pipeline/domain.py` | 197 | ✅ 状态机/枚举/平台限制 |
+| 数据模型 | `video_pipeline/models.py` | 316 | ✅ 8 张表 |
+| 配置 | `video_pipeline/config.py` | 76 | ✅ `XHS_VIDEO_` 前缀 |
+| 编排器 | `video_pipeline/pipeline.py` | 203 | ✅ 6 阶段串联 |
+| CLI | `video_pipeline/cli.py` | 147 | ✅ run/stage/status/config |
+| Stage1 热点采集 | `stages/stage1_trends.py` | 283 | ⚠️ 代码就绪，**未验证** |
+| Stage2 选题脚本 | `stages/stage2_topics.py` | 417 | ⚠️ 代码就绪，**未验证** |
+| Stage3 素材收集 | `stages/stage3_materials.py` | 455 | ⚠️ 代码就绪，**未验证** |
+| Stage4 HTML构建 | `stages/stage4_compose.py` | 568 | ⚠️ 代码就绪，**未验证** |
+| Stage5 视频渲染 | `stages/stage5_render.py` | 557 | ⚠️ 代码就绪，**未验证** |
+| Stage6 多平台发布 | `stages/stage6_publish.py` | 317 | ⚠️ 仅小红书，其余为桩 |
+| Claude 客户端 | `integrations/llm_client.py` | 221 | ✅ OAuth 认证已验证 |
+| MoneyPrinterTurbo | `integrations/moneyprinter.py` | 302 | ⚠️ 代码就绪，**未验证** |
+
+### 2.2 数据库 ✅
+
+8 张新表已创建（`create_all` 方式），迁移文件 `4b8c5d6e7f01_add_video_pipeline.py` 已写但未通过 alembic 执行。
+
+### 2.3 认证方案（已决策）✅
+
+**采用 Claude Code OAuth（ACP），不配 API Key。**
+
+- 凭证来源：macOS Keychain `Claude Code-credentials` → `claudeAiOauth.accessToken`
+- 调用方式：`auth_token` + `anthropic-beta: oauth-2025-04-20`
+- 已验证：token 读取成功（含 `user:inference` scope），服务端接受认证
+- **决策：不加重试退避** — 用户 Max 套餐可承受并发
+
+### 2.4 外部工具就绪情况
+
+| 工具 | 状态 | 位置/说明 |
+|------|------|-----------|
+| MoneyPrinterTurbo | ✅ 已安装 | `../MoneyPrinterTurbo`，用户已成功生成过视频 |
+| Pixelle-Video | ✅ 已安装 | `../Pixelle-Video`，API 端口 8080 |
+| ffmpeg | ✅ 已安装 | `/opt/homebrew/bin/ffmpeg` |
+| anthropic SDK | ✅ v1.3.0 | 已加入依赖 |
+| opencli | ❓ 未验证 | Stage1/Stage6 依赖，**待确认** |
+| Playwright | ❓ 未验证 | Stage5 HTML 渲染路径依赖 |
+| HyperFrames | ❌ 未安装 | 可选，有 Playwright 兜底 |
+
+### 2.5 测试
+
+32 个既有测试通过，视频 pipeline **尚无专属测试**。
+
+---
+
+## 三、核心风险
+
+1. **opencli 未验证** — Stage1（4平台采集）和 Stage6（小红书发布）都依赖它，命令格式全是推测的
+2. **全流程从未真实执行** — 所有 stage 只验证了 import，没有跑过真实数据
+3. **MoneyPrinterTurbo 参数组合未验证** — `--stop-at materials` 配合 `--video-terms` 是否work未知
+
+---
+
+## 四、TODO List
+
+> 状态标记：⬜ 未开始 / 🔄 进行中 / ✅ 已完成 / ❌ 受阻
+
+### T01 ⬜ 验证 opencli 可用性与平台命令格式
+**做什么**：确认 opencli 是否安装、支持哪些平台、search 子命令的真实参数格式和输出结构。
+**验收**：能在终端跑通至少一个平台的搜索并拿到 JSON 输出；把真实命令格式记录到本文档。
+**产出**：本文档新增「opencli 命令参考」小节。
+
+### T02 ⬜ 按真实 opencli 格式重写 Stage1 采集逻辑
+**做什么**：用 T01 得到的真实命令格式替换 `stage1_trends.py` 里推测的模板；调整字段标准化逻辑匹配真实输出。
+**验收**：`cli.py stage collecting` 能跑完，数据库 `video_trend_signals` 表有真实数据。
+**依赖**：T01
+
+### T03 ⬜ 验证 Claude 结构化输出 + OAuth 实际调用
+**做什么**：写一个最小脚本，用 OAuth token 调 `output_config.format` + `json_schema`，确认 OAuth 模式支持结构化输出。
+**验收**：拿到符合 schema 的 JSON 响应。
+**注**：若 OAuth 不支持结构化输出，需降级为 prompt 约束 + 手动解析。
+
+### T04 ⬜ Stage2 用真实信号跑通选题+脚本生成
+**做什么**：基于 T02 采集到的真实信号，跑 `cli.py stage selecting`。
+**验收**：`video_topics` 有 3 条选题，`video_scripts` 有 3 份含 5-10 场景的脚本。
+**依赖**：T02, T03
+
+### T05 ⬜ 验证 MoneyPrinterTurbo 素材搜索参数
+**做什么**：手工跑 `python cli.py --video-terms "..." --stop-at materials` 确认参数组合有效、产物落在哪。
+**验收**：拿到下载的视频素材文件路径。
+
+### T06 ⬜ Stage3 素材收集跑通
+**做什么**：按 T05 的真实参数修正 `moneyprinter.py`，跑 `cli.py stage materializing`。
+**验收**：`video_materials` 表有记录，素材文件真实落盘。
+**依赖**：T04, T05
+
+### T07 ⬜ Stage4 HTML 生成跑通并肉眼验证效果
+**做什么**：跑 `cli.py stage composing`，用浏览器打开生成的 HTML 检查转场和文字动画是否正常。
+**验收**：HTML 能在浏览器正常播放，场景切换和动画可见。
+**依赖**：T06
+
+### T08 ⬜ 准备 Playwright 渲染环境
+**做什么**：确认 playwright-core 可用、Chrome 路径正确；在 composition 目录建立可复用的渲染脚本依赖。
+**验收**：能对任意 HTML 截出一张 1080x1920 PNG。
+
+### T09 ⬜ Stage5 渲染出第一个 MP4
+**做什么**：跑 `cli.py stage rendering`，走 Playwright+ffmpeg 路径。
+**验收**：得到可播放的 MP4，时长与脚本一致，有封面图。
+**依赖**：T07, T08
+
+### T10 ⬜ Stage5 验证 MoneyPrinterTurbo 渲染路径
+**做什么**：把 `render_mode` 切到 `moneyprinter`，验证快速路径能出片。
+**验收**：MPT 路径也能产出 MP4。
+**依赖**：T05
+
+### T11 ⬜ Stage6 小红书草稿发布跑通
+**做什么**：按 T01 确认的 opencli 格式修正发布命令，跑 `cli.py stage publishing`。
+**验收**：小红书草稿箱能看到视频草稿。
+**依赖**：T09
+
+### T12 ⬜ 端到端串联跑通
+**做什么**：`cli.py run` 一次性跑完 6 个阶段。
+**验收**：单条命令从采集到发布全程无人工干预，产出 3 条视频。
+**依赖**：T11
+
+### T13 ⬜ 补视频 pipeline 单元测试
+**做什么**：为 domain 状态机、模型、pipeline 编排、各 stage 的纯逻辑部分写测试（外部调用 mock）。
+**验收**：新增测试全绿，总测试数 > 45。
+
+### T14 ⬜ 每日定时调度
+**做什么**：实现 `scheduler.py`，支持按 `daily_trigger_hour` 触发；提供 launchd/cron 配置样例。
+**验收**：能配置成每天定时自动跑。
+**依赖**：T12
+
+### T15 ⬜ 规范化数据库迁移
+**做什么**：把 `create_all` 建的表改为通过 alembic 迁移管理，验证 upgrade/downgrade。
+**验收**：`alembic upgrade head` 能在干净库上建出全部表。
+
+---
+
+## 五、进度日志
+
+| 日期 | TODO | 说明 |
+|------|------|------|
+| 2026-09-03 | — | 架构设计 + 代码骨架完成，OAuth 认证方案确定 |
