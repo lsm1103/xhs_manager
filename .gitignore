@@ -1,0 +1,16 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.pyc
+data/*.db
+data/*.db-*
+data/assets/*
+data/backups/*
+!data/assets/.gitkeep
+!data/backups/.gitkeep
+
+.DS_Store
