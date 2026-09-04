@@ -24,7 +24,7 @@
 | 领域模型 | `video_pipeline/domain.py` | 197 | ✅ 状态机/枚举/平台限制 |
 | 数据模型 | `video_pipeline/models.py` | 316 | ✅ 8 张表 |
 | 配置 | `video_pipeline/config.py` | 76 | ✅ `XHS_VIDEO_` 前缀 |
-| 编排器 | `video_pipeline/pipeline.py` | 203 | ✅ 6 阶段串联 |
+| 编排器 | `video_pipeline/pipeline.py` | 260 | ✅ 6 阶段串联 + **断点续跑** |
 | CLI | `video_pipeline/cli.py` | 147 | ✅ run/stage/status/config |
 | Stage1 热点采集 | `stages/stage1_trends.py` | 143 | ✅ **已跑通**，147 条真实数据 |
 | Stage2 选题脚本 | `stages/stage2_topics.py` | 417 | ✅ **已跑通**，真实 LLM 生成 3 选题 3 脚本 |
@@ -198,10 +198,22 @@ daemon 正常、Chrome 正常、扩展文件已在磁盘，但未加载启用。
 **验收**：MPT 路径也能产出 MP4。
 **依赖**：T05
 
-### T11 ⬜ Stage6 小红书草稿发布跑通
-**做什么**：按 T01 确认的 opencli 格式修正发布命令，跑 `cli.py stage publishing`。
-**验收**：小红书草稿箱能看到视频草稿。
-**依赖**：T09
+### T11 🔄 Stage6 小红书视频发布（代码就绪，待扩展启用后实测）
+**做什么**：核对 opencli 小红书发布命令的真实能力，重写 Stage6 小红书路径。
+**关键发现（原代码整个路径都是错的）**：
+- `opencli xiaohongshu save_draft` **不存在**，真实命令是 `publish <content>`
+- `publish` **只支持 `--images` 图文笔记，没有任何视频参数**，`--draft` 可存草稿
+- 结论：opencli 没有小红书视频上传的现成命令，必须走创作者中心 UI 自动化
+**已做**：
+- 新增 `_xhs_upload_plan()` 纯函数生成 `opencli browser <session>` 命令序列
+  （open → wait → upload `input[type=file]` → fill 标题/正文 → 暂存离线 / 发布）
+- 语义定位器（`--role/--name/--text`）比 CSS 抗改版
+- 失败自动截图到视频同目录，便于对照页面调定位器
+- 配置 `XHS_VIDEO_XHS_PUBLISH_MODE=draft|publish`，默认 `draft`（对齐图文系统「只存草稿、人工确认」的安全边界）
+- 4 个离线测试守住命令序列结构
+**待验证**：页面上的按钮文案/输入框 placeholder 是我按创作者中心现状写的，
+**未在真实浏览器跑过**。扩展启用后跑一次 `stage publishing`，失败会留截图，按图调 3-4 个定位器即可。
+**依赖**：用户在 `chrome://extensions/` 启用 OpenCLI 扩展
 
 ### T12 ⬜ 端到端串联跑通
 **做什么**：`cli.py run` 一次性跑完 6 个阶段。
@@ -305,3 +317,5 @@ Stage1 改为**多后端架构**：优先用公开 API（无需登录、更稳�
 | 2026-09-03 | T10+T13 ✅ | MPT 渲染路径验证通过；新增 28 个单元测试（总数 32→60）|
 | 2026-09-03 | T14+T15 ✅ | 每日调度器 + alembic 迁移链验证；真实库 stamp 到 head；测试 69 passed |
 | 2026-09-03 | T03+T04 ✅ | 找到正确 ACP 通道 `claude -p`（之前直打 API 是错的）；Stage2 真实 LLM 生成 3 选题 3 脚本 |
+| 2026-09-03 | fix ✅ | 断点续跑（同日重跑从当前阶段继续）；Stage3 搜索词优先 search:>gen:；Stage6 仅成功后等待间隔 |
+| 2026-09-03 | T11 🔄 | 发现 opencli 无小红书视频上传命令；改走 browser 自动化，代码+测试就绪，待扩展启用实测 |

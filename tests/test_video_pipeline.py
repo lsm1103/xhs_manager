@@ -326,3 +326,40 @@ def test_stage_parsed_from_error_prefix(detail, expected):
 def test_stage_from_error_returns_none_when_unparseable(detail):
     from xhs_manager.video_pipeline.pipeline import _stage_from_error
     assert _stage_from_error(detail) is None
+
+
+# ── Stage6 小红书上传命令序列 ─────────────────────────────────────
+
+
+def test_xhs_plan_never_calls_nonexistent_save_draft():
+    """T11 发现 `opencli xiaohongshu save_draft` 不存在，且 publish 无视频参数。"""
+    from xhs_manager.video_pipeline.stages.stage6_publish import _xhs_upload_plan
+    steps = _xhs_upload_plan("s", "/v.mp4", "t", "c", "draft")
+    flat = " ".join(" ".join(x) for x in steps)
+    assert "save_draft" not in flat
+    assert "xiaohongshu publish" not in flat
+    assert all(x[:2] == ["opencli", "browser"] for x in steps)
+
+
+def test_xhs_plan_uploads_video_then_fills_then_saves_draft():
+    from xhs_manager.video_pipeline.stages.stage6_publish import _xhs_upload_plan
+    steps = _xhs_upload_plan("s", "/v.mp4", "我的标题", "正文", "draft")
+    verbs = [x[3] for x in steps]
+    assert verbs.index("upload") < verbs.index("fill") < verbs.index("click")
+    assert any("/v.mp4" in x for x in steps)
+    assert any("暂存离线" in x for x in steps)
+    assert not any("发布成功" in x for x in steps)
+
+
+def test_xhs_plan_publish_mode_clicks_publish_and_waits_success():
+    from xhs_manager.video_pipeline.stages.stage6_publish import _xhs_upload_plan
+    steps = _xhs_upload_plan("s", "/v.mp4", "t", "c", "publish")
+    assert any(x[3] == "click" and "发布" in x for x in steps)
+    assert any("发布成功" in x for x in steps)
+    assert not any("暂存离线" in x for x in steps)
+
+
+def test_xhs_plan_uses_configured_session_name():
+    from xhs_manager.video_pipeline.stages.stage6_publish import _xhs_upload_plan
+    steps = _xhs_upload_plan("my-sess", "/v.mp4", "t", "c", "draft")
+    assert all(x[2] == "my-sess" for x in steps)

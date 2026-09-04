@@ -66,6 +66,8 @@ class VideoPipelineSettings(BaseSettings):
         default_factory=lambda: ["xiaohongshu"]
     )
     publish_delay_minutes: int = 5              # 平台间发布间隔
+    xhs_publish_mode: str = "draft"             # draft=暂存离线 | publish=直接发布
+    xhs_browser_session: str = "xhs-video"      # opencli browser 会话名
 
     # ── 输出目录 ──
     output_base_dir: str = "data/video_pipeline"

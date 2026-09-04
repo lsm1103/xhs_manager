@@ -217,6 +217,44 @@ def _publish_to_platform(
     )
 
 
+XHS_VIDEO_PUBLISH_URL = (
+    "https://creator.xiaohongshu.com/publish/publish?source=official&from=tab_switch"
+)
+
+
+def _xhs_upload_plan(
+    session: str,
+    video_path: str,
+    title: str,
+    content: str,
+    mode: str,
+) -> list[list[str]]:
+    """生成小红书视频上传的 opencli browser 命令序列（纯函数，便于测试）。
+
+    背景：`opencli xiaohongshu publish` 只支持 --images 图文笔记，**没有视频参数**，
+    所以视频必须走创作者中心的 UI 自动化。步骤用语义定位器（role/name/text），
+    比 CSS 选择器抗改版。
+    """
+    b = ["opencli", "browser", session]
+    steps = [
+        b + ["open", XHS_VIDEO_PUBLISH_URL],
+        b + ["wait", "text", "上传视频", "--timeout", "20000"],
+        # 文件输入通常是隐藏的 <input type=file>，按 CSS 直接挂文件最稳
+        b + ["upload", "input[type=file]", video_path],
+        # 等转码/上传完成：标题框出现即视为可编辑
+        b + ["wait", "selector", "input[placeholder*='标题']", "--timeout", "180000"],
+        b + ["fill", "--role", "textbox", "--name", "标题", title],
+        b + ["fill", "--role", "textbox", "--name", "正文", content],
+    ]
+    if mode == "publish":
+        steps.append(b + ["click", "--role", "button", "--name", "发布"])
+        steps.append(b + ["wait", "text", "发布成功", "--timeout", "30000"])
+    else:
+        steps.append(b + ["click", "--role", "button", "--name", "暂存离线"])
+        steps.append(b + ["wait", "time", "2"])
+    return steps
+
+
 def _publish_xiaohongshu(
     video_path: str,
     title: str,
@@ -225,44 +263,52 @@ def _publish_xiaohongshu(
     cover_path: str | None,
     settings: VideoPipelineSettings,
 ) -> dict[str, Any]:
-    """通过 OpenCLI 发布到小红书草稿箱。"""
-    try:
-        # 构建标签字符串
-        tags_str = " ".join(f"#{t}" for t in tags)
-        full_desc = f"{description}\n\n{tags_str}" if tags else description
+    """通过 opencli browser 自动化把视频存入小红书创作者中心（草稿或发布）。
 
-        cmd = [
-            "opencli", "xiaohongshu", "save_draft",
-            "--type", "video",
-            "--title", title,
-            "--content", full_desc,
-            "--video", video_path,
-        ]
-        if cover_path:
-            cmd.extend(["--cover", cover_path])
+    ⚠️ 尚未在真实浏览器上验证（依赖 OpenCLI Chrome 扩展）。
+    失败时自动截图到视频同目录，便于对照页面调整定位器。
+    """
+    tags_str = " ".join(f"#{t}" for t in tags)
+    content = f"{description}\n\n{tags_str}" if tags else description
+    mode = settings.xhs_publish_mode if settings.xhs_publish_mode in ("draft", "publish") else "draft"
+    session_name = settings.xhs_browser_session
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-
-        if result.returncode == 0:
-            logger.info("小红书草稿保存成功: %s", title[:30])
-            return {
-                "success": True,
-                "external_id": "draft",
-                "method": "opencli_draft",
-            }
-        else:
+    steps = _xhs_upload_plan(session_name, video_path, title, content, mode)
+    for i, cmd in enumerate(steps, 1):
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=240)
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": f"第 {i} 步超时: {' '.join(cmd[3:6])}"}
+        if r.returncode != 0:
+            shot = _xhs_debug_screenshot(session_name, video_path, i)
             return {
                 "success": False,
-                "error": f"OpenCLI 失败: {result.stderr[:500]}",
+                "error": (
+                    f"第 {i} 步失败 ({' '.join(cmd[3:6])}): "
+                    f"{(r.stderr or r.stdout)[-400:]}"
+                    + (f" | 截图: {shot}" if shot else "")
+                ),
             }
 
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    logger.info("小红书视频已%s: %s", "发布" if mode == "publish" else "存草稿", title[:30])
+    return {
+        "success": True,
+        "external_id": "draft" if mode == "draft" else None,
+        "method": f"opencli_browser_{mode}",
+    }
+
+
+def _xhs_debug_screenshot(session: str, video_path: str, step: int) -> str | None:
+    """失败时截图，落在视频同目录，方便人工对照页面调定位器。"""
+    try:
+        out = str(Path(video_path).with_name(f"xhs_publish_fail_step{step}.png"))
+        subprocess.run(
+            ["opencli", "browser", session, "screenshot", out],
+            capture_output=True, timeout=30,
+        )
+        return out if Path(out).exists() else None
+    except Exception:
+        return None
 
 
 def _publish_douyin(
