@@ -20,14 +20,24 @@ CHROME_PATH = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 SEEK_JS = """
 (elapsed) => {
   const clips = Array.from(document.querySelectorAll('.clip'));
+
+  // 定位当前时间落在哪个场景，并算出场景内的局部时间
   let cumulative = 0;
   let activeIndex = -1;
+  let localTime = 0;
   for (let i = 0; i < clips.length; i++) {
     const dur = parseFloat(clips[i].dataset.duration || 5);
-    if (elapsed >= cumulative && elapsed < cumulative + dur) { activeIndex = i; break; }
+    if (elapsed >= cumulative && elapsed < cumulative + dur) {
+      activeIndex = i;
+      localTime = elapsed - cumulative;
+      break;
+    }
     cumulative += dur;
   }
-  if (activeIndex === -1 && clips.length) activeIndex = clips.length - 1;
+  if (activeIndex === -1 && clips.length) {
+    activeIndex = clips.length - 1;
+    localTime = parseFloat(clips[activeIndex].dataset.duration || 5);
+  }
 
   clips.forEach((clip, i) => {
     const on = i === activeIndex;
@@ -35,6 +45,19 @@ SEEK_JS = """
     clip.classList.remove('exiting');
     clip.style.opacity = on ? '1' : '0';
     clip.style.zIndex = on ? '10' : '0';
+
+    // 背景视频必须手动 seek —— 逐帧截图时视频不会自然播放
+    const v = clip.querySelector('video.bg-video');
+    if (v) {
+      if (on) {
+        // 素材可能比场景短，用取模循环播放填满整个场景
+        const vd = v.duration;
+        if (vd && isFinite(vd) && vd > 0) {
+          v.currentTime = localTime % vd;
+        }
+      }
+      v.pause();
+    }
   });
   return activeIndex;
 }
@@ -89,12 +112,33 @@ class HtmlVideoRenderer:
                     viewport={"width": self.width, "height": self.height},
                     device_scale_factor=1,
                 )
-                page.goto(html_path.resolve().as_uri(), wait_until="networkidle")
-                # 等字体与首屏资源
-                page.wait_for_timeout(1200)
+                # 用 "load" 而非 "networkidle"：多个 <video preload="auto">
+                # 会让网络一直不空闲，networkidle 必然超时。
+                # 真正需要等的是视频元数据，下面单独处理。
+                page.goto(
+                    html_path.resolve().as_uri(),
+                    wait_until="load",
+                    timeout=60000,
+                )
+                page.wait_for_timeout(800)  # 字体
 
                 # 停掉页面自带的 requestAnimationFrame 播放循环，改为手动 seek
                 page.evaluate("() => { window.__frameMode = true; }")
+
+                # 等所有背景视频的元数据就绪：没有 duration 就无法 seek，
+                # 会导致整段画面停在第一帧或黑屏
+                page.evaluate("""
+                  () => Promise.all(
+                    Array.from(document.querySelectorAll('video.bg-video')).map(v =>
+                      v.readyState >= 1
+                        ? Promise.resolve()
+                        : new Promise(res => {
+                            v.addEventListener('loadedmetadata', res, { once: true });
+                            setTimeout(res, 5000);
+                          })
+                    )
+                  )
+                """)
 
                 for i in range(total_frames):
                     elapsed = i / self.fps

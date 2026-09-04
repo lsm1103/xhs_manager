@@ -160,7 +160,7 @@ def _build_composition_html(
                 visual_material = m
 
         # 构建场景 div
-        bg_style = _build_background_style(visual_material, visual_desc)
+        bg_style, media_html = _build_scene_media(visual_material)
         text_html = _build_text_overlay(text_overlay)
         transition_class = f"transition-{transition.replace('_', '-')}"
 
@@ -170,16 +170,29 @@ def _build_composition_html(
          data-start="{cumulative_time:.1f}"
          data-duration="{duration}"
          style="{bg_style}">
+      {media_html}
       <div class="scene-content">
         {text_html}
       </div>
-      {_build_audio_tag(audio_material) if audio_material else ""}
     </div>"""
 
         scenes_html.append(scene_html)
         cumulative_time += duration
 
     scenes_block = "\n\n".join(scenes_html)
+
+    # 整篇旁白作为单一音轨挂在 composition 上（不再分散到各场景）
+    narration_tag = ""
+    for mats in material_map.values():
+        for m in mats:
+            if m.material_type == "audio":
+                narration_tag = (
+                    f'<audio id="narration" src="assets/{Path(m.local_path).name}" '
+                    f'preload="auto"></audio>'
+                )
+                break
+        if narration_tag:
+            break
 
     return f"""\
 <!DOCTYPE html>
@@ -202,6 +215,7 @@ def _build_composition_html(
 
 {scenes_block}
 
+    {narration_tag}
   </div>
 
   <script>
@@ -211,21 +225,36 @@ def _build_composition_html(
 </html>"""
 
 
-def _build_background_style(material, visual_desc: str) -> str:
-    """构建场景背景样式。"""
-    if material:
+def _build_scene_media(material) -> tuple[str, str]:
+    """返回 (背景 CSS, 媒体元素 HTML)。
+
+    视频素材用 <video> 标签（渲染时由 JS 精确 seek 到对应帧），
+    图片用 background-image，都没有则回退渐变背景。
+    """
+    if material is not None:
         path = Path(material.local_path)
-        if path.suffix in (".png", ".jpg", ".jpeg", ".webp"):
+        suffix = path.suffix.lower()
+
+        if suffix in (".mp4", ".webm", ".mov"):
+            # muted + playsinline 保证无头浏览器能加载；
+            # preload="auto" 让首帧尽快就绪，避免截图截到黑屏
+            video = (
+                f'<video class="bg-video" src="assets/{path.name}" '
+                f'muted playsinline preload="auto"></video>'
+            )
+            return "", video
+
+        if suffix in (".png", ".jpg", ".jpeg", ".webp"):
             return (
                 f"background-image: url('assets/{path.name}'); "
-                f"background-size: cover; background-position: center;"
+                f"background-size: cover; background-position: center;",
+                "",
             )
-        elif path.suffix == ".mp4":
-            return ""  # 视频通过 <video> 标签处理
-    # 默认渐变背景
+
     return (
         "background: linear-gradient(135deg, "
-        "#0f0c29 0%, #302b63 50%, #24243e 100%);"
+        "#0f0c29 0%, #302b63 50%, #24243e 100%);",
+        "",
     )
 
 
@@ -241,18 +270,19 @@ def _build_text_overlay(text_overlay: dict | str) -> str:
     animation = text_overlay.get("animation", "pop_in")
     anim_class = f"animate-{animation.replace('_', '-')}"
 
+    def wrap(text: str) -> str:
+        # 打字机需要内层 span 承载 inline-block，其余动画直接作用于块元素
+        return f"<span>{text}</span>" if animation == "typewriter" else text
+
     parts = []
     if main:
-        parts.append(f'<h1 class="text-main {anim_class}">{main}</h1>')
+        parts.append(f'<h1 class="text-main {anim_class}">{wrap(main)}</h1>')
     if sub:
-        parts.append(f'<p class="text-sub {anim_class}" style="animation-delay: 0.3s">{sub}</p>')
+        parts.append(
+            f'<p class="text-sub {anim_class}" '
+            f'style="animation-delay: 0.3s">{wrap(sub)}</p>'
+        )
     return "\n        ".join(parts)
-
-
-def _build_audio_tag(material) -> str:
-    """构建音频标签。"""
-    path = Path(material.local_path)
-    return f'<audio class="scene-audio" src="assets/{path.name}" preload="auto"></audio>'
 
 
 def _link_assets(material_map: dict, comp_dir: Path) -> None:
@@ -457,12 +487,16 @@ def _get_animation_css() -> str:
     return """\
     /* ── 文字动画 ── */
 
-    .animate-typewriter {
+    /* 打字机效果作用在内层 span 上。
+       若直接给 h1/p 设 display:inline-block，主副标题会并排而非上下堆叠。 */
+    .animate-typewriter > span {
+      display: inline-block;
       overflow: hidden;
       white-space: nowrap;
-      border-right: 3px solid rgba(255,255,255,0.8);
-      animation: typing 2s steps(20) forwards, blink-caret 0.75s step-end infinite;
-      display: inline-block;
+      vertical-align: bottom;
+      border-right: 3px solid rgba(255,255,255,0.85);
+      animation: typing 1.8s steps(24) forwards,
+                 blink-caret 0.75s step-end infinite;
       max-width: 100%;
     }
 

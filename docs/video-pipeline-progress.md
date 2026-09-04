@@ -139,10 +139,18 @@
 **产出**：`seed.py` —— 手写 6 场景 36 秒示例脚本，覆盖全部转场和文字动画类型，
    兼作单元测试夹具；CLI 新增 `seed` 子命令。
 
-### T07 ⬜ Stage4 HTML 生成跑通并肉眼验证效果
-**做什么**：跑 `cli.py stage composing`，用浏览器打开生成的 HTML 检查转场和文字动画是否正常。
-**验收**：HTML 能在浏览器正常播放，场景切换和动画可见。
-**依赖**：T06
+### T07 ✅ Stage4 HTML 生成跑通
+**做什么**：跑 `stage composing`，检查素材是否正确嵌入、排版是否正常。
+**验收**：✅ 6 个 `<video>` + 1 个 `<audio>` 正确嵌入，抽帧确认排版正确。
+**完成时间**：2026-09-03
+**修复的严重 bug**：**视频素材根本没进 HTML**。
+`_build_background_style` 的 mp4 分支返回空字符串，注释写着「视频通过 `<video>` 标签处理」，
+但那段生成逻辑从未实现 —— 素材复制到了 `assets/` 却 0 处引用，6 个场景全是空白。
+改为 `_build_scene_media()` 返回 `(背景CSS, 媒体HTML)` 二元组，mp4 生成真正的 `<video>` 标签。
+**排版修复**：`.animate-typewriter` 的 `display:inline-block` 让主副标题并排显示。
+改为作用于内层 `<span>`，保留 h1/p 的块级堆叠。
+**可读性修复**：暗层从纯色 `rgba(0,0,0,.35)` 改为上下渐变（中部 0.55 压暗保证文字可读，
+上下 0.15 保留画面细节）；文字加三层阴影应对不可控的素材亮度。
 
 ### T08 ✅ 准备 Playwright 渲染环境 + 独立渲染器
 **做什么**：装 Python playwright；新建 `integrations/renderer.py` 替换原先「拼 Node.js 脚本字符串」的脆弱做法。
@@ -156,10 +164,17 @@
 **为什么重写**：原做法把 Node.js 脚本当字符串拼接再 `subprocess` 执行，
 路径转义脆弱、异常不可捕获、无法调试。改用 Python playwright 后这些问题消失。
 
-### T09 ⬜ Stage5 渲染出第一个 MP4
-**做什么**：跑 `cli.py stage rendering`，走 Playwright+ffmpeg 路径。
-**验收**：得到可播放的 MP4，时长与脚本一致，有封面图。
-**依赖**：T07, T08
+### T09 ✅ Stage5 渲染出第一个真实 MP4
+**做什么**：Stage5 改用 `integrations/renderer.py`，跑 `stage rendering`。
+**验收**：✅ **产出 8.3MB / 35.35s / 1080×1920 H.264+AAC 视频，864 帧全部截取成功**。
+逐场景抽帧验证：6 个场景画面全部正常（真实 Pexels 素材 + 中文字幕叠加）。
+**完成时间**：2026-09-03
+**修复的两个问题**：
+1. **`networkidle` 必然超时** —— 6 个 `<video preload="auto">` 会让网络一直不空闲。
+   改为 `wait_until="load"` + 显式等待每个视频的 `loadedmetadata`。
+2. **逐帧截图时视频不会自然播放** —— 必须在 `SEEK_JS` 里手动设置
+   `video.currentTime = localTime % duration`（取模让短素材循环填满场景）。
+**渲染耗时**：36 秒视频约 170 秒（24fps，864 帧）。
 
 ### T10 ⬜ Stage5 验证 MoneyPrinterTurbo 渲染路径
 **做什么**：把 `render_mode` 切到 `moneyprinter`，验证快速路径能出片。
@@ -249,4 +264,5 @@ Stage1 改为**多后端架构**：优先用公开 API（无需登录、更稳�
 | 2026-09-03 | T03 🔄 | 修正 output_config.format 结构（少一层嵌套）；实际调用受 429 限流阻塞 |
 | 2026-09-03 | T05 ✅ | MoneyPrinterTurbo 素材下载跑通；修正 task-id 需 UUID、素材在 cache_videos、路径从 stdout 取 |
 | 2026-09-03 | T08 ✅ | Python playwright 渲染器跑通，HTML→MP4 端到端验证（1080x1920/H.264/6.0s）|
-| 2026-09-03 | T06 ✅ | Stage3 跑通，6 场景全部拿到真实素材；修复 TTS 被 continue 跳过、音轨冗余两个 bug |
+| 2026-09-03 | T06 ✅ | Stage3 跑通，6 场景全部拿到真实素材；修复 TTS 被 continue 跳过、音轨冗余两个 bug || 2026-09-03 | T07 ✅ | Stage4 跑通；修复视频素材完全没进 HTML 的严重 bug + 主副标题并排的排版 bug |
+| 2026-09-03 | T09 ✅ | **渲染出第一个真实视频** 8.3MB/35.35s/1080x1920，6 场景画面全部验证正常 |
