@@ -159,8 +159,9 @@ def publish_videos(
                     "error": pub.error_detail,
                 })
 
-                # 平台间发布间隔
-                if settings.publish_delay_minutes > 0:
+                # 平台间发布间隔：只在**成功发布后**等待。
+                # 失败（如扩展未连接）立即返回，否则 3 视频×失败 会白等 15 分钟。
+                if pub.status == "published" and settings.publish_delay_minutes > 0:
                     time.sleep(settings.publish_delay_minutes * 60)
 
             except Exception as e:
