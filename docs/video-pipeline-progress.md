@@ -94,10 +94,19 @@
 - 配置默认平台加入 `v2ex`
 - 修复 `cli.py` 的 `from xhs_manager.db import engine` 导入错误（该模块只导出工厂函数）
 
-### T03 ⬜ 验证 Claude 结构化输出 + OAuth 实际调用
-**做什么**：写一个最小脚本，用 OAuth token 调 `output_config.format` + `json_schema`，确认 OAuth 模式支持结构化输出。
-**验收**：拿到符合 schema 的 JSON 响应。
-**注**：若 OAuth 不支持结构化输出，需降级为 prompt 约束 + 手动解析。
+### T03 🔄 验证 Claude 结构化输出 + OAuth 实际调用
+**做什么**：用 OAuth token 调 `output_config.format` 确认结构化输出可用。
+**进展**：
+- ✅ **修正了 format 结构错误**。API 明确报错指出正确格式：
+  ```python
+  # ❌ 错误（多套了一层 json_schema）
+  "format": {"type":"json_schema", "json_schema":{"name":..., "schema":{...}}}
+  # ✅ 正确
+  "format": {"type":"json_schema", "schema": {...}}
+  ```
+- ⚠️ **实际调用受限流阻塞**：修正格式后不再报 400，但持续返回 429。
+  原因是当前交互式 Claude Code 会话在重度消耗同一 Max 套餐额度。
+- **待办**：在会话空闲时段重试验证。格式正确性已通过「400 消失」间接确认。
 
 ### T04 ⬜ Stage2 用真实信号跑通选题+脚本生成
 **做什么**：基于 T02 采集到的真实信号，跑 `cli.py stage selecting`。
@@ -212,3 +221,4 @@ Stage1 改为**多后端架构**：优先用公开 API（无需登录、更稳�
 | 2026-09-03 | — | 架构设计 + 代码骨架完成，OAuth 认证方案确定 |
 | 2026-09-03 | T01 ✅ | 验证 opencli 命令格式；发现 B站/V2EX 公开 API 可用，3 平台待启用 Chrome 扩展 |
 | 2026-09-03 | T02 ✅ | Stage1 跑通，147 条真实热点入库（B站138 + V2EX9）；3 平台因扩展未启用跳过 |
+| 2026-09-03 | T03 🔄 | 修正 output_config.format 结构（少一层嵌套）；实际调用受 429 限流阻塞 |

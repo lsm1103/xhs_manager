@@ -138,10 +138,7 @@ def call_structured(
             "effort": effort,
             "format": {
                 "type": "json_schema",
-                "json_schema": {
-                    "name": schema_name,
-                    "schema": json_schema,
-                },
+                "schema": json_schema,
             },
         },
     }
