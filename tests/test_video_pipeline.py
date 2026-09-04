@@ -421,3 +421,31 @@ def test_publish_clears_stale_error_on_retry_success():
     src = inspect.getsource(m.publish_videos)
     i = src.index('pub.status = "published"')
     assert "pub.error_detail = None" in src[i:i + 400]
+
+
+# ── 小红书草稿是浏览器本地存储 ───────────────────────────────────
+
+
+def test_cdp_mode_reports_actionable_error_when_chrome_not_debuggable():
+    from xhs_manager.video_pipeline.integrations.xhs_publisher import XhsPublisher
+    ok, why = XhsPublisher(cdp_url="http://127.0.0.1:59999").available()
+    assert ok is False and "remote-debugging-port" in why
+
+
+def test_cdp_mode_never_closes_user_browser():
+    """CDP 模式连的是用户自己的 Chrome，收尾只能断开连接，
+    误调 context.close() 会关掉用户的浏览器。"""
+    import inspect
+    from xhs_manager.video_pipeline.integrations import xhs_publisher as m
+    src = inspect.getsource(m.XhsPublisher._release)
+    i = src.index("if self.cdp_url:")
+    j = src.index("else:")
+    assert "ctx.close()" not in src[i:j]
+    assert "ctx.close()" in src[j:]
+
+
+def test_cdp_mode_opens_new_tab_instead_of_hijacking_current():
+    import inspect
+    from xhs_manager.video_pipeline.integrations import xhs_publisher as m
+    src = inspect.getsource(m.XhsPublisher.publish_video)
+    assert "ctx.new_page() if self.cdp_url" in src

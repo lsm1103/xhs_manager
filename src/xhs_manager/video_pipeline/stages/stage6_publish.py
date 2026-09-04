@@ -244,6 +244,7 @@ def _publish_xiaohongshu(
 
     pub = XhsPublisher(
         profile_dir=_P(settings.xhs_profile_dir) if settings.xhs_profile_dir else DEFAULT_PROFILE_DIR,
+        cdp_url=settings.xhs_cdp_url,
     )
     res = pub.publish_video(video_path=video_path, title=title, content=content, mode=mode)
 

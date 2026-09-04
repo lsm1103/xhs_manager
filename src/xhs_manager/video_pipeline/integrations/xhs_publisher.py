@@ -65,10 +65,19 @@ class XhsPublisher:
         profile_dir: Path = DEFAULT_PROFILE_DIR,
         chrome_path: str = CHROME_PATH,
         headless: bool = True,
+        cdp_url: str = "",
     ) -> None:
+        """
+        Args:
+            cdp_url: 非空时连接已运行的 Chrome（如 http://127.0.0.1:9222），
+                在**用户自己的 profile** 里操作 —— 小红书草稿存浏览器本地，
+                只有这样存出来的草稿用户才看得到。
+                为空则用独立 profile 启动（草稿仅在该 profile 内可见）。
+        """
         self.profile_dir = Path(profile_dir)
         self.chrome_path = chrome_path
         self.headless = headless
+        self.cdp_url = cdp_url
 
     # ── 环境 ────────────────────────────────────────────────────
 
@@ -77,6 +86,17 @@ class XhsPublisher:
             import playwright  # noqa: F401
         except ImportError:
             return False, "未安装 playwright"
+        if self.cdp_url:
+            import urllib.error
+            import urllib.request
+            try:
+                urllib.request.urlopen(f"{self.cdp_url}/json/version", timeout=3).read()
+                return True, ""
+            except (urllib.error.URLError, OSError) as e:
+                return False, (
+                    f"连不上 {self.cdp_url}（{e}）。请用调试端口启动 Chrome：\n"
+                    f"  '{CHROME_PATH}' --remote-debugging-port=9222"
+                )
         if not Path(self.chrome_path).exists():
             return False, f"找不到 Chrome: {self.chrome_path}"
         if not self.profile_dir.exists():
@@ -87,6 +107,10 @@ class XhsPublisher:
         return True, ""
 
     def _context(self, pw, headless: Optional[bool] = None):
+        if self.cdp_url:
+            browser = pw.chromium.connect_over_cdp(self.cdp_url)
+            self._cdp_browser = browser
+            return browser.contexts[0] if browser.contexts else browser.new_context()
         self.profile_dir.mkdir(parents=True, exist_ok=True)
         return pw.chromium.launch_persistent_context(
             str(self.profile_dir),
@@ -95,6 +119,18 @@ class XhsPublisher:
             viewport={"width": 1440, "height": 900},
             args=["--no-first-run", "--no-default-browser-check"],
         )
+
+    def _release(self, ctx) -> None:
+        """CDP 模式下不能关掉用户的浏览器，只断开连接。"""
+        if self.cdp_url:
+            br = getattr(self, "_cdp_browser", None)
+            if br:
+                try:
+                    br.close()   # 仅断开 CDP 连接，不结束浏览器进程
+                except Exception:
+                    pass
+        else:
+            ctx.close()
 
     # ── 一次性登录 ──────────────────────────────────────────────
 
@@ -116,7 +152,7 @@ class XhsPublisher:
                 logger.info("登录成功，凭证已保存到 %s", self.profile_dir)
                 return True
             finally:
-                ctx.close()
+                self._release(ctx)
 
     def logged_in(self) -> bool:
         """无头检查登录态是否仍有效。"""
@@ -133,7 +169,7 @@ class XhsPublisher:
                 logger.warning("登录态检查失败: %s", e)
                 return False
             finally:
-                ctx.close()
+                self._release(ctx)
 
     @staticmethod
     def _wait_submit_ready(page, timeout_s: int) -> bool:
@@ -210,7 +246,10 @@ class XhsPublisher:
 
         with sync_playwright() as pw:
             ctx = self._context(pw)
-            page = ctx.pages[0] if ctx.pages else ctx.new_page()
+            # CDP 模式下新开标签，不抢用户正在看的页面
+            page = ctx.new_page() if self.cdp_url else (
+                ctx.pages[0] if ctx.pages else ctx.new_page()
+            )
             try:
                 page.goto(PUBLISH_URL, wait_until="domcontentloaded", timeout=60000)
                 page.wait_for_timeout(3000)
@@ -275,4 +314,4 @@ class XhsPublisher:
                     shot = None
                 return PublishResult(False, mode, str(e)[:400], shot)
             finally:
-                ctx.close()
+                self._release(ctx)

@@ -69,6 +69,9 @@ class VideoPipelineSettings(BaseSettings):
     xhs_publish_mode: str = "draft"             # draft=暂存离线 | publish=直接发布
     xhs_browser_session: str = "xhs-video"      # opencli browser 会话名（已弃用）
     xhs_profile_dir: str = ""                   # 小红书专用 Chrome profile，空=~/.xhs_pipeline_chrome
+    # 连接已运行的 Chrome（如 http://127.0.0.1:9222）。
+    # 小红书草稿存浏览器本地：只有连用户自己的 Chrome，草稿才在用户那边可见。
+    xhs_cdp_url: str = ""
 
     # ── 输出目录 ──
     output_base_dir: str = "data/video_pipeline"

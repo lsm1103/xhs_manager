@@ -74,7 +74,7 @@
 ### 3.1 一句话结论
 
 **流水线已完整闭环**：一条命令从多平台热点采集 → 3 条成片 → 小红书草稿，全程无人工干预，失败可断点续跑。
-小红书上传已实测成功（草稿箱可见）。抖音/B站/X 的发布仍是桩函数。
+小红书上传链路已实测成功，但草稿存浏览器本地 —— 需按 T11b 用 CDP 模式连用户自己的 Chrome，草稿才在用户侧可见。抖音/B站/X 仍是桩函数。
 
 ### 3.2 各阶段真实验证结果
 
@@ -85,7 +85,7 @@
 | 3 素材 | ✅ ×2 | MoneyPrinterTurbo→Pexels，每场景都有真实视频素材 + 整篇 TTS 旁白 |
 | 4 HTML | ✅ | 6 种转场 + 5 种文字动画，`<video>` 逐帧 seek |
 | 5 渲染 | ✅ | HTML 路径（Playwright+ffmpeg）与 MPT 路径均出片；1080×1920 H.264+AAC |
-| 6 发布 | ✅ | 小红书真实上传成功、草稿箱可见；抖音/B站/X 仍是桩 |
+| 6 发布 | ⚠️ | 上传链路已通；但草稿存浏览器本地，需 CDP 模式草稿才在用户侧可见（见 T11b）|
 
 ### 3.3 怎么跑
 
@@ -255,6 +255,39 @@ python -m xhs_manager.video_pipeline.cli schedule-config launchd --hour 8   # �
 **校准的选择器**：标题框 placeholder 实为「填写标题会有更多赞哦」；
 底部按钮是「暂存**离开**」不是「暂存离线」；正文是 tiptap 富文本，
 `fill()` 对 contenteditable 不可靠，改用 `click` + `insert_text`。
+
+### T11b ⚠️ 小红书草稿是浏览器本地存储 —— 独立 profile 的草稿用户看不到
+
+**发现**：发布页自己写着「草稿存储于当前使用的浏览器本地」。
+「暂存离开」写的是 **localStorage/IndexedDB，不是服务端**。
+
+**我犯的错**：用独立 Playwright profile 上传后，又用**同一个 profile** 去查草稿箱，
+查到 3 条就判定成功。这个验证方法自证循环 —— 用户在自己的 Chrome 里看到的是 0。
+
+**已确认走不通的路**
+- `opencli browser upload`：在 opencli 自有会话和**用户真实绑定标签页**上都测过，
+  一律 `Page.fileChooserOpened not received` —— 与会话无关，是 opencli 上传实现的硬限制
+- opencli 1.8.6 走扩展桥接，**不开 CDP 调试端口**，无法用 Playwright 附着
+
+**解决方案：CDP 模式（已实现，待验证）**
+让 Chrome 带调试端口启动，Playwright 连上用户**自己的 profile** 操作：
+```bash
+# 1) 完全退出 Chrome，然后：
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --remote-debugging-port=9222
+# 2) 配置
+XHS_VIDEO_XHS_CDP_URL=http://127.0.0.1:9222
+```
+- `set_input_files` 走 CDP，不需要 fileChooser（这是 opencli 做不到的那一步）
+- 在用户 profile 内操作 → 草稿在用户浏览器里可见
+- 新开标签页，不抢用户当前页；收尾只断开连接，**不关用户浏览器**
+
+**三种模式对比**
+
+| 模式 | 草稿用户可见 | 无人值守 | 说明 |
+|------|:---:|:---:|------|
+| 独立 profile + draft | ❌ | ✅ | 草稿锁在 pipeline profile 里，实际无用 |
+| CDP 连用户 Chrome + draft | ✅ | ⚠️ | 需 Chrome 带调试端口常开 |
+| 独立 profile + publish | ✅ | ✅ | 发布走服务端，任何设备可见；但会真的公开 |
 
 ### T12 ✅ 端到端串联跑通（编排层）
 **做什么**：`cli.py run` 串起 6 个阶段，验证断点续跑与失败可恢复。
