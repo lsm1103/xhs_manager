@@ -145,6 +145,9 @@ def publish_videos(
                     pub.external_id = publish_result.get("external_id")
                     pub.external_url = publish_result.get("external_url")
                     pub.published_at = utcnow()
+                    # 重试成功时必须清掉上一次的失败原因，
+                    # 否则 published 记录会一直挂着过期的错误文本
+                    pub.error_detail = None
                     published_count += 1
                 else:
                     pub.status = "failed"

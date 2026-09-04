@@ -411,3 +411,13 @@ def test_wait_ready_checks_submit_disabled_attribute():
     from xhs_manager.video_pipeline.integrations import xhs_publisher as m
     src = inspect.getsource(m.XhsPublisher._wait_submit_ready)
     assert "submit-disabled" in src and "submit-loading" in src
+
+
+def test_publish_clears_stale_error_on_retry_success():
+    """失败记录重试成功后，必须清掉旧的 error_detail，
+    否则 published 状态会挂着误导性的过期错误。"""
+    import inspect
+    from xhs_manager.video_pipeline.stages import stage6_publish as m
+    src = inspect.getsource(m.publish_videos)
+    i = src.index('pub.status = "published"')
+    assert "pub.error_detail = None" in src[i:i + 400]
