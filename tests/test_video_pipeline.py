@@ -385,3 +385,25 @@ def test_probe_duration_reads_real_length(tmp_path):
 def test_probe_duration_returns_none_for_missing_file(tmp_path):
     from xhs_manager.video_pipeline.integrations.renderer import probe_duration
     assert probe_duration(tmp_path / "nope.mp4") is None
+
+
+# ── Stage6 子进程超时必须能收回持有管道的孙进程 ─────────────────
+
+
+def test_group_timeout_kills_child_that_holds_pipe_via_grandchild():
+    """模拟 opencli 拉起 daemon 的情形：子进程 fork 一个孙进程继承 stdout 后退出。
+    普通 subprocess.run(timeout) 会在 communicate 上阻塞；这里必须在 timeout 内返回 None。"""
+    import sys, time as _t
+    from xhs_manager.video_pipeline.stages.stage6_publish import _run_with_group_timeout
+    script = "import subprocess,sys,time; subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)']); time.sleep(30)"
+    t0 = _t.monotonic()
+    rc, _, _ = _run_with_group_timeout([sys.executable, "-c", script], 2)
+    assert rc is None
+    assert _t.monotonic() - t0 < 8, "超时后仍被孙进程拖住"
+
+
+def test_group_timeout_returns_rc_and_output_on_success():
+    import sys
+    from xhs_manager.video_pipeline.stages.stage6_publish import _run_with_group_timeout
+    rc, out, _ = _run_with_group_timeout([sys.executable, "-c", "print('hi')"], 10)
+    assert rc == 0 and out.strip() == "hi"

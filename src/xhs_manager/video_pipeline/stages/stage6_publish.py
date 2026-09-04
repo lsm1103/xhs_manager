@@ -6,6 +6,8 @@
 """
 
 import logging
+import os
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -58,6 +60,14 @@ def publish_videos(
 
     published_count = 0
     results: list[dict] = []
+
+    # 浏览器类平台的预检只做一次（opencli doctor 约 8s）。
+    # 扩展未连接时所有浏览器平台直接判失败，不进入会挂住的 browser 流程。
+    browser_platforms = {p for p in settings.publish_platforms
+                         if PLATFORM_PUBLISH_METHOD.get(Platform(p) if p in Platform._value2member_map_ else None) != PublishMethod.API}
+    ext_ok, ext_why = (_opencli_extension_connected() if browser_platforms else (True, ""))
+    if not ext_ok:
+        logger.warning("OpenCLI 扩展未连接，浏览器发布将全部跳过: %s", ext_why)
 
     for render in renders:
         # 获取关联的脚本和选题
@@ -130,16 +140,20 @@ def publish_videos(
                     session.add(pub)
                 session.flush()
 
-                # 执行发布
-                publish_result = _publish_to_platform(
-                    platform=platform,
-                    video_path=render.output_path,
-                    title=title,
-                    description=desc,
-                    tags=tags,
-                    cover_path=cover_path,
-                    settings=settings,
-                )
+                # 执行发布（扩展未连接 → 直接失败，不调浏览器）
+                if not ext_ok:
+                    publish_result = {"success": False,
+                                      "error": f"OpenCLI 扩展未连接，跳过浏览器发布: {ext_why}"}
+                else:
+                    publish_result = _publish_to_platform(
+                        platform=platform,
+                        video_path=render.output_path,
+                        title=title,
+                        description=desc,
+                        tags=tags,
+                        cover_path=cover_path,
+                        settings=settings,
+                    )
 
                 if publish_result.get("success"):
                     pub.status = "published"
@@ -275,17 +289,17 @@ def _publish_xiaohongshu(
 
     steps = _xhs_upload_plan(session_name, video_path, title, content, mode)
     for i, cmd in enumerate(steps, 1):
-        try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=240)
-        except subprocess.TimeoutExpired:
-            return {"success": False, "error": f"第 {i} 步超时: {' '.join(cmd[3:6])}"}
-        if r.returncode != 0:
+        # 上传后的转码等待允许更久；其余步骤 60s 足够
+        step_timeout = 200 if cmd[3] == "wait" and "180000" in cmd else 60
+        rc, out, err = _run_with_group_timeout(cmd, step_timeout)
+        if rc is None:
+            return {"success": False, "error": f"第 {i} 步超时({step_timeout}s): {' '.join(cmd[3:6])}"}
+        if rc != 0:
             shot = _xhs_debug_screenshot(session_name, video_path, i)
             return {
                 "success": False,
                 "error": (
-                    f"第 {i} 步失败 ({' '.join(cmd[3:6])}): "
-                    f"{(r.stderr or r.stdout)[-400:]}"
+                    f"第 {i} 步失败 ({' '.join(cmd[3:6])}): {(err or out)[-400:]}"
                     + (f" | 截图: {shot}" if shot else "")
                 ),
             }
@@ -298,14 +312,50 @@ def _publish_xiaohongshu(
     }
 
 
+def _opencli_extension_connected() -> tuple[bool, str]:
+    """快速预检 OpenCLI Chrome 扩展是否已连接（~1s，不启动浏览器会话）。"""
+    rc, out, err = _run_with_group_timeout(["opencli", "doctor"], 20)
+    if rc is None:
+        return False, "opencli doctor 超时"
+    text = out + err
+    if "Extension: connected" in text or "[OK] Extension" in text:
+        return True, ""
+    if "not connected" in text or "[MISSING] Extension" in text:
+        return False, "chrome://extensions/ 中启用 OpenCLI 扩展后重试"
+    return False, f"无法判断扩展状态: {text[-200:]}"
+
+
+def _run_with_group_timeout(cmd: list[str], timeout: int) -> tuple[int | None, str, str]:
+    """带进程组级超时的子进程执行。
+
+    `subprocess.run(timeout=)` 只杀直接子进程；opencli 会拉起持有管道的 daemon，
+    导致 communicate() 在超时后仍阻塞。用独立会话 + killpg 才能可靠收回。
+    返回 (returncode|None=超时, stdout, stderr)。
+    """
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        stdin=subprocess.DEVNULL, text=True, start_new_session=True,
+    )
+    try:
+        out, err = proc.communicate(timeout=timeout)
+        return proc.returncode, out, err
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        try:
+            out, err = proc.communicate(timeout=5)
+        except Exception:
+            out, err = "", ""
+        return None, out, err
+
+
 def _xhs_debug_screenshot(session: str, video_path: str, step: int) -> str | None:
     """失败时截图，落在视频同目录，方便人工对照页面调定位器。"""
     try:
         out = str(Path(video_path).with_name(f"xhs_publish_fail_step{step}.png"))
-        subprocess.run(
-            ["opencli", "browser", session, "screenshot", out],
-            capture_output=True, timeout=30,
-        )
+        _run_with_group_timeout(["opencli", "browser", session, "screenshot", out], 30)
         return out if Path(out).exists() else None
     except Exception:
         return None
