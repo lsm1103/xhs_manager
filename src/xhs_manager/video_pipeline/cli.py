@@ -21,11 +21,19 @@ import logging
 import sys
 from datetime import date
 
-from xhs_manager.db import engine, SessionLocal
+from xhs_manager.config import get_settings
+from xhs_manager.db import create_db_engine, create_session_factory
 from xhs_manager.video_pipeline.config import get_video_settings
 from xhs_manager.video_pipeline.domain import PipelineStatus
 from xhs_manager.video_pipeline.models import VideoPipelineRun
 from xhs_manager.video_pipeline.pipeline import VideoPipeline
+
+
+def build_session_factory():
+    """按主配置构造数据库会话工厂。"""
+    settings = get_settings()
+    engine = create_db_engine(settings.database_url)
+    return create_session_factory(engine)
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -40,7 +48,7 @@ def setup_logging(verbose: bool = False) -> None:
 def cmd_run(args) -> None:
     """执行完整的视频流水线。"""
     settings = get_video_settings()
-    pipeline = VideoPipeline(SessionLocal, settings)
+    pipeline = VideoPipeline(build_session_factory(), settings)
 
     run_date = date.fromisoformat(args.date) if args.date else None
     result = pipeline.run(run_date)
@@ -52,7 +60,7 @@ def cmd_run(args) -> None:
 def cmd_stage(args) -> None:
     """只执行流水线的某个阶段。"""
     settings = get_video_settings()
-    pipeline = VideoPipeline(SessionLocal, settings)
+    pipeline = VideoPipeline(build_session_factory(), settings)
 
     try:
         stage = PipelineStatus(args.stage)
@@ -71,7 +79,7 @@ def cmd_stage(args) -> None:
 
 def cmd_status(args) -> None:
     """查看最近的运行记录。"""
-    with SessionLocal() as session:
+    with build_session_factory()() as session:
         runs = (
             session.query(VideoPipelineRun)
             .order_by(VideoPipelineRun.created_at.desc())

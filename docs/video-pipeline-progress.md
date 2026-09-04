@@ -84,10 +84,15 @@
 **完成时间**：2026-09-03
 **关键发现**：见下方「四.5 平台采集后端实测结论」
 
-### T02 ⬜ 按真实 opencli 格式重写 Stage1 采集逻辑
-**做什么**：用 T01 得到的真实命令格式替换 `stage1_trends.py` 里推测的模板；调整字段标准化逻辑匹配真实输出。
-**验收**：`cli.py stage collecting` 能跑完，数据库 `video_trend_signals` 表有真实数据。
-**依赖**：T01
+### T02 ✅ 按真实格式重写 Stage1 采集逻辑
+**做什么**：新建 `integrations/collectors.py` 多后端采集层；重写 `stage1_trends.py`；修复 CLI 数据库导入错误。
+**验收**：✅ `cli.py stage collecting` 实际跑通，**147 条真实热点入库**（B站 138 + V2EX 9）。
+**完成时间**：2026-09-03
+**产出**：
+- `integrations/collectors.py` — `TrendItem` 统一结构 + 3 个采集器（Bilibili/V2ex/OpenCli）
+- 热度归一化算法：`log10(点赞×3 + 评论×5 + 分享×4 + 播放×0.1) × 20`，压到 0-100
+- 配置默认平台加入 `v2ex`
+- 修复 `cli.py` 的 `from xhs_manager.db import engine` 导入错误（该模块只导出工厂函数）
 
 ### T03 ⬜ 验证 Claude 结构化输出 + OAuth 实际调用
 **做什么**：写一个最小脚本，用 OAuth token 调 `output_config.format` + `json_schema`，确认 OAuth 模式支持结构化输出。
@@ -206,3 +211,4 @@ Stage1 改为**多后端架构**：优先用公开 API（无需登录、更稳�
 |------|------|------|
 | 2026-09-03 | — | 架构设计 + 代码骨架完成，OAuth 认证方案确定 |
 | 2026-09-03 | T01 ✅ | 验证 opencli 命令格式；发现 B站/V2EX 公开 API 可用，3 平台待启用 Chrome 扩展 |
+| 2026-09-03 | T02 ✅ | Stage1 跑通，147 条真实热点入库（B站138 + V2EX9）；3 平台因扩展未启用跳过 |

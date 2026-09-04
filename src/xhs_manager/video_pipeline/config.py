@@ -21,8 +21,12 @@ class VideoPipelineSettings(BaseSettings):
     min_duration: int = 30                      # 单视频最小时长（秒）
 
     # ── 热点采集 ──
+    # 采集平台。bilibili/v2ex 走公开 API（免登录）；
+    # xiaohongshu/douyin/twitter 走 opencli，需 Chrome 扩展已启用
     trend_platforms: list[str] = Field(
-        default_factory=lambda: ["xiaohongshu", "douyin", "bilibili", "twitter"]
+        default_factory=lambda: [
+            "bilibili", "v2ex", "xiaohongshu", "douyin", "twitter",
+        ]
     )
     trends_per_platform: int = 20               # 每个平台采集的热点数
     trend_keywords: list[str] = Field(

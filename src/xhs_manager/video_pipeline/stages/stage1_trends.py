@@ -1,41 +1,29 @@
-"""Stage 1: 热点采集 — 从小红书/抖音/B站/X 并行采集当日热门话题。
+"""Stage 1: 热点采集 — 多后端采集各平台当日热门话题。
 
-采集策略:
-  1. 对每个平台，使用预设关键词搜索当日热门内容
-  2. 提取标题、摘要、热度指标、标签
-  3. 用 content_digest 去重
-  4. 存入 video_trend_signals 表
+后端策略（见 integrations/collectors.py）:
+  - B站 / V2EX: 公开 HTTP API，无需登录
+  - 小红书 / 抖音 / X: opencli 浏览器通道，需 Chrome 扩展
+
+单平台失败不阻塞其他平台；只要有一个平台采集到数据即视为成功。
 """
 
 import hashlib
-import json
 import logging
-import subprocess
+import math
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from xhs_manager.domain import new_id, utcnow
 from xhs_manager.video_pipeline.config import VideoPipelineSettings
-from xhs_manager.video_pipeline.domain import Platform, StageError
+from xhs_manager.video_pipeline.domain import StageError
+from xhs_manager.video_pipeline.integrations.collectors import (
+    TrendItem,
+    collect_platform,
+)
 from xhs_manager.video_pipeline.models import VideoPipelineRun, VideoTrendSignal
 
 logger = logging.getLogger(__name__)
-
-# ── 各平台搜索命令模板 ───────────────────────────────────────────
-
-# 使用 opencli 进行各平台搜索
-PLATFORM_SEARCH_COMMANDS: dict[str, str] = {
-    "xiaohongshu": 'opencli xiaohongshu search "{query}" --limit {limit} --sort hot --json',
-    "douyin": 'opencli douyin search "{query}" --limit {limit} --sort hot --json',
-    "bilibili": 'opencli bilibili search "{query}" --limit {limit} --sort hot --json',
-    "twitter": 'opencli twitter search "{query}" --limit {limit} --sort top --json',
-}
-
-# 平台 fallback：如果 opencli 不支持某个平台，使用 agent-reach 的搜索方式
-FALLBACK_SEARCH_TEMPLATE = (
-    'opencli search "{query}" --platform {platform} --limit {limit} --json'
-)
 
 
 def collect_trends(
@@ -44,240 +32,112 @@ def collect_trends(
     settings: VideoPipelineSettings,
 ) -> dict[str, Any]:
     """采集各平台热点，返回采集统计。"""
-    total_collected = 0
-    total_deduplicated = 0
+    total_saved = 0
+    total_duped = 0
     platform_stats: dict[str, dict] = {}
 
-    for platform_name in settings.trend_platforms:
+    for platform in settings.trend_platforms:
         try:
-            signals = _collect_platform(
-                platform_name,
+            items = collect_platform(
+                platform,
                 settings.trend_keywords,
                 settings.trends_per_platform,
             )
-            saved, duped = _save_signals(session, run.id, platform_name, signals)
-            total_collected += saved
-            total_deduplicated += duped
-            platform_stats[platform_name] = {
+            saved, duped = _save_items(session, run.id, items)
+            total_saved += saved
+            total_duped += duped
+            platform_stats[platform] = {
                 "collected": saved,
                 "deduplicated": duped,
-                "total_raw": len(signals),
+                "raw": len(items),
             }
-            logger.info(
-                "平台 %s: 采集 %d 条，去重 %d 条",
-                platform_name, saved, duped,
-            )
+            if saved:
+                logger.info("平台 %s: 入库 %d 条（去重 %d）", platform, saved, duped)
+            else:
+                logger.warning("平台 %s: 未采集到数据", platform)
         except Exception as e:
-            logger.warning("平台 %s 采集失败: %s", platform_name, e)
-            platform_stats[platform_name] = {
-                "collected": 0,
-                "error": str(e)[:500],
-            }
+            logger.warning("平台 %s 采集异常: %s", platform, e)
+            platform_stats[platform] = {"collected": 0, "error": str(e)[:300]}
 
-    # 更新运行记录
-    run.trend_count = total_collected
+    run.trend_count = total_saved
 
-    if total_collected == 0:
-        raise StageError("collect_trends", "所有平台均未采集到热点信号")
+    if total_saved == 0:
+        available = ", ".join(settings.trend_platforms)
+        raise StageError(
+            "collect_trends",
+            f"所有平台均未采集到热点信号（尝试的平台: {available}）。"
+            f"若依赖 opencli 的平台不可用，请确认 Chrome 的 OpenCLI 扩展已启用。",
+        )
 
     return {
-        "total_collected": total_collected,
-        "total_deduplicated": total_deduplicated,
+        "total_collected": total_saved,
+        "total_deduplicated": total_duped,
         "platforms": platform_stats,
     }
 
 
-def _collect_platform(
-    platform: str,
-    keywords: list[str],
-    limit_per_keyword: int,
-) -> list[dict[str, Any]]:
-    """调用 opencli 搜索某个平台的热门内容。"""
-    all_results: list[dict[str, Any]] = []
-
-    for keyword in keywords:
-        cmd_template = PLATFORM_SEARCH_COMMANDS.get(platform, FALLBACK_SEARCH_TEMPLATE)
-        cmd = cmd_template.format(
-            query=keyword,
-            platform=platform,
-            limit=limit_per_keyword,
-        )
-
-        try:
-            result = subprocess.run(
-                cmd,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-
-            if result.returncode != 0:
-                logger.warning(
-                    "搜索命令失败 [%s/%s]: %s",
-                    platform, keyword, result.stderr[:200],
-                )
-                continue
-
-            # 尝试解析 JSON 输出
-            output = result.stdout.strip()
-            if not output:
-                continue
-
-            try:
-                data = json.loads(output)
-                if isinstance(data, list):
-                    all_results.extend(data)
-                elif isinstance(data, dict) and "items" in data:
-                    all_results.extend(data["items"])
-                elif isinstance(data, dict) and "results" in data:
-                    all_results.extend(data["results"])
-            except json.JSONDecodeError:
-                # 如果不是 JSON，尝试按行解析
-                for line in output.split("\n"):
-                    line = line.strip()
-                    if line:
-                        try:
-                            all_results.append(json.loads(line))
-                        except json.JSONDecodeError:
-                            continue
-
-        except subprocess.TimeoutExpired:
-            logger.warning("搜索超时: %s/%s", platform, keyword)
-        except Exception as e:
-            logger.warning("搜索异常: %s/%s — %s", platform, keyword, e)
-
-    return all_results
-
-
-def _save_signals(
-    session: Session,
-    pipeline_run_id: str,
-    platform: str,
-    raw_signals: list[dict[str, Any]],
+def _save_items(
+    session: Session, pipeline_run_id: str, items: list[TrendItem],
 ) -> tuple[int, int]:
-    """将原始搜索结果标准化并存入数据库，返回 (保存数, 去重数)。"""
+    """将采集条目写入数据库，返回 (入库数, 去重数)。"""
     saved = 0
-    deduplicated = 0
+    duped = 0
 
-    for raw in raw_signals:
-        normalized = _normalize_signal(platform, raw)
-        if not normalized:
+    for item in items:
+        if not item.title:
             continue
 
-        # 检查是否已存在（content_digest 去重）
+        digest = _content_digest(item)
+
         exists = (
             session.query(VideoTrendSignal.id)
             .filter(
                 VideoTrendSignal.pipeline_run_id == pipeline_run_id,
-                VideoTrendSignal.content_digest == normalized["content_digest"],
+                VideoTrendSignal.content_digest == digest,
             )
             .first()
         )
         if exists:
-            deduplicated += 1
+            duped += 1
             continue
 
-        signal = VideoTrendSignal(
+        session.add(VideoTrendSignal(
             id=new_id(),
             pipeline_run_id=pipeline_run_id,
-            platform=platform,
-            source_url=normalized["source_url"],
-            title=normalized["title"],
-            summary=normalized["summary"],
-            heat_score=normalized.get("heat_score"),
-            engagement=normalized.get("engagement", {}),
-            author=normalized.get("author"),
-            tags=normalized.get("tags", []),
-            content_digest=normalized["content_digest"],
+            platform=item.platform,
+            source_url=item.url or f"https://{item.platform}.com",
+            title=item.title[:500],
+            summary=(item.summary or item.title)[:2000],
+            heat_score=_heat_score(item),
+            engagement=item.engagement,
+            author=item.author,
+            tags=[t for t in item.tags if t][:20],
+            content_digest=digest,
             collected_at=utcnow(),
-        )
-        session.add(signal)
+        ))
         saved += 1
 
-    return saved, deduplicated
+    return saved, duped
 
 
-def _normalize_signal(
-    platform: str, raw: dict[str, Any]
-) -> dict[str, Any] | None:
-    """将各平台的原始数据标准化为统一格式。"""
-    if not isinstance(raw, dict):
-        return None
+def _content_digest(item: TrendItem) -> str:
+    """内容摘要，用于同一次运行内去重。"""
+    raw = f"{item.platform}:{item.title}:{item.summary[:200]}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:64]
 
-    # 尝试提取关键字段（兼容不同平台的字段名）
-    title = (
-        raw.get("title")
-        or raw.get("name")
-        or raw.get("desc", "")[:100]
-        or raw.get("text", "")[:100]
+
+def _heat_score(item: TrendItem) -> float:
+    """把各平台量级差异很大的互动数据归一到 0-100。
+
+    用 log10 压缩量级：1000 互动 → 60 分，10万 → 100 分。
+    各平台权重不同（播放量易得，点赞更能反映质量）。
+    """
+    weighted = (
+        item.likes * 3
+        + item.comments * 5
+        + item.shares * 4
+        + item.views * 0.1
     )
-    if not title:
-        return None
-
-    summary = (
-        raw.get("summary")
-        or raw.get("description")
-        or raw.get("desc")
-        or raw.get("text", "")
-        or raw.get("content", "")
-        or title
-    )
-
-    source_url = (
-        raw.get("url")
-        or raw.get("link")
-        or raw.get("source_url")
-        or raw.get("share_url")
-        or f"https://{platform}.com/unknown"
-    )
-
-    # 计算内容摘要（用于去重）
-    digest_input = f"{platform}:{title}:{summary[:200]}"
-    content_digest = hashlib.sha256(digest_input.encode()).hexdigest()[:64]
-
-    # 提取互动数据
-    engagement = {}
-    for key in ("likes", "like_count", "digg_count", "favorite_count"):
-        if key in raw:
-            engagement["likes"] = raw[key]
-            break
-    for key in ("comments", "comment_count"):
-        if key in raw:
-            engagement["comments"] = raw[key]
-            break
-    for key in ("shares", "share_count", "forward_count", "retweet_count"):
-        if key in raw:
-            engagement["shares"] = raw[key]
-            break
-    for key in ("views", "view_count", "play_count"):
-        if key in raw:
-            engagement["views"] = raw[key]
-            break
-
-    # 计算热度分（标准化到 0-100）
-    heat_score = raw.get("heat_score") or raw.get("hot_value")
-    if heat_score is None:
-        total_engagement = sum(
-            int(v) for v in engagement.values() if isinstance(v, (int, float))
-        )
-        # 简单热度计算：log scale
-        import math
-
-        heat_score = min(100, math.log10(max(1, total_engagement)) * 20)
-
-    # 提取标签
-    tags = raw.get("tags") or raw.get("hashtags") or raw.get("topics") or []
-    if isinstance(tags, str):
-        tags = [t.strip() for t in tags.split(",") if t.strip()]
-
-    return {
-        "source_url": source_url,
-        "title": title[:500],
-        "summary": summary[:2000],
-        "heat_score": float(heat_score) if heat_score else None,
-        "engagement": engagement,
-        "author": raw.get("author") or raw.get("user", {}).get("name"),
-        "tags": tags[:20],
-        "content_digest": content_digest,
-    }
+    if weighted <= 0:
+        return 0.0
+    return round(min(100.0, math.log10(weighted + 1) * 20), 2)
