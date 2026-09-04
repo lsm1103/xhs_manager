@@ -26,14 +26,17 @@
 | 配置 | `video_pipeline/config.py` | 76 | ✅ `XHS_VIDEO_` 前缀 |
 | 编排器 | `video_pipeline/pipeline.py` | 203 | ✅ 6 阶段串联 |
 | CLI | `video_pipeline/cli.py` | 147 | ✅ run/stage/status/config |
-| Stage1 热点采集 | `stages/stage1_trends.py` | 283 | ⚠️ 代码就绪，**未验证** |
-| Stage2 选题脚本 | `stages/stage2_topics.py` | 417 | ⚠️ 代码就绪，**未验证** |
-| Stage3 素材收集 | `stages/stage3_materials.py` | 455 | ⚠️ 代码就绪，**未验证** |
-| Stage4 HTML构建 | `stages/stage4_compose.py` | 568 | ⚠️ 代码就绪，**未验证** |
-| Stage5 视频渲染 | `stages/stage5_render.py` | 557 | ⚠️ 代码就绪，**未验证** |
-| Stage6 多平台发布 | `stages/stage6_publish.py` | 317 | ⚠️ 仅小红书，其余为桩 |
+| Stage1 热点采集 | `stages/stage1_trends.py` | 143 | ✅ **已跑通**，147 条真实数据 |
+| Stage2 选题脚本 | `stages/stage2_topics.py` | 417 | ⚠️ 代码就绪，**受限流阻塞** |
+| Stage3 素材收集 | `stages/stage3_materials.py` | 455 | ✅ **已跑通**，6 场景真实素材 |
+| Stage4 HTML构建 | `stages/stage4_compose.py` | 568 | ✅ **已跑通**，视频正确嵌入 |
+| Stage5 视频渲染 | `stages/stage5_render.py` | 260 | ✅ **已跑通**，双路径均出片 |
+| Stage6 多平台发布 | `stages/stage6_publish.py` | 317 | ⚠️ 受 Chrome 扩展阻塞 |
 | Claude 客户端 | `integrations/llm_client.py` | 221 | ✅ OAuth 认证已验证 |
-| MoneyPrinterTurbo | `integrations/moneyprinter.py` | 302 | ⚠️ 代码就绪，**未验证** |
+| MoneyPrinterTurbo | `integrations/moneyprinter.py` | 316 | ✅ **已跑通**，素材+渲染 |
+| 采集器 | `integrations/collectors.py` | 300 | ✅ **已跑通**，B站/V2EX |
+| 渲染器 | `integrations/renderer.py` | 215 | ✅ **已跑通**，HTML→MP4 |
+| 种子数据 | `seed.py` | 150 | ✅ 绕开 LLM 依赖 |
 
 ### 2.2 数据库 ✅
 
@@ -62,15 +65,34 @@
 
 ### 2.5 测试
 
-32 个既有测试通过，视频 pipeline **尚无专属测试**。
+**60 个测试全绿**（原 32 + 视频 pipeline 新增 28）。
 
 ---
 
-## 三、核心风险
+## 三、当前阻塞项
 
-1. **opencli 未验证** — Stage1（4平台采集）和 Stage6（小红书发布）都依赖它，命令格式全是推测的
-2. **全流程从未真实执行** — 所有 stage 只验证了 import，没有跑过真实数据
-3. **MoneyPrinterTurbo 参数组合未验证** — `--stop-at materials` 配合 `--video-terms` 是否work未知
+### 3.1 Claude API 限流（阻塞 T04）
+
+OAuth 认证本身已验证可用（服务端接受、格式修正后不再报 400），
+但**持续返回 429**，因为交互式 Claude Code 会话与流水线共享同一 Max 套餐额度。
+整个开发过程中多次间隔重试（最长间隔 40+ 分钟）均未成功。
+
+**影响**：Stage2 选题+脚本生成无法用真实 LLM 验证。
+**当前对策**：`seed.py` 提供手写脚本，下游 Stage3-5 已全部验证通过。
+**解决路径**：在无交互会话的时段跑一次，或改用独立 API Key / DeepSeek。
+
+### 3.2 OpenCLI Chrome 扩展未启用（阻塞 T11 及 3 个采集平台）
+
+daemon 正常、Chrome 正常、扩展文件已在磁盘，但未加载启用。
+**影响**：小红书/抖音/X 三个平台的采集和发布都走不通。
+**需要用户操作**：`chrome://extensions/` → 找到 OpenCLI → 启用，
+然后 `opencli doctor` 应显示 `Extension: connected`。
+
+### 3.3 已消除的风险
+
+- ~~opencli 命令格式全是推测~~ → T01 已实测确认，并发现真实格式与推测不同
+- ~~全流程从未真实执行~~ → Stage1/3/4/5 已用真实数据跑通
+- ~~MPT 参数组合未验证~~ → T05 已实测，发现三处与假设不符并修正
 
 ---
 
