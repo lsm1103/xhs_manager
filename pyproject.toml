@@ -9,6 +9,7 @@ dependencies = [
     "anthropic>=0.125.0",
     "fastapi>=0.115,<1",
     "httpx>=0.28.1",
+    "playwright>=1.60.0",
     "pydantic-settings>=2.6,<3",
     "sqlalchemy>=2.0,<3",
     "uvicorn[standard]>=0.30,<1",

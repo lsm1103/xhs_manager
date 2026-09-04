@@ -135,9 +135,17 @@
 **验收**：HTML 能在浏览器正常播放，场景切换和动画可见。
 **依赖**：T06
 
-### T08 ⬜ 准备 Playwright 渲染环境
-**做什么**：确认 playwright-core 可用、Chrome 路径正确；在 composition 目录建立可复用的渲染脚本依赖。
-**验收**：能对任意 HTML 截出一张 1080x1920 PNG。
+### T08 ✅ 准备 Playwright 渲染环境 + 独立渲染器
+**做什么**：装 Python playwright；新建 `integrations/renderer.py` 替换原先「拼 Node.js 脚本字符串」的脆弱做法。
+**验收**：✅ 端到端验证通过 —— 3 场景 HTML → **1080×1920 H.264 MP4，时长精确 6.0s**，5 个平台封面全部生成。
+**完成时间**：2026-09-03
+**产出**：
+- `uv add playwright`（1.62.0），复用系统 Chrome，无需下载 Chromium
+- `HtmlVideoRenderer` 类：`capture_frames()` / `frames_to_video()` / `render()`
+- 时序控制改为 Python 侧注入 `SEEK_JS` 精确 seek，不依赖页面 rAF 循环
+- `extract_covers()` 一次生成 default + 4 平台尺寸封面
+**为什么重写**：原做法把 Node.js 脚本当字符串拼接再 `subprocess` 执行，
+路径转义脆弱、异常不可捕获、无法调试。改用 Python playwright 后这些问题消失。
 
 ### T09 ⬜ Stage5 渲染出第一个 MP4
 **做什么**：跑 `cli.py stage rendering`，走 Playwright+ffmpeg 路径。
@@ -231,3 +239,4 @@ Stage1 改为**多后端架构**：优先用公开 API（无需登录、更稳�
 | 2026-09-03 | T02 ✅ | Stage1 跑通，147 条真实热点入库（B站138 + V2EX9）；3 平台因扩展未启用跳过 |
 | 2026-09-03 | T03 🔄 | 修正 output_config.format 结构（少一层嵌套）；实际调用受 429 限流阻塞 |
 | 2026-09-03 | T05 ✅ | MoneyPrinterTurbo 素材下载跑通；修正 task-id 需 UUID、素材在 cache_videos、路径从 stdout 取 |
+| 2026-09-03 | T08 ✅ | Python playwright 渲染器跑通，HTML→MP4 端到端验证（1080x1920/H.264/6.0s）|
