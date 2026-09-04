@@ -69,25 +69,47 @@
 
 ---
 
-## 三、当前阻塞项
+## 三、现状总览（2026-09-04）
 
-### 3.1 ~~Claude API 限流~~ → 已解决（T03）
+### 3.1 一句话结论
 
-之前的判断是错的：429 是因为拿 Claude Code 的 OAuth token 直打 API 端点。
-改走 `claude -p` 通道后无任何限流，T04 已用真实 LLM 跑通。
+**流水线已端到端跑通**：一条命令从多平台热点采集到 3 条成片再到发布阶段，全程无人工干预，
+失败可从断点续跑。唯一未闭环的是**小红书视频上传的最后一步 UI 自动化**，代码已就绪，等 Chrome 扩展启用后实测。
 
-### 3.2 OpenCLI Chrome 扩展未启用（阻塞 T11 及 3 个采集平台）
+### 3.2 各阶段真实验证结果
 
-daemon 正常、Chrome 正常、扩展文件已在磁盘，但未加载启用。
-**影响**：小红书/抖音/X 三个平台的采集和发布都走不通。
-**需要用户操作**：`chrome://extensions/` → 找到 OpenCLI → 启用，
-然后 `opencli doctor` 应显示 `Extension: connected`。
+| 阶段 | 用真实数据跑过 | 结果 |
+|------|:--:|------|
+| 1 采集 | ✅ ×2 | 147-148 条/次（B站 + V2EX 公开 API；小红书/抖音/X 待扩展） |
+| 2 选题脚本 | ✅ ×2 | `claude -p` 通道，每次 3 选题 3 脚本，7-8 场景/60-75s，四平台元数据齐全 |
+| 3 素材 | ✅ ×2 | MoneyPrinterTurbo→Pexels，每场景都有真实视频素材 + 整篇 TTS 旁白 |
+| 4 HTML | ✅ | 6 种转场 + 5 种文字动画，`<video>` 逐帧 seek |
+| 5 渲染 | ✅ | HTML 路径（Playwright+ffmpeg）与 MPT 路径均出片；1080×1920 H.264+AAC |
+| 6 发布 | 🔄 | 编排与失败收敛已验证；小红书 UI 自动化定位器待真实浏览器校准 |
 
-### 3.3 已消除的风险
+### 3.3 怎么跑
 
-- ~~opencli 命令格式全是推测~~ → T01 已实测确认，并发现真实格式与推测不同
-- ~~全流程从未真实执行~~ → Stage1/3/4/5 已用真实数据跑通
-- ~~MPT 参数组合未验证~~ → T05 已实测，发现三处与假设不符并修正
+```bash
+# 完整流水线（当天）。同日重跑自动从当前阶段续跑；已完成则跳过
+python -m xhs_manager.video_pipeline.cli run
+python -m xhs_manager.video_pipeline.cli run --date 2026-09-03      # 指定日期（复盘/续跑必须显式）
+python -m xhs_manager.video_pipeline.cli run --from rendering        # 强制从某阶段开始
+python -m xhs_manager.video_pipeline.cli stage collecting            # 单跑一个阶段
+python -m xhs_manager.video_pipeline.cli status                      # 看运行记录
+python -m xhs_manager.video_pipeline.cli schedule-config launchd --hour 8   # 生成每日定时配置
+```
+
+### 3.4 需要用户操作的唯一阻塞
+
+**启用 OpenCLI Chrome 扩展**：`chrome://extensions/` → OpenCLI → 启用 → `opencli doctor` 显示 `Extension: connected`。
+解锁后：① 小红书/抖音/X 三个采集源自动接入；② `stage publishing` 可实测小红书视频上传（失败会留截图，按图调 3-4 个定位器）。
+
+### 3.5 已知限制与后续方向
+
+- **渲染耗时**：HTML 路径约 0.2s/帧，3 条 60-75s 视频约 15 分钟（串行）。可并行 3 个 Chrome 实例提速 3×，尚未做。
+- **MPT 路径素材语义偏松**：它自己按脚本选素材，可能出现"柠檬传送带配自动化"；HTML 路径按场景 `search:` 精准控制。`render_mode=auto` 已按视频类型分流。
+- **抖音 / B站 / X 发布**仍是桩函数，需各自的 UI 自动化。
+- **成片时长以旁白为准**（`-shortest`），会短于脚本标称时长，已回写真实值。
 
 ---
 
