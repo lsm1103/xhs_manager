@@ -278,3 +278,31 @@ def test_launchd_plist_is_well_formed_xml():
     assert root.tag == "plist"
     assert "com.xhs.video-pipeline" in xml
     assert "<integer>8</integer>" in xml
+
+
+# ── Stage3 场景搜索词提取 ─────────────────────────────────────────
+
+
+def test_scene_terms_prefer_search_hint():
+    from xhs_manager.video_pipeline.stages.stage3_materials import _search_terms_for_scene
+    scene = {"material_hints": ["gen:abstract brain", "search:neural network glow"],
+             "visual_desc": "发光的神经网络"}
+    assert _search_terms_for_scene(scene) == ["neural network glow"]
+
+
+def test_scene_terms_fall_back_to_gen_hint_not_chinese_desc():
+    """LLM 只给 gen: 时，要用它（英文）而不是中文 visual_desc 去搜 Pexels。"""
+    from xhs_manager.video_pipeline.stages.stage3_materials import _search_terms_for_scene
+    scene = {"material_hints": ["gen:dark background with glowing icons"],
+             "visual_desc": "深色背景上的发光图标"}
+    assert _search_terms_for_scene(scene) == ["dark background with glowing icons"]
+
+
+def test_scene_terms_skip_chinese_desc_when_no_hints():
+    from xhs_manager.video_pipeline.stages.stage3_materials import _search_terms_for_scene
+    assert _search_terms_for_scene({"material_hints": [], "visual_desc": "一个人在打字"}) == []
+
+
+def test_scene_terms_use_ascii_desc_when_no_hints():
+    from xhs_manager.video_pipeline.stages.stage3_materials import _search_terms_for_scene
+    assert _search_terms_for_scene({"visual_desc": "person typing on laptop"}) == ["person typing on laptop"]

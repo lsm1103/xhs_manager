@@ -163,15 +163,7 @@ def _collect_via_moneyprinter(
     # 1. 从所有场景中提取搜索关键词
     all_terms: list[str] = []
     for scene in script.scenes:
-        hints = scene.get("material_hints", [])
-        for hint in hints:
-            if hint.startswith("search:"):
-                all_terms.append(hint[7:].strip())
-        # 如果没有 search hint，用 visual_desc 前几个关键词
-        if not any(h.startswith("search:") for h in hints):
-            visual = scene.get("visual_desc", "")
-            if visual:
-                all_terms.append(visual[:60])
+        all_terms.extend(_search_terms_for_scene(scene))
 
     if not all_terms:
         logger.info("脚本无可用搜索词，跳过 MoneyPrinterTurbo 素材搜索")
@@ -279,6 +271,25 @@ def _collect_via_moneyprinter(
                     shutil.copy2(str(sub_src), str(sub_dst))
 
     return {"materials_saved": materials_saved, "tts_saved": tts_saved}
+
+
+def _search_terms_for_scene(scene: dict[str, Any]) -> list[str]:
+    """为单个场景挑出适合 Pexels 的英文搜索词。
+
+    优先级：search: 提示 > gen: 提示（生图 prompt 本身是英文，可直接当搜索词）
+    > 纯 ASCII 的 visual_desc。中文描述不拿去搜 Pexels —— 命中率极低。
+    """
+    hints = scene.get("material_hints") or []
+    terms = [h[7:].strip() for h in hints if h.startswith("search:") and h[7:].strip()]
+    if terms:
+        return terms
+    terms = [h[4:].strip()[:80] for h in hints if h.startswith("gen:") and h[4:].strip()]
+    if terms:
+        return terms
+    visual = (scene.get("visual_desc") or "").strip()
+    if visual and visual.isascii():
+        return [visual[:80]]
+    return []
 
 
 def _mpt_generate_tts_single(
