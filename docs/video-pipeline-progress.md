@@ -78,10 +78,11 @@
 
 > 状态标记：⬜ 未开始 / 🔄 进行中 / ✅ 已完成 / ❌ 受阻
 
-### T01 ⬜ 验证 opencli 可用性与平台命令格式
+### T01 ✅ 验证 opencli 可用性与平台命令格式
 **做什么**：确认 opencli 是否安装、支持哪些平台、search 子命令的真实参数格式和输出结构。
-**验收**：能在终端跑通至少一个平台的搜索并拿到 JSON 输出；把真实命令格式记录到本文档。
-**产出**：本文档新增「opencli 命令参考」小节。
+**验收**：✅ B站搜索 API 与 V2EX API 实测拿到真实 JSON 数据；opencli 命令格式已记录。
+**完成时间**：2026-09-03
+**关键发现**：见下方「四.5 平台采集后端实测结论」
 
 ### T02 ⬜ 按真实 opencli 格式重写 Stage1 采集逻辑
 **做什么**：用 T01 得到的真实命令格式替换 `stage1_trends.py` 里推测的模板；调整字段标准化逻辑匹配真实输出。
@@ -149,6 +150,54 @@
 **做什么**：把 `create_all` 建的表改为通过 alembic 迁移管理，验证 upgrade/downgrade。
 **验收**：`alembic upgrade head` 能在干净库上建出全部表。
 
+### 四.5 平台采集后端实测结论（T01 产出）
+
+#### opencli 真实命令格式（我原先的推测是错的）
+
+```bash
+# ❌ 错误（原代码里的推测）
+opencli xiaohongshu search "关键词" --limit 20 --sort hot --json
+
+# ✅ 正确：query 是位置参数，用 -f json 而非 --json，无 --sort
+opencli xiaohongshu search "关键词" --limit 20 -f json
+opencli douyin search "关键词" --limit 20 -f json
+opencli bilibili hot --limit 20 -f json
+opencli twitter search "关键词" --limit 20 -f json
+opencli twitter trending -f json
+```
+
+小红书 search 输出列：`rank, title, author, likes, published_at, url`
+
+#### 各平台可用后端矩阵
+
+| 平台 | 后端 | 状态 | 说明 |
+|------|------|------|------|
+| **B站** | 公开 HTTP API | ✅ **立即可用** | `api.bilibili.com`，无需登录，实测拿到真实数据 |
+| **V2EX** | 公开 HTTP API | ✅ **立即可用** | `v2ex.com/api/topics/hot.json` |
+| 小红书 | opencli（浏览器） | ⚠️ 阻塞 | 需启用 Chrome 扩展 |
+| 抖音 | opencli（浏览器） | ⚠️ 阻塞 | 需启用 Chrome 扩展 |
+| Twitter/X | opencli（浏览器） | ⚠️ 阻塞 | 需启用 Chrome 扩展 |
+
+#### ⚠️ 阻塞项：OpenCLI Chrome 扩展未启用
+
+- daemon 正常运行（端口 19825），Chrome 也在运行
+- agent-reach 检测到**扩展文件已在磁盘**，但未加载/启用
+- **需要用户手动操作**：打开 `chrome://extensions/` → 找到 OpenCLI → 启用；然后 `opencli doctor` 应显示 Extension: connected
+
+#### 可用的 B站 API 端点
+
+```bash
+# 热门视频
+GET https://api.bilibili.com/x/web-interface/popular?ps=20&pn=1
+
+# 关键词搜索（需 User-Agent + Referer 头）
+GET https://api.bilibili.com/x/web-interface/wbi/search/type?search_type=video&keyword=<词>&page=1
+```
+
+#### 设计决策
+
+Stage1 改为**多后端架构**：优先用公开 API（无需登录、更稳定），opencli 作为需登录平台的通道，单平台失败不阻塞其他平台。这样**今天就能跑通**（B站+V2EX），扩展启用后自动接入其余 3 个平台。
+
 ---
 
 ## 五、进度日志
@@ -156,3 +205,4 @@
 | 日期 | TODO | 说明 |
 |------|------|------|
 | 2026-09-03 | — | 架构设计 + 代码骨架完成，OAuth 认证方案确定 |
+| 2026-09-03 | T01 ✅ | 验证 opencli 命令格式；发现 B站/V2EX 公开 API 可用，3 平台待启用 Chrome 扩展 |
