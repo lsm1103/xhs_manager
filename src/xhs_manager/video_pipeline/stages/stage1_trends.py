@@ -79,14 +79,21 @@ def collect_trends(
 def _save_items(
     session: Session, pipeline_run_id: str, items: list[TrendItem],
 ) -> tuple[int, int]:
-    """将采集条目写入数据库，返回 (入库数, 去重数)。"""
+    """将采集条目写入数据库，返回 (入库数, 去重数)。
+
+    热度分采用**平台内相对排名**：各平台互动量级差异巨大
+    （B站播放量百万级，V2EX 回复数百级），绝对值无法横向比较。
+    改为在平台内部按原始权重排名，映射到 0-100，
+    这样每个平台的头部内容都能获得高分，供 Stage2 公平竞争。
+    """
     saved = 0
     duped = 0
 
-    for item in items:
-        if not item.title:
-            continue
+    # 先算每条的原始互动权重，再在平台内归一
+    scored = [(item, _raw_weight(item)) for item in items if item.title]
+    scores = _normalize_within_platform([w for _, w in scored])
 
+    for (item, _), heat in zip(scored, scores):
         digest = _content_digest(item)
 
         exists = (
@@ -108,7 +115,7 @@ def _save_items(
             source_url=item.url or f"https://{item.platform}.com",
             title=item.title[:500],
             summary=(item.summary or item.title)[:2000],
-            heat_score=_heat_score(item),
+            heat_score=heat,
             engagement=item.engagement,
             author=item.author,
             tags=[t for t in item.tags if t][:20],
@@ -126,18 +133,40 @@ def _content_digest(item: TrendItem) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:64]
 
 
-def _heat_score(item: TrendItem) -> float:
-    """把各平台量级差异很大的互动数据归一到 0-100。
+def _raw_weight(item: TrendItem) -> float:
+    """单条内容的原始互动权重。
 
-    用 log10 压缩量级：1000 互动 → 60 分，10万 → 100 分。
-    各平台权重不同（播放量易得，点赞更能反映质量）。
+    评论 > 分享 > 点赞 > 播放：越"费力"的互动越能反映内容质量，
+    播放量最易得（可能只是推荐位效果），权重最低。
     """
-    weighted = (
-        item.likes * 3
-        + item.comments * 5
+    return (
+        item.comments * 5
         + item.shares * 4
+        + item.likes * 3
         + item.views * 0.1
     )
-    if weighted <= 0:
-        return 0.0
-    return round(min(100.0, math.log10(weighted + 1) * 20), 2)
+
+
+def _normalize_within_platform(weights: list[float]) -> list[float]:
+    """把一批（同平台）原始权重按排名映射到 0-100。
+
+    用排名而非绝对值，避免头部内容因量级过大全部撞顶 100。
+    最高分 100，最低分 10，中间线性分布；全部相同则都给 50。
+    """
+    n = len(weights)
+    if n == 0:
+        return []
+    if n == 1:
+        return [100.0 if weights[0] > 0 else 0.0]
+
+    # 按权重升序排名（同值同名次）
+    order = sorted(range(n), key=lambda i: weights[i])
+    rank = [0] * n
+    for pos, idx in enumerate(order):
+        rank[idx] = pos
+
+    lo, hi = min(weights), max(weights)
+    if hi == lo:
+        return [50.0] * n
+
+    return [round(10.0 + (rank[i] / (n - 1)) * 90.0, 2) for i in range(n)]
