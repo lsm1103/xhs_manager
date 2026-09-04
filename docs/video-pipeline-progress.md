@@ -125,10 +125,19 @@
 **修正**：`moneyprinter.py` 增加 `_new_task_id()` 和 `_parse_result_json()`，
 素材路径改为解析 stdout 而非扫描任务目录。
 
-### T06 ⬜ Stage3 素材收集跑通
-**做什么**：按 T05 的真实参数修正 `moneyprinter.py`，跑 `cli.py stage materializing`。
-**验收**：`video_materials` 表有记录，素材文件真实落盘。
-**依赖**：T04, T05
+### T06 ✅ Stage3 素材收集跑通
+**做什么**：修正 `moneyprinter.py`，新增 `seed.py` 绕开 LLM 依赖，跑 `stage materializing`。
+**验收**：✅ **6 个场景全部拿到真实 Pexels 视频素材**，整篇旁白 35.35s（脚本 36s）。
+**完成时间**：2026-09-03
+**修复的两个真实 bug**：
+1. **TTS 分支被 `continue` 跳过** —— 有视频素材的场景直接 `continue`，
+   永远走不到后面的 TTS 代码。表现为 s01-s03 无音频、s04-s06 有音频。
+2. **音轨冗余冲突** —— 同时产出「整篇旁白」和「分场景旁白」，渲染时无法叠加。
+   改为统一用整篇旁白单音轨。
+**另一处改进**：素材不足时按 `i % len(materials)` 循环复用，
+   保证每个场景都有画面，而不是降级成纯文字卡片（原先 6 场景只有 3 个有画面）。
+**产出**：`seed.py` —— 手写 6 场景 36 秒示例脚本，覆盖全部转场和文字动画类型，
+   兼作单元测试夹具；CLI 新增 `seed` 子命令。
 
 ### T07 ⬜ Stage4 HTML 生成跑通并肉眼验证效果
 **做什么**：跑 `cli.py stage composing`，用浏览器打开生成的 HTML 检查转场和文字动画是否正常。
@@ -240,3 +249,4 @@ Stage1 改为**多后端架构**：优先用公开 API（无需登录、更稳�
 | 2026-09-03 | T03 🔄 | 修正 output_config.format 结构（少一层嵌套）；实际调用受 429 限流阻塞 |
 | 2026-09-03 | T05 ✅ | MoneyPrinterTurbo 素材下载跑通；修正 task-id 需 UUID、素材在 cache_videos、路径从 stdout 取 |
 | 2026-09-03 | T08 ✅ | Python playwright 渲染器跑通，HTML→MP4 端到端验证（1080x1920/H.264/6.0s）|
+| 2026-09-03 | T06 ✅ | Stage3 跑通，6 场景全部拿到真实素材；修复 TTS 被 continue 跳过、音轨冗余两个 bug |

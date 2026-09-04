@@ -79,11 +79,12 @@ def collect_materials(
             scene_count += batch_result["materials_saved"]
             tts_count += batch_result["tts_saved"]
 
-        # ── 方式 2: 对缺少素材的场景逐个补充 ──
+        # ── 方式 2: 对仍缺视觉素材的场景逐个补充 ──
+        # 注意：音频不在此循环处理。整篇旁白由上面的批量步骤一次产出，
+        # 分场景音频会与整篇音轨冲突，渲染时无法叠加。
         for scene in script.scenes:
             scene_id = scene.get("scene_id", f"s{scene.get('order', 0):02d}")
 
-            # 检查该场景是否已有素材
             has_visual = (
                 session.query(VideoMaterial.id)
                 .filter(
@@ -120,29 +121,6 @@ def collect_materials(
                     scene_count += 1
             except Exception as e:
                 logger.warning("文字卡片生成失败 (场景 %s): %s", scene_id, e)
-
-            # TTS 旁白补充
-            narration = scene.get("narration", "")
-            has_audio = (
-                session.query(VideoMaterial.id)
-                .filter(
-                    VideoMaterial.script_id == script.id,
-                    VideoMaterial.scene_id == scene_id,
-                    VideoMaterial.material_type == "audio",
-                )
-                .first()
-            )
-            if narration and not has_audio and mpt.available:
-                try:
-                    tts_mat = _mpt_generate_tts_single(
-                        mpt, session, script.id, scene_id,
-                        narration, output_dir, settings,
-                    )
-                    if tts_mat:
-                        session.add(tts_mat)
-                        tts_count += 1
-                except Exception as e:
-                    logger.warning("TTS 生成失败 (场景 %s): %s", scene_id, e)
 
         total_materials += scene_count
         total_tts += tts_count
@@ -200,24 +178,32 @@ def _collect_via_moneyprinter(
         return {"materials_saved": 0, "tts_saved": 0}
 
     # 2. 批量搜索素材
-    logger.info("MoneyPrinterTurbo 搜索素材: %d 个关键词", len(all_terms))
+    # 每个场景至少要一个素材。MPT 按「累计时长」决定下载量，
+    # 所以 clip_duration 要按场景平均时长设置，让它下够片段数。
+    n_scenes = max(len(script.scenes), 1)
+    avg_scene_dur = max(3, script.total_duration // n_scenes)
+    logger.info(
+        "MoneyPrinterTurbo 搜索素材: %d 个关键词，目标 %d 个场景",
+        len(all_terms), n_scenes,
+    )
     search_result = mpt.search_materials(
-        search_terms=all_terms[:10],  # 限制关键词数
+        search_terms=all_terms[:10],
         video_aspect="9:16",
         source="pexels",
-        clip_duration=settings.max_duration // max(len(script.scenes), 1),
+        clip_duration=avg_scene_dur,
     )
 
     if search_result["success"] and search_result.get("materials"):
         mpt_materials = search_result["materials"]
         scenes = script.scenes
 
-        # 分配素材到各场景（按顺序分配）
+        # 分配素材到各场景。素材不足时循环复用，
+        # 保证每个场景都有画面（总比降级成纯文字卡片好）。
         for i, scene in enumerate(scenes):
             scene_id = scene.get("scene_id", f"s{scene.get('order', 0):02d}")
 
-            if i < len(mpt_materials):
-                mpt_mat = mpt_materials[i]
+            if mpt_materials:
+                mpt_mat = mpt_materials[i % len(mpt_materials)]
                 src_path = Path(mpt_mat["path"])
 
                 # 复制到我们的输出目录

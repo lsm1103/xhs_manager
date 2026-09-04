@@ -25,7 +25,7 @@ from xhs_manager.config import get_settings
 from xhs_manager.db import create_db_engine, create_session_factory
 from xhs_manager.video_pipeline.config import get_video_settings
 from xhs_manager.video_pipeline.domain import PipelineStatus
-from xhs_manager.video_pipeline.models import VideoPipelineRun
+from xhs_manager.video_pipeline.models import VideoPipelineRun, VideoTopic
 from xhs_manager.video_pipeline.pipeline import VideoPipeline
 
 
@@ -101,6 +101,36 @@ def cmd_status(args) -> None:
             )
 
 
+def cmd_seed(args) -> None:
+    """插入示例选题+脚本，用于在不调用 LLM 的情况下测试下游阶段。"""
+    from xhs_manager.video_pipeline.seed import seed_topic_and_script
+
+    factory = build_session_factory()
+    with factory() as session:
+        if args.run_id:
+            run = session.get(VideoPipelineRun, args.run_id)
+        else:
+            run = (session.query(VideoPipelineRun)
+                   .order_by(VideoPipelineRun.created_at.desc()).first())
+        if not run:
+            print("没有可用的流水线运行，请先执行 stage collecting")
+            sys.exit(1)
+
+        topic, script = seed_topic_and_script(session, run)
+        run.topic_count = session.query(VideoTopic).filter_by(
+            pipeline_run_id=run.id).count()
+        session.commit()
+
+        print(json.dumps({
+            "run_id": run.id,
+            "topic_id": topic.id,
+            "script_id": script.id,
+            "title": topic.title,
+            "scenes": len(script.scenes),
+            "duration": script.total_duration,
+        }, indent=2, ensure_ascii=False))
+
+
 def cmd_config(args) -> None:
     """显示当前配置。"""
     settings = get_video_settings()
@@ -136,6 +166,11 @@ def main() -> None:
     status_parser = subparsers.add_parser("status", help="查看运行记录")
     status_parser.add_argument("-n", "--limit", type=int, default=10, help="显示数量")
     status_parser.set_defaults(func=cmd_status)
+
+    # seed
+    seed_parser = subparsers.add_parser("seed", help="插入示例选题+脚本（跳过 LLM）")
+    seed_parser.add_argument("--run-id", help="流水线运行 ID，默认最近一次")
+    seed_parser.set_defaults(func=cmd_seed)
 
     # config
     config_parser = subparsers.add_parser("config", help="显示当前配置")
