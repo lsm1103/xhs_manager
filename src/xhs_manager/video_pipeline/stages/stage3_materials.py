@@ -273,6 +273,66 @@ def _collect_via_moneyprinter(
     return {"materials_saved": materials_saved, "tts_saved": tts_saved}
 
 
+
+# ── 肖像权硬过滤 ──────────────────────────────────────────────────
+# Pexels 的免版权授权覆盖的是拍摄者著作权，**不覆盖被拍摄者的肖像权**。
+# 公开发布时可辨识的人脸有侵权风险（2026-09-04 已因此下架过一条视频）。
+# LLM prompt 里的约束是软的，这里再做一道硬过滤。
+
+# 命中即改写：这些词会检索出可辨识的人脸
+_PORTRAIT_RISK_TERMS = (
+    "close-up face", "closeup face", "close up face",
+    "face close", "portrait", "headshot", "head shot",
+    "facial expression", "person smiling", "man smiling", "woman smiling",
+    "person looking at camera", "selfie", "face camera",
+)
+# 单独出现也算风险的词（需配合人物上下文判断）
+_RISK_WORDS = ("portrait", "headshot", "selfie")
+
+# 安全替换：保留语义但看不清脸
+_SAFE_REWRITES = {
+    "close-up face": "over the shoulder view",
+    "closeup face": "over the shoulder view",
+    "close up face": "over the shoulder view",
+    "face close": "wide shot people",
+    "portrait": "wide shot silhouette",
+    "headshot": "wide shot silhouette",
+    "head shot": "wide shot silhouette",
+    "facial expression": "body language wide shot",
+    "person smiling": "people walking wide shot",
+    "man smiling": "people walking wide shot",
+    "woman smiling": "people walking wide shot",
+    "person looking at camera": "person back view",
+    "selfie": "hands holding phone",
+    "face camera": "crowd wide shot",
+}
+
+
+def sanitize_search_term(term: str) -> tuple[str, bool]:
+    """把有肖像权风险的搜索词改写成安全等价物。
+
+    Returns:
+        (改写后的词, 是否发生了改写)
+    """
+    low = term.lower()
+    changed = False
+    for risky in _PORTRAIT_RISK_TERMS:
+        if risky in low:
+            safe = _SAFE_REWRITES.get(risky, "wide shot")
+            low = low.replace(risky, safe)
+            changed = True
+    if not changed:
+        # 单词级兜底：portrait/headshot/selfie 单独出现
+        parts = low.split()
+        for i, w in enumerate(parts):
+            if w.strip(",.") in _RISK_WORDS:
+                parts[i] = "wide"
+                changed = True
+        if changed:
+            low = " ".join(parts)
+    return (low.strip(), changed)
+
+
 def _search_terms_for_scene(scene: dict[str, Any]) -> list[str]:
     """为单个场景挑出适合 Pexels 的英文搜索词。
 
@@ -281,15 +341,20 @@ def _search_terms_for_scene(scene: dict[str, Any]) -> list[str]:
     """
     hints = scene.get("material_hints") or []
     terms = [h[7:].strip() for h in hints if h.startswith("search:") and h[7:].strip()]
-    if terms:
-        return terms
-    terms = [h[4:].strip()[:80] for h in hints if h.startswith("gen:") and h[4:].strip()]
-    if terms:
-        return terms
-    visual = (scene.get("visual_desc") or "").strip()
-    if visual and visual.isascii():
-        return [visual[:80]]
-    return []
+    if not terms:
+        terms = [h[4:].strip()[:80] for h in hints if h.startswith("gen:") and h[4:].strip()]
+    if not terms:
+        visual = (scene.get("visual_desc") or "").strip()
+        terms = [visual[:80]] if visual and visual.isascii() else []
+
+    # 肖像权硬过滤：LLM 可能无视 prompt 约束，这里兜底改写
+    safe: list[str] = []
+    for t in terms:
+        cleaned, changed = sanitize_search_term(t)
+        if changed:
+            logger.warning("素材词有肖像权风险，已改写: %r → %r", t, cleaned)
+        safe.append(cleaned)
+    return safe
 
 
 def _mpt_generate_tts_single(

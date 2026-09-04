@@ -449,3 +449,50 @@ def test_cdp_mode_opens_new_tab_instead_of_hijacking_current():
     from xhs_manager.video_pipeline.integrations import xhs_publisher as m
     src = inspect.getsource(m.XhsPublisher.publish_video)
     assert "ctx.new_page() if self.cdp_url" in src
+
+
+# ── 肖像权硬过滤 ──────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("risky", [
+    "close-up face of engineer",
+    "portrait of a scientist",
+    "person smiling at desk",
+    "headshot developer",
+    "selfie with robot",
+    "man smiling office",
+])
+def test_portrait_risk_terms_are_rewritten(risky):
+    """Pexels 授权覆盖著作权但不覆盖肖像权，可辨识人脸不能用。"""
+    from xhs_manager.video_pipeline.stages.stage3_materials import sanitize_search_term
+    out, changed = sanitize_search_term(risky)
+    assert changed is True
+    for bad in ("close-up face", "portrait", "headshot", "selfie", "smiling"):
+        assert bad not in out
+
+
+@pytest.mark.parametrize("safe", [
+    "robot arm factory assembly line",
+    "crowd wide shot exhibition",
+    "hands typing on laptop",
+    "data visualization chart",
+])
+def test_safe_terms_pass_through_unchanged(safe):
+    from xhs_manager.video_pipeline.stages.stage3_materials import sanitize_search_term
+    out, changed = sanitize_search_term(safe)
+    assert changed is False and out == safe
+
+
+def test_scene_terms_apply_portrait_filter():
+    """场景级提取必须经过过滤，不能绕过。"""
+    from xhs_manager.video_pipeline.stages.stage3_materials import _search_terms_for_scene
+    terms = _search_terms_for_scene(
+        {"material_hints": ["search:close-up face of a robot engineer"]}
+    )
+    assert terms and "close-up face" not in terms[0]
+
+
+def test_stage2_prompt_forbids_face_closeups():
+    from xhs_manager.video_pipeline.stages.stage2_topics import SCRIPT_SYSTEM_PROMPT
+    assert "肖像权" in SCRIPT_SYSTEM_PROMPT
+    assert "close-up face" in SCRIPT_SYSTEM_PROMPT
