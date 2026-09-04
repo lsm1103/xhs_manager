@@ -32,6 +32,24 @@ LOGIN_URL_MARK = "creator.xiaohongshu.com/login"
 # 上传页的隐藏 file input；accept 里含 .mp4
 FILE_INPUT = "input[type=file]"
 
+# ── 以下选择器按创作者中心真实页面实测校准（2026-09-04）──
+# 标题框 placeholder 实为「填写标题会有更多赞哦」
+TITLE_INPUT = "input[placeholder*='填写标题']"
+# 正文是 tiptap/ProseMirror 富文本，不是 textarea
+BODY_EDITOR = "div.tiptap[contenteditable='true'], div.ProseMirror[contenteditable='true']"
+# 底部按钮实为「暂存离开」，不是「暂存离线」
+BTN_DRAFT = "暂存离开"
+BTN_PUBLISH = "发布"
+
+# 上传进行中的标志：媒体区会显示「取消上传」
+UPLOADING_MARK = "取消上传"
+
+# 提交按钮是自定义元素 <xhs-publish-btn>，内部用 **closed shadow root** 封装：
+#   - textContent / innerText 为空，querySelectorAll 和 Playwright 的 text= 都找不到
+#   - 但宿主元素本身在 DOM 里，属性上带着文案：
+#     save-text="暂存离开" submit-text="发布" submit-disabled="false"
+# 因此只能定位宿主元素，再按其内部两个按钮的横向位置点击。
+PUBLISH_BTN_HOST = "xhs-publish-btn"
 
 @dataclass
 class PublishResult:
@@ -117,6 +135,56 @@ class XhsPublisher:
             finally:
                 ctx.close()
 
+    @staticmethod
+    def _wait_submit_ready(page, timeout_s: int) -> bool:
+        """等待上传完成：<xhs-publish-btn> 出现且 submit-disabled 变为 false。"""
+        import time as _t
+
+        deadline = _t.monotonic() + timeout_s
+        last_log = 0.0
+        while _t.monotonic() < deadline:
+            st = page.evaluate(
+                """() => {
+                  const el = document.querySelector('xhs-publish-btn');
+                  if (!el) return null;
+                  const b = el.getBoundingClientRect();
+                  return {disabled: el.getAttribute('submit-disabled'),
+                          loading: el.getAttribute('submit-loading'),
+                          x: b.left, y: b.top, w: b.width, h: b.height};
+                }"""
+            )
+            if st and st["disabled"] == "false" and st["loading"] != "true" and st["w"] > 0:
+                logger.info("上传完成，提交按钮已就绪")
+                return True
+            elapsed = timeout_s - (deadline - _t.monotonic())
+            if elapsed - last_log >= 30:
+                last_log = elapsed
+                logger.info("上传中… %.0fs (btn=%s)", elapsed, st and st["disabled"])
+            page.wait_for_timeout(3000)
+        return False
+
+    @staticmethod
+    def _click_submit(page, mode: str) -> bool:
+        """点击 shadow 内的提交按钮。
+
+        closed shadow root 无法用选择器进入，但鼠标事件按坐标可以命中。
+        宿主元素内部横向排布：左「暂存离开」右「发布」，
+        按实测比例取各自中心点（左 ~34%，右 ~62%）。
+        """
+        box = page.evaluate(
+            """() => {
+              const el = document.querySelector('xhs-publish-btn');
+              if (!el) return null;
+              const b = el.getBoundingClientRect();
+              return {x: b.left, y: b.top, w: b.width, h: b.height};
+            }"""
+        )
+        if not box or box["w"] <= 0:
+            return False
+        ratio = 0.62 if mode == "publish" else 0.34
+        page.mouse.click(box["x"] + box["w"] * ratio, box["y"] + box["h"] / 2)
+        return True
+
     # ── 发布 ────────────────────────────────────────────────────
 
     def publish_video(
@@ -158,32 +226,44 @@ class XhsPublisher:
                 page.set_input_files(FILE_INPUT, str(video))
                 logger.info("已挂载视频，等待上传与转码…")
 
-                # 上传完成的标志：标题输入框出现
-                title_box = "input[placeholder*='标题'], input[placeholder*='填写标题']"
-                page.wait_for_selector(title_box, timeout=upload_timeout_s * 1000)
+                # 编辑器挂载（标题框出现）—— 此时上传仍在后台进行
+                page.wait_for_selector(TITLE_INPUT, timeout=120000)
+                page.fill(TITLE_INPUT, title[:20])
 
-                page.fill(title_box, title[:20])
-
-                # 正文是 contenteditable，不是 input
-                body_sel = (
-                    "div[contenteditable='true'], "
-                    "textarea[placeholder*='描述'], textarea[placeholder*='正文']"
-                )
-                if page.locator(body_sel).count():
-                    page.click(body_sel)
+                # 正文是 tiptap 富文本，fill() 对 contenteditable 不可靠，
+                # 用 click + insert_text 走真实输入路径
+                if page.locator(BODY_EDITOR).count():
+                    page.click(BODY_EDITOR)
                     page.keyboard.insert_text(content)
+                else:
+                    logger.warning("未找到正文编辑器，仅设置了标题")
 
-                page.wait_for_timeout(1500)
-
-                btn = "发布" if mode == "publish" else "暂存离线"
-                target = page.get_by_role("button", name=btn)
-                if not target.count():
+                # 等上传真正完成（标题框出现只代表编辑器挂载，不代表可提交）
+                btn_name = BTN_PUBLISH if mode == "publish" else BTN_DRAFT
+                if not self._wait_submit_ready(page, upload_timeout_s):
                     page.screenshot(path=shot, full_page=True)
                     return PublishResult(
-                        False, mode, f"找不到「{btn}」按钮", shot,
+                        False, mode,
+                        f"等待上传完成超时（{upload_timeout_s}s），提交按钮未就绪", shot,
                     )
-                target.first.click()
-                page.wait_for_timeout(5000)
+
+                if not self._click_submit(page, mode):
+                    page.screenshot(path=shot, full_page=True)
+                    return PublishResult(False, mode, "定位提交按钮失败", shot)
+                page.wait_for_timeout(6000)
+
+                # 校验：点完应离开发布页，或出现相应提示
+                body_text = page.inner_text("body")[:800]
+                left_page = "/publish/publish" not in page.url
+                ok = left_page or (
+                    "草稿" in body_text if mode == "draft" else "发布成功" in body_text
+                )
+                if not ok:
+                    page.screenshot(path=shot, full_page=True)
+                    return PublishResult(
+                        False, mode,
+                        f"点击「{btn_name}」后未确认预期结果 URL={page.url[:80]}", shot,
+                    )
 
                 logger.info("小红书视频已%s: %s", "发布" if mode == "publish" else "存草稿", title[:24])
                 return PublishResult(True, mode)

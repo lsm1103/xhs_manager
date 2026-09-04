@@ -73,8 +73,8 @@
 
 ### 3.1 一句话结论
 
-**流水线已端到端跑通**：一条命令从多平台热点采集到 3 条成片再到发布阶段，全程无人工干预，
-失败可从断点续跑。唯一未闭环的是**小红书视频上传的最后一步 UI 自动化**，代码已就绪，等 Chrome 扩展启用后实测。
+**流水线已完整闭环**：一条命令从多平台热点采集 → 3 条成片 → 小红书草稿，全程无人工干预，失败可断点续跑。
+小红书上传已实测成功（草稿箱可见）。抖音/B站/X 的发布仍是桩函数。
 
 ### 3.2 各阶段真实验证结果
 
@@ -85,7 +85,7 @@
 | 3 素材 | ✅ ×2 | MoneyPrinterTurbo→Pexels，每场景都有真实视频素材 + 整篇 TTS 旁白 |
 | 4 HTML | ✅ | 6 种转场 + 5 种文字动画，`<video>` 逐帧 seek |
 | 5 渲染 | ✅ | HTML 路径（Playwright+ffmpeg）与 MPT 路径均出片；1080×1920 H.264+AAC |
-| 6 发布 | 🔄 | 编排与失败收敛已验证；小红书 UI 自动化定位器待真实浏览器校准 |
+| 6 发布 | ✅ | 小红书真实上传成功、草稿箱可见；抖音/B站/X 仍是桩 |
 
 ### 3.3 怎么跑
 
@@ -103,11 +103,9 @@ python -m xhs_manager.video_pipeline.cli schedule-config launchd --hour 8   # �
 
 1. ~~启用 OpenCLI Chrome 扩展~~ ✅ **已完成**（2026-09-04）。小红书/抖音/X 三个采集源已解锁；
    顺带发现并修复了「opencli 在 JSON 后追加更新提示导致解析失败」的 bug。
-2. **一次性小红书登录**（发布链路的最后一步）：
-   ```bash
-   python -m xhs_manager.video_pipeline.cli xhs-login
-   ```
-   发布走 Playwright 独立 profile，与 opencli 扩展无关（原因见 T11）。
+2. ~~一次性小红书登录~~ ✅ **已完成**（2026-09-04），发布链路已打通。
+   登录态存在 `~/.xhs_pipeline_chrome`，失效时重跑 `cli xhs-login`；
+   `cli xhs-check` 可随时校验。
 
 ### 3.5 已知限制与后续方向
 
@@ -225,30 +223,38 @@ python -m xhs_manager.video_pipeline.cli schedule-config launchd --hour 8   # �
 **验收**：MPT 路径也能产出 MP4。
 **依赖**：T05
 
-### T11 🔄 Stage6 小红书视频发布（代码就绪，待一次性登录后实测）
-**扩展启用后的实测结论：opencli 无法完成小红书视频上传。**
-1. `opencli xiaohongshu` 没有视频命令：`save_draft` 不存在，`publish` 只收 `--images`
+### T11 ✅ Stage6 小红书视频发布跑通
+**验收**：✅ **真实上传成功，草稿箱可见**（「自动化测试草稿勿发」，保存于 02:39:22，0:02）。
+**完成时间**：2026-09-04
+
+**opencli 走不通的原因（扩展启用后实测）**
+1. `opencli xiaohongshu` 无视频命令：`save_draft` 不存在，`publish` 只收 `--images`
 2. `opencli browser upload` 走「点击元素 → 等 `Page.fileChooserOpened`」，而小红书的
-   `input.upload-input` 是隐藏的（`visible:false`）。**Chrome 要求真实用户手势才会打开
-   文件选择器**，扩展的合成点击不满足 —— 用数字 ref、强制把 input 变可见，都仍然超时
-3. 拷贝用户 Chrome profile 也不行：macOS 的 App-Bound Encryption 把 cookie 绑定到原始
-   安装与路径，拷过去必然跳登录页
+   `input.upload-input` 隐藏。**Chrome 要求真实用户手势才开文件选择器**，扩展合成点击不满足 ——
+   换数字 ref、强制把 input 变可见，都仍超时
+3. 拷贝用户 Chrome profile 无效：macOS App-Bound Encryption 把 cookie 绑定到原始安装
 
 **最终方案：Playwright + 独立 Chrome profile**
-- `set_input_files` 走 CDP `DOM.setFileInputFiles`，不需要 fileChooser 也不需要用户手势，
-  对隐藏 input 同样有效
-- 独立 profile 不与用户的交互式 Chrome 争用 user-data-dir，适合无人值守
-- 新增 `integrations/xhs_publisher.py`：`interactive_login` / `logged_in` / `publish_video`
-- CLI 新增 `xhs-login`（一次性扫码）、`xhs-check`（校验登录态）
-- 失败自动整页截图到视频同目录
+- `set_input_files` 走 CDP `DOM.setFileInputFiles`，不需要 fileChooser 也不需要用户手势
+- 独立 profile 不与用户交互式 Chrome 争 user-data-dir，适合无人值守
 
-**待用户操作（一次即可，之后长期复用）**：
-```bash
-python -m xhs_manager.video_pipeline.cli xhs-login   # 打开浏览器扫码
-python -m xhs_manager.video_pipeline.cli xhs-check   # 确认登录态
-```
-登录后页面选择器（标题框 / 正文 contenteditable /「暂存离线」按钮）需实测校准，
-失败会留截图。
+**过程中挖出的两个隐藏问题**
+1. **提交按钮在上传完成前不在 DOM 里**。标题框出现只代表编辑器挂载 ——
+   我一开始拿它当就绪信号，导致 21MB 视频等了 7 分钟仍报「找不到按钮」。
+   正确判据是 `<xhs-publish-btn>` 的 `submit-disabled="false"`。
+2. **提交按钮是 closed shadow root 的自定义元素 `<xhs-publish-btn>`**：
+   `textContent`/`innerText` 为空，`querySelectorAll`、Playwright 的 `text=` 和
+   `get_by_role` 全都定位不到，但截图里清晰可见。
+   靠 `document.elementFromPoint(x,y)` 才问出真身，属性上带着文案：
+   `save-text="暂存离开" submit-text="发布"`。closed shadow 无法用选择器进入，
+   但鼠标事件按坐标能命中 —— 取宿主元素内左 34%（草稿）/ 右 62%（发布）。
+
+**调试提效**：真实视频每次上传 7 分钟，改用 ffmpeg 造 25KB / 2 秒测试视频后，
+单轮验证从 7 分钟压到 20 秒。
+
+**校准的选择器**：标题框 placeholder 实为「填写标题会有更多赞哦」；
+底部按钮是「暂存**离开**」不是「暂存离线」；正文是 tiptap 富文本，
+`fill()` 对 contenteditable 不可靠，改用 `click` + `insert_text`。
 
 ### T12 ✅ 端到端串联跑通（编排层）
 **做什么**：`cli.py run` 串起 6 个阶段，验证断点续跑与失败可恢复。

@@ -381,3 +381,33 @@ def test_opencli_collector_parses_real_shaped_output():
            '"published_at":"2026-09-01","url":"https://x/1"}]\n  Update available: v1.8.6 → v1.8.7\n')
     items = OpenCliCollector("xiaohongshu")._parse(raw)
     assert len(items) == 1 and items[0].title == "AI工具" and items[0].likes == 12000
+
+
+# ── 提交按钮在 closed shadow root 里，只能坐标点击 ──────────────
+
+
+def test_publisher_targets_custom_element_not_text():
+    """<xhs-publish-btn> 用 closed shadow root 封装，textContent 为空，
+    text= / get_by_role 都定位不到，必须走宿主元素坐标。"""
+    import inspect
+    from xhs_manager.video_pipeline.integrations import xhs_publisher as m
+    src = inspect.getsource(m.XhsPublisher._click_submit)
+    assert "xhs-publish-btn" in src
+    assert "mouse.click" in src
+    assert "get_by_text" not in src and "get_by_role" not in src
+
+
+def test_draft_and_publish_click_different_horizontal_positions():
+    """草稿在左、发布在右，比例必须不同，否则会点错按钮。"""
+    import inspect
+    from xhs_manager.video_pipeline.integrations import xhs_publisher as m
+    src = inspect.getsource(m.XhsPublisher._click_submit)
+    assert "0.62" in src and "0.34" in src
+
+
+def test_wait_ready_checks_submit_disabled_attribute():
+    """标题框出现只代表编辑器挂载；可提交的判据是 submit-disabled=false。"""
+    import inspect
+    from xhs_manager.video_pipeline.integrations import xhs_publisher as m
+    src = inspect.getsource(m.XhsPublisher._wait_submit_ready)
+    assert "submit-disabled" in src and "submit-loading" in src
