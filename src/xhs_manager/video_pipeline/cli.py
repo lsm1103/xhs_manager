@@ -170,6 +170,44 @@ def cmd_schedule_config(args) -> None:
         print(render_launchd_plist(hour, project))
 
 
+def cmd_xhs_login(args) -> None:
+    """一次性登录小红书，凭证保存到 pipeline 专用 Chrome profile。"""
+    from pathlib import Path
+
+    from xhs_manager.video_pipeline.integrations.xhs_publisher import (
+        DEFAULT_PROFILE_DIR, XhsPublisher,
+    )
+
+    st = get_video_settings()
+    pub = XhsPublisher(
+        profile_dir=Path(st.xhs_profile_dir) if st.xhs_profile_dir else DEFAULT_PROFILE_DIR,
+    )
+    print(f"将打开浏览器窗口，请扫码或短信登录小红书。profile: {pub.profile_dir}")
+    ok = pub.interactive_login(timeout_s=args.timeout)
+    print("✅ 登录成功，之后可无人值守发布" if ok else "❌ 登录未完成")
+    sys.exit(0 if ok else 1)
+
+
+def cmd_xhs_check(args) -> None:
+    """检查小红书登录态是否仍有效。"""
+    from pathlib import Path
+
+    from xhs_manager.video_pipeline.integrations.xhs_publisher import (
+        DEFAULT_PROFILE_DIR, XhsPublisher,
+    )
+
+    st = get_video_settings()
+    pub = XhsPublisher(
+        profile_dir=Path(st.xhs_profile_dir) if st.xhs_profile_dir else DEFAULT_PROFILE_DIR,
+    )
+    ok, why = pub.available()
+    if not ok:
+        print(f"❌ {why}"); sys.exit(1)
+    alive = pub.logged_in()
+    print("✅ 登录态有效" if alive else "❌ 登录态已失效，请重新运行 xhs-login")
+    sys.exit(0 if alive else 1)
+
+
 def cmd_config(args) -> None:
     """显示当前配置。"""
     settings = get_video_settings()
@@ -225,6 +263,15 @@ def main() -> None:
     sc.add_argument("kind", choices=["cron", "launchd"])
     sc.add_argument("--hour", type=int, help="触发小时，默认读配置")
     sc.set_defaults(func=cmd_schedule_config)
+
+    # xhs-login
+    xl = subparsers.add_parser("xhs-login", help="一次性登录小红书（打开浏览器扫码）")
+    xl.add_argument("--timeout", type=int, default=300, help="等待登录的秒数")
+    xl.set_defaults(func=cmd_xhs_login)
+
+    # xhs-check
+    xc = subparsers.add_parser("xhs-check", help="检查小红书登录态")
+    xc.set_defaults(func=cmd_xhs_check)
 
     # config
     config_parser = subparsers.add_parser("config", help="显示当前配置")

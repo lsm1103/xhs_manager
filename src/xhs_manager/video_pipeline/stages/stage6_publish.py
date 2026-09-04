@@ -1,16 +1,12 @@
 """Stage 6: 多平台发布 — 将渲染好的视频发布到小红书/抖音/B站/X。
 
 发布方式:
-  - 小红书: OpenCLI (`opencli xiaohongshu save_draft`)
-  - 抖音/B站/X: ego-browser 浏览器自动化
+  - 小红书: Playwright 独立 Chrome profile（见 integrations/xhs_publisher.py）
+  - 抖音/B站/X: 尚未实现
 """
 
 import logging
-import os
-import signal
-import subprocess
 import time
-from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -63,12 +59,6 @@ def publish_videos(
 
     # 浏览器类平台的预检只做一次（opencli doctor 约 8s）。
     # 扩展未连接时所有浏览器平台直接判失败，不进入会挂住的 browser 流程。
-    browser_platforms = {p for p in settings.publish_platforms
-                         if PLATFORM_PUBLISH_METHOD.get(Platform(p) if p in Platform._value2member_map_ else None) != PublishMethod.API}
-    ext_ok, ext_why = (_opencli_extension_connected() if browser_platforms else (True, ""))
-    if not ext_ok:
-        logger.warning("OpenCLI 扩展未连接，浏览器发布将全部跳过: %s", ext_why)
-
     for render in renders:
         # 获取关联的脚本和选题
         comp = session.get(VideoComposition, render.composition_id)
@@ -140,20 +130,15 @@ def publish_videos(
                     session.add(pub)
                 session.flush()
 
-                # 执行发布（扩展未连接 → 直接失败，不调浏览器）
-                if not ext_ok:
-                    publish_result = {"success": False,
-                                      "error": f"OpenCLI 扩展未连接，跳过浏览器发布: {ext_why}"}
-                else:
-                    publish_result = _publish_to_platform(
-                        platform=platform,
-                        video_path=render.output_path,
-                        title=title,
-                        description=desc,
-                        tags=tags,
-                        cover_path=cover_path,
-                        settings=settings,
-                    )
+                publish_result = _publish_to_platform(
+                    platform=platform,
+                    video_path=render.output_path,
+                    title=title,
+                    description=desc,
+                    tags=tags,
+                    cover_path=cover_path,
+                    settings=settings,
+                )
 
                 if publish_result.get("success"):
                     pub.status = "published"
@@ -173,8 +158,7 @@ def publish_videos(
                     "error": pub.error_detail,
                 })
 
-                # 平台间发布间隔：只在**成功发布后**等待。
-                # 失败（如扩展未连接）立即返回，否则 3 视频×失败 会白等 15 分钟。
+                # 平台间发布间隔：只在**成功发布后**等待，失败立即返回。
                 if pub.status == "published" and settings.publish_delay_minutes > 0:
                     time.sleep(settings.publish_delay_minutes * 60)
 
@@ -231,44 +215,6 @@ def _publish_to_platform(
     )
 
 
-XHS_VIDEO_PUBLISH_URL = (
-    "https://creator.xiaohongshu.com/publish/publish?source=official&from=tab_switch"
-)
-
-
-def _xhs_upload_plan(
-    session: str,
-    video_path: str,
-    title: str,
-    content: str,
-    mode: str,
-) -> list[list[str]]:
-    """生成小红书视频上传的 opencli browser 命令序列（纯函数，便于测试）。
-
-    背景：`opencli xiaohongshu publish` 只支持 --images 图文笔记，**没有视频参数**，
-    所以视频必须走创作者中心的 UI 自动化。步骤用语义定位器（role/name/text），
-    比 CSS 选择器抗改版。
-    """
-    b = ["opencli", "browser", session]
-    steps = [
-        b + ["open", XHS_VIDEO_PUBLISH_URL],
-        b + ["wait", "text", "上传视频", "--timeout", "20000"],
-        # 文件输入通常是隐藏的 <input type=file>，按 CSS 直接挂文件最稳
-        b + ["upload", "input[type=file]", video_path],
-        # 等转码/上传完成：标题框出现即视为可编辑
-        b + ["wait", "selector", "input[placeholder*='标题']", "--timeout", "180000"],
-        b + ["fill", "--role", "textbox", "--name", "标题", title],
-        b + ["fill", "--role", "textbox", "--name", "正文", content],
-    ]
-    if mode == "publish":
-        steps.append(b + ["click", "--role", "button", "--name", "发布"])
-        steps.append(b + ["wait", "text", "发布成功", "--timeout", "30000"])
-    else:
-        steps.append(b + ["click", "--role", "button", "--name", "暂存离线"])
-        steps.append(b + ["wait", "time", "2"])
-    return steps
-
-
 def _publish_xiaohongshu(
     video_path: str,
     title: str,
@@ -277,88 +223,33 @@ def _publish_xiaohongshu(
     cover_path: str | None,
     settings: VideoPipelineSettings,
 ) -> dict[str, Any]:
-    """通过 opencli browser 自动化把视频存入小红书创作者中心（草稿或发布）。
+    """用 Playwright 独立 profile 上传视频到小红书创作者中心。
 
-    ⚠️ 尚未在真实浏览器上验证（依赖 OpenCLI Chrome 扩展）。
-    失败时自动截图到视频同目录，便于对照页面调整定位器。
+    不走 opencli browser：它的 upload 依赖「点击 → fileChooser」，而小红书的
+    file input 是隐藏的，Chrome 要求真实用户手势才开选择器，扩展合成点击不满足。
     """
+    from pathlib import Path as _P
+
+    from xhs_manager.video_pipeline.integrations.xhs_publisher import (
+        DEFAULT_PROFILE_DIR,
+        XhsPublisher,
+    )
+
     tags_str = " ".join(f"#{t}" for t in tags)
     content = f"{description}\n\n{tags_str}" if tags else description
     mode = settings.xhs_publish_mode if settings.xhs_publish_mode in ("draft", "publish") else "draft"
-    session_name = settings.xhs_browser_session
 
-    steps = _xhs_upload_plan(session_name, video_path, title, content, mode)
-    for i, cmd in enumerate(steps, 1):
-        # 上传后的转码等待允许更久；其余步骤 60s 足够
-        step_timeout = 200 if cmd[3] == "wait" and "180000" in cmd else 60
-        rc, out, err = _run_with_group_timeout(cmd, step_timeout)
-        if rc is None:
-            return {"success": False, "error": f"第 {i} 步超时({step_timeout}s): {' '.join(cmd[3:6])}"}
-        if rc != 0:
-            shot = _xhs_debug_screenshot(session_name, video_path, i)
-            return {
-                "success": False,
-                "error": (
-                    f"第 {i} 步失败 ({' '.join(cmd[3:6])}): {(err or out)[-400:]}"
-                    + (f" | 截图: {shot}" if shot else "")
-                ),
-            }
-
-    logger.info("小红书视频已%s: %s", "发布" if mode == "publish" else "存草稿", title[:30])
-    return {
-        "success": True,
-        "external_id": "draft" if mode == "draft" else None,
-        "method": f"opencli_browser_{mode}",
-    }
-
-
-def _opencli_extension_connected() -> tuple[bool, str]:
-    """快速预检 OpenCLI Chrome 扩展是否已连接（~1s，不启动浏览器会话）。"""
-    rc, out, err = _run_with_group_timeout(["opencli", "doctor"], 20)
-    if rc is None:
-        return False, "opencli doctor 超时"
-    text = out + err
-    if "Extension: connected" in text or "[OK] Extension" in text:
-        return True, ""
-    if "not connected" in text or "[MISSING] Extension" in text:
-        return False, "chrome://extensions/ 中启用 OpenCLI 扩展后重试"
-    return False, f"无法判断扩展状态: {text[-200:]}"
-
-
-def _run_with_group_timeout(cmd: list[str], timeout: int) -> tuple[int | None, str, str]:
-    """带进程组级超时的子进程执行。
-
-    `subprocess.run(timeout=)` 只杀直接子进程；opencli 会拉起持有管道的 daemon，
-    导致 communicate() 在超时后仍阻塞。用独立会话 + killpg 才能可靠收回。
-    返回 (returncode|None=超时, stdout, stderr)。
-    """
-    proc = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        stdin=subprocess.DEVNULL, text=True, start_new_session=True,
+    pub = XhsPublisher(
+        profile_dir=_P(settings.xhs_profile_dir) if settings.xhs_profile_dir else DEFAULT_PROFILE_DIR,
     )
-    try:
-        out, err = proc.communicate(timeout=timeout)
-        return proc.returncode, out, err
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        try:
-            out, err = proc.communicate(timeout=5)
-        except Exception:
-            out, err = "", ""
-        return None, out, err
+    res = pub.publish_video(video_path=video_path, title=title, content=content, mode=mode)
 
-
-def _xhs_debug_screenshot(session: str, video_path: str, step: int) -> str | None:
-    """失败时截图，落在视频同目录，方便人工对照页面调定位器。"""
-    try:
-        out = str(Path(video_path).with_name(f"xhs_publish_fail_step{step}.png"))
-        _run_with_group_timeout(["opencli", "browser", session, "screenshot", out], 30)
-        return out if Path(out).exists() else None
-    except Exception:
-        return None
+    if res.success:
+        return {"success": True, "external_id": mode, "method": f"playwright_{mode}"}
+    return {
+        "success": False,
+        "error": res.error + (f" | 截图: {res.screenshot}" if res.screenshot else ""),
+    }
 
 
 def _publish_douyin(

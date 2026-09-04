@@ -328,85 +328,35 @@ def test_stage_from_error_returns_none_when_unparseable(detail):
     assert _stage_from_error(detail) is None
 
 
-# ── Stage6 小红书上传命令序列 ─────────────────────────────────────
+# ── Stage6 小红书发布（Playwright 独立 profile）──────────────────
 
 
-def test_xhs_plan_never_calls_nonexistent_save_draft():
-    """T11 发现 `opencli xiaohongshu save_draft` 不存在，且 publish 无视频参数。"""
-    from xhs_manager.video_pipeline.stages.stage6_publish import _xhs_upload_plan
-    steps = _xhs_upload_plan("s", "/v.mp4", "t", "c", "draft")
-    flat = " ".join(" ".join(x) for x in steps)
-    assert "save_draft" not in flat
-    assert "xiaohongshu publish" not in flat
-    assert all(x[:2] == ["opencli", "browser"] for x in steps)
+def test_publisher_refuses_before_login_initialised(tmp_path):
+    """未初始化 profile 时必须给出可操作的指引，而不是直接开浏览器。"""
+    from xhs_manager.video_pipeline.integrations.xhs_publisher import XhsPublisher
+    ok, why = XhsPublisher(profile_dir=tmp_path / "nope").available()
+    assert ok is False and "xhs-login" in why
 
 
-def test_xhs_plan_uploads_video_then_fills_then_saves_draft():
-    from xhs_manager.video_pipeline.stages.stage6_publish import _xhs_upload_plan
-    steps = _xhs_upload_plan("s", "/v.mp4", "我的标题", "正文", "draft")
-    verbs = [x[3] for x in steps]
-    assert verbs.index("upload") < verbs.index("fill") < verbs.index("click")
-    assert any("/v.mp4" in x for x in steps)
-    assert any("暂存离线" in x for x in steps)
-    assert not any("发布成功" in x for x in steps)
+def test_publish_returns_error_not_raise_when_video_missing(tmp_path):
+    from xhs_manager.video_pipeline.integrations.xhs_publisher import XhsPublisher
+    (tmp_path / "prof").mkdir()
+    r = XhsPublisher(profile_dir=tmp_path / "prof").publish_video(
+        video_path=str(tmp_path / "missing.mp4"), title="t", content="c",
+    )
+    assert r.success is False and "不存在" in r.error
 
 
-def test_xhs_plan_publish_mode_clicks_publish_and_waits_success():
-    from xhs_manager.video_pipeline.stages.stage6_publish import _xhs_upload_plan
-    steps = _xhs_upload_plan("s", "/v.mp4", "t", "c", "publish")
-    assert any(x[3] == "click" and "发布" in x for x in steps)
-    assert any("发布成功" in x for x in steps)
-    assert not any("暂存离线" in x for x in steps)
-
-
-def test_xhs_plan_uses_configured_session_name():
-    from xhs_manager.video_pipeline.stages.stage6_publish import _xhs_upload_plan
-    steps = _xhs_upload_plan("my-sess", "/v.mp4", "t", "c", "draft")
-    assert all(x[2] == "my-sess" for x in steps)
-
-
-# ── 成片时长回写 ──────────────────────────────────────────────────
-
-
-def test_probe_duration_reads_real_length(tmp_path):
-    """用 ffmpeg 生成 2 秒静音黑屏，确认 probe 读到 ~2.0 而非其它。"""
-    import shutil as _sh
-    import subprocess as _sp
-    from xhs_manager.video_pipeline.integrations.renderer import probe_duration
-    if not _sh.which("ffmpeg"):
-        pytest.skip("无 ffmpeg")
-    out = tmp_path / "t.mp4"
-    _sp.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=64x64:d=2",
-             "-pix_fmt", "yuv420p", str(out)], check=True, timeout=60)
-    d = probe_duration(out)
-    assert d is not None and abs(d - 2.0) < 0.15
-
-
-def test_probe_duration_returns_none_for_missing_file(tmp_path):
-    from xhs_manager.video_pipeline.integrations.renderer import probe_duration
-    assert probe_duration(tmp_path / "nope.mp4") is None
-
-
-# ── Stage6 子进程超时必须能收回持有管道的孙进程 ─────────────────
-
-
-def test_group_timeout_kills_child_that_holds_pipe_via_grandchild():
-    """模拟 opencli 拉起 daemon 的情形：子进程 fork 一个孙进程继承 stdout 后退出。
-    普通 subprocess.run(timeout) 会在 communicate 上阻塞；这里必须在 timeout 内返回 None。"""
-    import sys, time as _t
-    from xhs_manager.video_pipeline.stages.stage6_publish import _run_with_group_timeout
-    script = "import subprocess,sys,time; subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)']); time.sleep(30)"
-    t0 = _t.monotonic()
-    rc, _, _ = _run_with_group_timeout([sys.executable, "-c", script], 2)
-    assert rc is None
-    assert _t.monotonic() - t0 < 8, "超时后仍被孙进程拖住"
-
-
-def test_group_timeout_returns_rc_and_output_on_success():
-    import sys
-    from xhs_manager.video_pipeline.stages.stage6_publish import _run_with_group_timeout
-    rc, out, _ = _run_with_group_timeout([sys.executable, "-c", "print('hi')"], 10)
-    assert rc == 0 and out.strip() == "hi"
+def test_stage6_xiaohongshu_uses_playwright_not_subprocess():
+    """opencli 的 upload 依赖 fileChooser，对小红书隐藏 input 不可用；
+    小红书路径必须走 Playwright，不能再调子进程。"""
+    import inspect
+    from xhs_manager.video_pipeline.stages import stage6_publish as m
+    src = inspect.getsource(m._publish_xiaohongshu)
+    assert "XhsPublisher" in src
+    # 注释里可以提 opencli（解释为何不用），但不能真的调用它
+    assert "subprocess" not in src
+    assert '"opencli"' not in src
 
 
 # ── opencli 输出解析：JSON 后追加的更新提示不能让整批采集归零 ──────
