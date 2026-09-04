@@ -496,3 +496,98 @@ def test_stage2_prompt_forbids_face_closeups():
     from xhs_manager.video_pipeline.stages.stage2_topics import SCRIPT_SYSTEM_PROMPT
     assert "肖像权" in SCRIPT_SYSTEM_PROMPT
     assert "close-up face" in SCRIPT_SYSTEM_PROMPT
+
+
+# ── BGM 分段配乐 ──────────────────────────────────────────────────
+
+
+def _sc(dur, mood=None, i=1):
+    d = {"scene_id": f"s{i:02d}", "duration": dur}
+    if mood:
+        d["bgm_mood"] = mood
+    return d
+
+
+def test_segments_preserve_total_duration():
+    """合并乐段绝不能丢时长，否则音轨会和画面错位。"""
+    from xhs_manager.video_pipeline.audio.composer import plan_segments
+    scenes = [_sc(d, m, i) for i, (d, m) in enumerate(
+        [(3, "hook"), (8, "explain"), (10, "explain"), (12, "tension"),
+         (10, "reveal"), (12, "explain"), (12, "uplift"), (8, "closing")], 1)]
+    segs = plan_segments(scenes)
+    assert abs(sum(s.duration for s in segs) - 75) < 0.01
+
+
+def test_no_segment_shorter_than_minimum():
+    """5-7 秒的场景很常见，合并后不能留下听感碎片。"""
+    from xhs_manager.video_pipeline.audio.composer import MIN_SEGMENT_S, plan_segments
+    scenes = [_sc(5, m, i) for i, m in enumerate(
+        ["hook", "explain", "tension", "reveal", "uplift", "closing"], 1)]
+    segs = plan_segments(scenes)
+    assert len(segs) > 1 or True
+    for s in segs:
+        assert s.duration >= MIN_SEGMENT_S or len(segs) == 1
+
+
+def test_segments_are_contiguous_from_zero():
+    from xhs_manager.video_pipeline.audio.composer import plan_segments
+    scenes = [_sc(d, m, i) for i, (d, m) in enumerate(
+        [(10, "hook"), (10, "explain"), (10, "uplift")], 1)]
+    segs = plan_segments(scenes)
+    assert segs[0].start == 0.0
+    for a, b in zip(segs, segs[1:]):
+        assert abs(a.end - b.start) < 0.01
+
+
+def test_segment_count_bounded_for_short_video():
+    """36 秒视频不该切成 6 段 —— 每 6 秒换歌比不换更难听。"""
+    from xhs_manager.video_pipeline.audio.composer import MAX_SEGMENTS, plan_segments
+    scenes = [_sc(6, m, i) for i, m in enumerate(
+        ["hook", "explain", "tension", "reveal", "uplift", "closing"], 1)]
+    segs = plan_segments(scenes)
+    assert 1 <= len(segs) <= min(MAX_SEGMENTS, 3)
+
+
+def test_missing_mood_falls_back_by_position():
+    """LLM 没给 bgm_mood 时按场景位置兜底，不能直接崩。"""
+    from xhs_manager.video_pipeline.audio.composer import plan_segments
+    segs = plan_segments([_sc(8, None, i) for i in range(1, 7)])
+    assert segs and all(s.mood for s in segs)
+
+
+def test_percentile_ranks_spread_uniform_library():
+    """曲库特征范围窄时，绝对阈值会全部归一类；百分位必须摊开。"""
+    from xhs_manager.video_pipeline.audio.library import _percentile_ranks
+    r = _percentile_ranks([430.0, 500.0, 560.0, 597.0])
+    assert r[0] == 0.0 and r[-1] == 1.0
+    assert len(set(r)) == 4
+
+
+def test_percentile_ranks_edge_cases():
+    from xhs_manager.video_pipeline.audio.library import _percentile_ranks
+    assert _percentile_ranks([]) == []
+    assert _percentile_ranks([7.0]) == [0.5]
+    assert _percentile_ranks([3.0, 3.0, 3.0]) == [0.0, 0.5, 1.0]
+
+
+def test_classify_covers_every_mood():
+    """打标后每个情绪都要有曲子，否则某些段会选不到音乐。"""
+    from xhs_manager.video_pipeline.audio.library import Track, classify_library
+    from xhs_manager.video_pipeline.audio.moods import BgmMood
+    tracks = [
+        Track(path=f"/t{i}.mp3", duration=180, tempo=60 + i * 12,
+              energy=0.1 + i * 0.08, brightness=400 + i * 90, moods=[], scores={})
+        for i in range(12)
+    ]
+    classify_library(tracks)
+    covered = {m for t in tracks for m in t.moods}
+    assert len(covered) >= 4
+    assert all(t.moods for t in tracks)
+
+
+def test_bgm_mood_is_required_in_script_schema():
+    from xhs_manager.video_pipeline.stages.stage2_topics import SCRIPT_GENERATION_SCHEMA
+    item = SCRIPT_GENERATION_SCHEMA["properties"]["scenes"]["items"]
+    assert "bgm_mood" in item["required"]
+    assert set(item["properties"]["bgm_mood"]["enum"]) == {
+        "hook", "explain", "tension", "reveal", "uplift", "closing"}

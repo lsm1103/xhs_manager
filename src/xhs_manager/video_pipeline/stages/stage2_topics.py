@@ -125,6 +125,11 @@ SCRIPT_GENERATION_SCHEMA: dict[str, Any] = {
                         ],
                     },
                     "narration": {"type": "string", "description": "旁白文本"},
+                    "bgm_mood": {
+                        "type": "string",
+                        "enum": ["hook", "explain", "tension", "reveal", "uplift", "closing"],
+                        "description": "本场景的背景音乐情绪",
+                    },
                     "material_hints": {
                         "type": "array",
                         "items": {"type": "string"},
@@ -134,7 +139,7 @@ SCRIPT_GENERATION_SCHEMA: dict[str, Any] = {
                 "required": [
                     "scene_id", "order", "duration",
                     "visual_desc", "text_overlay",
-                    "transition", "narration", "material_hints",
+                    "transition", "narration", "material_hints", "bgm_mood",
                 ],
                 "additionalProperties": False,
             },
@@ -223,7 +228,11 @@ SCRIPT_SYSTEM_PROMPT = """\
    禁用 close-up face / portrait / headshot / person smiling 这类词；
    改用 wide shot / crowd / silhouette / hands typing / over the shoulder /
    back view / blurred background people 等看不清脸的表达。
-7. 为每个平台生成适配的标题和标签"""
+7. **每个场景标注 bgm_mood**，按该段的叙事功能选：
+   hook=开场悬念 / explain=平稳讲解 / tension=问题矛盾 /
+   reveal=数据揭示或转折 / uplift=积极展望 / closing=收尾总结
+   相邻场景情绪相同就用同一个，音乐会自动合并成一段，不要频繁切换
+8. 为每个平台生成适配的标题和标签"""
 
 
 # ── 主入口 ────────────────────────────────────────────────────────

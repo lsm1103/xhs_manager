@@ -99,7 +99,10 @@ def render_videos(
 
             if not output_path:
                 # HTML 渲染路径
-                output_path = _render_html_to_mp4(comp, render, settings)
+                output_path = _render_html_to_mp4(
+                    comp, render, settings,
+                    scenes=list(script.scenes) if script else None,
+                )
 
             if output_path and output_path.exists():
                 render_time = time.monotonic() - start_time
@@ -157,6 +160,7 @@ def _render_html_to_mp4(
     comp: VideoComposition,
     render: VideoRender,
     settings: VideoPipelineSettings,
+    scenes: list[dict[str, Any]] | None = None,
 ) -> Path | None:
     """用 Playwright + ffmpeg 把 HTML 组合渲染成 MP4。"""
     from xhs_manager.video_pipeline.integrations.renderer import HtmlVideoRenderer
@@ -172,11 +176,9 @@ def _render_html_to_mp4(
         logger.error("渲染环境不可用（缺 playwright / Chrome / ffmpeg）")
         return None
 
-    # 整篇旁白作为音轨
-    audio_path = None
-    for cand in comp_dir.glob("assets/*narration*.mp3"):
-        audio_path = cand
-        break
+    # 音轨：优先用「分段 BGM + 旁白 ducking」的混音，退化为裸旁白
+    narration = next(iter(comp_dir.glob("assets/*narration*.mp3")), None)
+    audio_path = _build_soundtrack(comp, scenes, narration, settings) or narration
 
     return renderer.render(
         html_path=Path(comp.html_path),
@@ -184,6 +186,46 @@ def _render_html_to_mp4(
         duration=comp.total_duration,
         audio_path=audio_path,
     )
+
+
+
+def _build_soundtrack(
+    comp: VideoComposition,
+    scenes: list[dict[str, Any]] | None,
+    narration: Path | None,
+    settings: VideoPipelineSettings,
+) -> Path | None:
+    """按场景情绪生成分段 BGM 并与旁白混音。失败返回 None（回落到裸旁白）。"""
+    if not settings.bgm_enabled or not scenes:
+        return None
+
+    from xhs_manager.video_pipeline.audio.composer import compose_soundtrack
+    from xhs_manager.video_pipeline.audio.library import MusicLibrary
+
+    try:
+        lib = MusicLibrary(
+            dirs=[Path(d) for d in settings.bgm_dirs],
+            cache_path=Path(settings.bgm_index_path),
+        )
+        if lib.load() == 0:
+            logger.warning("曲库为空，跳过 BGM")
+            return None
+
+        out, segs = compose_soundtrack(
+            scenes=scenes, library=lib,
+            work_dir=Path(comp.composition_dir) / "audio",
+            total_duration=float(comp.total_duration),
+            narration_path=narration,
+        )
+        if out:
+            logger.info(
+                "配乐完成: %d 段 (%s)",
+                len(segs), " → ".join(s.mood.value for s in segs),
+            )
+        return out
+    except Exception as e:
+        logger.warning("配乐失败，回落到裸旁白: %s", e)
+        return None
 
 
 def _generate_covers(

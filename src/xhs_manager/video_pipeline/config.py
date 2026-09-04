@@ -57,6 +57,15 @@ class VideoPipelineSettings(BaseSettings):
     tts_voice: str = "zh-CN-XiaoxiaoNeural"     # 默认中文女声
     tts_rate: str = "+10%"                      # 语速
 
+    # ── 背景音乐 ──
+    bgm_enabled: bool = True
+    # 曲库目录，逗号分隔。默认用 MoneyPrinterTurbo 自带的 29 首
+    bgm_dirs: list[str] = Field(default_factory=lambda: [
+        "/Users/xm/Desktop/xm_project/code/ai_agent_project/MoneyPrinterTurbo/resource/songs",
+        "data/bgm",
+    ])
+    bgm_index_path: str = "data/video_pipeline/bgm_index.json"
+
     # ── 渲染 ──
     render_fps: int = 30
     render_resolution: str = "1080x1920"        # 竖版
