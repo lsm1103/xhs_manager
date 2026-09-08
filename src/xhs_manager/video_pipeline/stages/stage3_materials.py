@@ -186,7 +186,7 @@ def _collect_via_moneyprinter(
     )
 
     if search_result["success"] and search_result.get("materials"):
-        mpt_materials = search_result["materials"]
+        mpt_materials = _reject_portrait_materials(search_result["materials"])
         scenes = script.scenes
 
         # 分配素材到各场景。素材不足时循环复用，
@@ -274,63 +274,142 @@ def _collect_via_moneyprinter(
 
 
 
-# ── 肖像权硬过滤 ──────────────────────────────────────────────────
-# Pexels 的免版权授权覆盖的是拍摄者著作权，**不覆盖被拍摄者的肖像权**。
-# 公开发布时可辨识的人脸有侵权风险（2026-09-04 已因此下架过一条视频）。
-# LLM prompt 里的约束是软的，这里再做一道硬过滤。
+# ── 肖像权防御：搜索词层 ──────────────────────────────────────────
+# Pexels 的免版权授权覆盖拍摄者著作权，**不覆盖被拍摄者的肖像权**。
+# 公开发布可辨识的人脸有侵权风险（2026-09-04 已因此下架过一条视频）。
+#
+# 这一层的职责是**降低搜出人脸素材的概率**，不是保证合规。
+# 保证合规的是 `portrait_guard` 的结果侧人脸检测——因为搜索词和 Pexels
+# 返回什么之间没有可靠映射：下架那条片子的词是 "office worker desk computer"，
+# 完全正常，返回的却是店员的清晰正脸。词表拦不住这种情况，也不该拦。
+#
+# 设计换过一次：原来是枚举「危险短语」（close-up face / person smiling …）。
+# 枚举开放集合必然漏——"young woman looking into camera" 就不在表里。
+# 改成检测**人物主体词**：人物名词是封闭集合，覆盖率高得多。
 
-# 命中即改写：这些词会检索出可辨识的人脸
-_PORTRAIT_RISK_TERMS = (
-    "close-up face", "closeup face", "close up face",
-    "face close", "portrait", "headshot", "head shot",
-    "facial expression", "person smiling", "man smiling", "woman smiling",
-    "person looking at camera", "selfie", "face camera",
-)
-# 单独出现也算风险的词（需配合人物上下文判断）
-_RISK_WORDS = ("portrait", "headshot", "selfie")
+# 以人为主体的名词。命中说明这个词会让 Pexels 返回以真人为画面主体的素材。
+#
+# 注意 crowd / audience 故意**不在**表里：无法辨识个人的远景人群是允许的素材，
+# 删掉它们等于砍掉一种正当表达。这类词命中人脸的概率确实高，
+# 但那正是结果侧检测该管的事。
+_PERSON_SUBJECTS = frozenset("""
+person persons people human humans someone somebody
+man men woman women guy guys girl girls boy boys lady ladies
+kid kids child children baby babies teenager adult elderly senior
+worker workers employee employees staff colleague colleagues
+customer customers client clients student students teacher teachers
+doctor nurse engineer developer programmer designer manager boss
+scientist researcher analyst chef waiter waitress barista cashier
+businessman businesswoman entrepreneur freelancer artist athlete
+team group family friends couple
+model models actor actress
+""".split())
 
-# 安全替换：保留语义但看不清脸
-_SAFE_REWRITES = {
-    "close-up face": "over the shoulder view",
-    "closeup face": "over the shoulder view",
-    "close up face": "over the shoulder view",
-    "face close": "wide shot people",
-    "portrait": "wide shot silhouette",
-    "headshot": "wide shot silhouette",
-    "head shot": "wide shot silhouette",
-    "facial expression": "body language wide shot",
-    "person smiling": "people walking wide shot",
-    "man smiling": "people walking wide shot",
-    "woman smiling": "people walking wide shot",
-    "person looking at camera": "person back view",
-    "selfie": "hands holding phone",
-    "face camera": "crowd wide shot",
+# 直接指向面部的线索词。不是名词主体，但同样会拉来人脸画面。
+_FACE_CUES = frozenset("""
+face faces facial headshot headshots portrait portraits selfie selfies
+smiling smile smiles eyes expression expressions
+""".split())
+
+# 多词短语要先处理，否则拆成单词后语义就没了
+_RISKY_PHRASES = {
+    "looking at camera": "",
+    "looking into camera": "",
+    "close up": "close-up",
+    "close-up shot": "close-up",
 }
+
+# 删掉人物词后残留的虚词。"portrait of a scientist" 去掉人物词会剩下
+# "of a"，这种残渣对 Pexels 检索毫无价值，只会稀释真正的关键词。
+_STOPWORDS = frozenset("""
+a an the of at in on to with and or for from by is are was were
+his her their its my your our that this these those
+""".split())
+
+# 人物词被删光后如果剩不下东西，用它兜底：
+# 手部画面既能表达"有人在做事"，又没有肖像权问题。
+_FALLBACK_SUBJECT = "hands"
 
 
 def sanitize_search_term(term: str) -> tuple[str, bool]:
-    """把有肖像权风险的搜索词改写成安全等价物。
+    """把以人为主体的搜索词改写成不以人为主体的等价物。
+
+    策略是**删除**人物主体词而不是替换成另一个近似词。
+    原来的替换表里 "person smiling" → "people walking wide shot"、
+    "portrait" → "wide shot silhouette"，替换结果本身仍然是拍人的词，
+    照样能返回清晰正脸——等于没改。删掉之后剩下的物件/场景词才是安全的。
 
     Returns:
         (改写后的词, 是否发生了改写)
     """
-    low = term.lower()
+    low = term.lower().strip()
     changed = False
-    for risky in _PORTRAIT_RISK_TERMS:
-        if risky in low:
-            safe = _SAFE_REWRITES.get(risky, "wide shot")
-            low = low.replace(risky, safe)
+
+    for phrase, repl in _RISKY_PHRASES.items():
+        if phrase in low:
+            low = low.replace(phrase, repl)
             changed = True
-    if not changed:
-        # 单词级兜底：portrait/headshot/selfie 单独出现
-        parts = low.split()
-        for i, w in enumerate(parts):
-            if w.strip(",.") in _RISK_WORDS:
-                parts[i] = "wide"
-                changed = True
-        if changed:
-            low = " ".join(parts)
-    return (low.strip(), changed)
+
+    tokens = []
+    for raw in low.split():
+        w = raw.strip(",.;:!?\"'()")
+        if not w:
+            continue
+        if w in _PERSON_SUBJECTS or w in _FACE_CUES:
+            changed = True
+            continue
+        tokens.append(w)
+
+    # 只在真的删过人物词时才清停用词。没改写的词原样返回，
+    # 避免对本来就合规的搜索词做无谓改动。
+    kept = [w for w in tokens if w not in _STOPWORDS] if changed else tokens
+
+    # 删完只剩零星修饰词（"office desk" 还行，"close-up" 就没法搜了），补个安全主体
+    if changed and len(kept) < 2:
+        kept.append(_FALLBACK_SUBJECT)
+
+    return (" ".join(kept).strip(), changed)
+
+
+# ── 肖像权防御：结果侧 ────────────────────────────────────────────
+
+
+def _reject_portrait_materials(materials: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """对已下载的素材做人脸检测，可辨识的直接剔除。
+
+    这是唯一能兜住「无辜搜索词返回人脸画面」的一层，所以不设开关。
+    全被剔除时返回空列表，上层会降级到 Pixelle 生成或文字卡片——
+    宁可画面朴素，也不能带着可辨识人脸发出去。
+    """
+    from xhs_manager.video_pipeline import portrait_guard
+
+    ok, why = portrait_guard.available()
+    if not ok:
+        logger.error(
+            "人脸检测不可用（%s），按肖像权红线拒收全部 %d 个素材。"
+            "修好检测器再跑，否则只能出文字卡片视频。",
+            why, len(materials),
+        )
+        return []
+
+    kept: list[dict[str, Any]] = []
+    for m in materials:
+        path = Path(m.get("path", ""))
+        if not path.exists():
+            continue
+        scan = portrait_guard.scan(path)
+        if scan.rejected:
+            logger.warning("素材因肖像权被剔除: %s — %s", path.name, scan.detail)
+            continue
+        kept.append(m)
+
+    if len(kept) < len(materials):
+        logger.info(
+            "肖像权过滤: %d 个素材通过，%d 个被剔除",
+            len(kept), len(materials) - len(kept),
+        )
+    return kept
+
 
 
 def _search_terms_for_scene(scene: dict[str, Any]) -> list[str]:

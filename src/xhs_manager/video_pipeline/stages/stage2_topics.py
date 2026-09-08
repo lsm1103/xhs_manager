@@ -224,10 +224,17 @@ SCRIPT_SYSTEM_PROMPT = """\
 3. 转场效果要多样但不花哨
 4. 旁白要口语化，适合 TTS 朗读
 5. material_hints **每个场景至少一条 "search:英文关键词"**（用于 Pexels 素材检索，必须是英文、2-5 个词的具体画面），可另加 "gen:英文生图描述"
-6. **肖像权红线**：素材关键词绝不能索取可辨识个人的面部特写。
-   禁用 close-up face / portrait / headshot / person smiling 这类词；
-   改用 wide shot / crowd / silhouette / hands typing / over the shoulder /
-   back view / blurred background people 等看不清脸的表达。
+6. **肖像权红线**：素材关键词的主体必须是**物、场景或抽象视觉**，人不能是画面主体。
+   注意这不只是"别写特写词"。下架过的反面例子是这两个词：
+     `office worker desk computer`、`person ordering menu counter`
+   词本身完全正常，但搜出来必然是真人正脸中景——只要主体是人就会出事。
+   要表达"人在做某事"，就换成人的**局部**或人**用的东西**：
+     office worker desk computer   →  laptop screen desk office
+     person ordering menu counter  →  hands writing order notepad
+   允许：hands / back view / silhouette / 无法辨识个人的远景人群(crowd)
+   禁止：portrait / headshot / selfie / close-up face，
+        以及任何以身份或职业指代人的词（person / worker / student / scientist / chef…）
+   另外 over the shoulder **不是**安全表达，它照样能拍到对面人的正脸。
 7. **每个场景标注 bgm_mood**，按该段的叙事功能选：
    hook=开场悬念 / explain=平稳讲解 / tension=问题矛盾 /
    reveal=数据揭示或转折 / uplift=积极展望 / closing=收尾总结

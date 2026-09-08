@@ -305,7 +305,11 @@ def test_scene_terms_skip_chinese_desc_when_no_hints():
 
 def test_scene_terms_use_ascii_desc_when_no_hints():
     from xhs_manager.video_pipeline.stages.stage3_materials import _search_terms_for_scene
-    assert _search_terms_for_scene({"visual_desc": "person typing on laptop"}) == ["person typing on laptop"]
+    # 样例故意不含人物词：visual_desc 也要过肖像权改写，
+    # 用"person typing on laptop"会被正确改写成"typing laptop"，测不出这条的本意
+    assert _search_terms_for_scene(
+        {"visual_desc": "keyboard and laptop on desk"}
+    ) == ["keyboard and laptop on desk"]
 
 
 # ── 断点续跑 ──────────────────────────────────────────────────────
@@ -591,3 +595,97 @@ def test_bgm_mood_is_required_in_script_schema():
     assert "bgm_mood" in item["required"]
     assert set(item["properties"]["bgm_mood"]["enum"]) == {
         "hook", "explain", "tension", "reveal", "uplift", "closing"}
+
+
+# ── 肖像权：结果侧检测 ────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("innocent", [
+    "office worker desk computer",
+    "person ordering menu counter",
+])
+def test_person_subject_terms_are_rewritten(innocent):
+    """回归：这两个词就是 2026-09-04 下架那条片子用的。
+
+    它们不含任何"特写"字眼，旧的危险短语黑名单完全放行，
+    但主体是人，Pexels 必然返回真人正脸中景。
+    """
+    from xhs_manager.video_pipeline.stages.stage3_materials import sanitize_search_term
+    out, changed = sanitize_search_term(innocent)
+    assert changed is True
+    assert "worker" not in out and "person" not in out
+    assert out.strip()          # 不能改写成空串，否则这个场景就没素材了
+
+
+@pytest.mark.parametrize("term,gone", [
+    ("young woman looking into camera", "woman"),
+    ("chef cooking kitchen", "chef"),
+    ("students studying library", "students"),
+])
+def test_identity_words_are_stripped(term, gone):
+    from xhs_manager.video_pipeline.stages.stage3_materials import sanitize_search_term
+    out, changed = sanitize_search_term(term)
+    assert changed is True and gone not in out
+
+
+def test_crowd_and_silhouette_are_allowed():
+    """无法辨识个人的远景人群是允许的素材，不能被词层砍掉。"""
+    from xhs_manager.video_pipeline.stages.stage3_materials import sanitize_search_term
+    out, changed = sanitize_search_term("crowd wide shot silhouette")
+    assert changed is False and out == "crowd wide shot silhouette"
+
+
+def test_rewrite_drops_leftover_stopwords():
+    """删掉人物词后不能留下 "of a" 这种对检索无用的残渣。"""
+    from xhs_manager.video_pipeline.stages.stage3_materials import sanitize_search_term
+    out, _ = sanitize_search_term("portrait of a scientist")
+    assert "of" not in out.split() and "a" not in out.split()
+
+
+def test_portrait_guard_fails_closed_when_detector_unavailable(monkeypatch, tmp_path):
+    """检测器不可用时必须拒收，而不是放行——放行等于这层不存在。"""
+    from xhs_manager.video_pipeline import portrait_guard
+    monkeypatch.setattr(portrait_guard, "available", lambda: (False, "模型缺失"))
+    f = tmp_path / "clip.mp4"
+    f.write_bytes(b"x")
+    assert portrait_guard.scan_video(f).rejected is True
+    assert portrait_guard.scan_image(tmp_path / "x.jpg").rejected is True
+
+
+def test_reject_portrait_materials_empty_when_detector_unavailable(monkeypatch):
+    from xhs_manager.video_pipeline import portrait_guard
+    from xhs_manager.video_pipeline.stages import stage3_materials
+    monkeypatch.setattr(portrait_guard, "available", lambda: (False, "模型缺失"))
+    out = stage3_materials._reject_portrait_materials([{"path": "/tmp/a.mp4"}])
+    assert out == []
+
+
+def test_reject_portrait_materials_drops_flagged(monkeypatch, tmp_path):
+    from xhs_manager.video_pipeline import portrait_guard
+    from xhs_manager.video_pipeline.stages import stage3_materials
+
+    good = tmp_path / "good.mp4"; good.write_bytes(b"x")
+    bad = tmp_path / "bad.mp4"; bad.write_bytes(b"x")
+
+    monkeypatch.setattr(portrait_guard, "available", lambda: (True, ""))
+    monkeypatch.setattr(
+        portrait_guard, "scan",
+        lambda p: portrait_guard.FaceScan(rejected=str(p).endswith("bad.mp4")),
+    )
+    out = stage3_materials._reject_portrait_materials(
+        [{"path": str(good)}, {"path": str(bad)}]
+    )
+    assert [m["path"] for m in out] == [str(good)]
+
+
+def test_face_width_threshold_is_below_observed_violation():
+    """阈值必须低于实测的违规值（下架那条片子脸宽 11-15%），否则拦不住。"""
+    from xhs_manager.video_pipeline.portrait_guard import MAX_FACE_WIDTH_RATIO
+    assert 0 < MAX_FACE_WIDTH_RATIO <= 0.08
+
+
+def test_stage2_prompt_forbids_person_as_subject():
+    """prompt 不能只禁特写词，必须禁"以人为主体"。"""
+    from xhs_manager.video_pipeline.stages.stage2_topics import SCRIPT_SYSTEM_PROMPT
+    assert "人不能是画面主体" in SCRIPT_SYSTEM_PROMPT
+    assert "office worker desk computer" in SCRIPT_SYSTEM_PROMPT
