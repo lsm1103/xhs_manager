@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TTS Studio</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>TTS Studio</h1>
+  <nav class="tabs">
+    <button class="tab active" data-tab="gen">生成</button>
+    <button class="tab" data-tab="models">模型</button>
+    <button class="tab" data-tab="history">历史</button>
+    <a class="tab link" href="/compare" target="_blank">A/B 对比 ↗</a>
+  </nav>
+</header>
+
+<main>
+  <!-- ── 生成 ── -->
+  <section id="tab-gen" class="panel active">
+    <div class="row">
+      <label>模型</label>
+      <select id="g-model"></select>
+      <span id="g-model-state" class="pill"></span>
+    </div>
+    <p id="g-note" class="note"></p>
+
+    <div class="row" id="row-voice" hidden>
+      <label>预置音色</label>
+      <select id="g-voice"></select>
+    </div>
+
+    <div class="row" id="row-ref" hidden>
+      <label>参考音色</label>
+      <select id="g-ref"></select>
+      <input type="file" id="g-upload" accept="audio/*" hidden>
+      <button class="mini" onclick="document.getElementById('g-upload').click()">上传</button>
+      <audio id="g-ref-play" controls hidden></audio>
+    </div>
+
+    <div class="row" id="row-emotion" hidden>
+      <label>情感</label>
+      <div class="grow">
+        <input id="g-emotion" placeholder="如 happy 或 happy:0.7,calm:0.3">
+        <div id="emo-chips" class="chips"></div>
+      </div>
+    </div>
+
+    <div class="row" id="row-alpha" hidden>
+      <label>情感强度</label>
+      <input type="range" id="g-alpha" min="0" max="1.2" step="0.1" value="0.6">
+      <span id="alpha-val" class="mono">0.6</span>
+    </div>
+
+    <div class="row" id="row-instruct" hidden>
+      <label>音色指令</label>
+      <input id="g-instruct" placeholder="如：语气轻快，有感染力的女声">
+    </div>
+
+    <div class="row">
+      <label>文本</label>
+      <textarea id="g-text" rows="5" placeholder="输入要合成的文本…"></textarea>
+    </div>
+
+    <div class="row">
+      <label></label>
+      <button id="g-run" class="primary">生成</button>
+      <span id="g-status" class="status"></span>
+    </div>
+
+    <div id="g-result"></div>
+  </section>
+
+  <!-- ── 模型 ── -->
+  <section id="tab-models" class="panel">
+    <p class="note">
+      <b>常驻</b>的模型加载后留在内存，之后每次生成免去重复加载；
+      非常驻的「加载」只是可用性检查（CLI 每次自行加载）。
+    </p>
+    <div id="model-list"></div>
+  </section>
+
+  <!-- ── 历史 ── -->
+  <section id="tab-history" class="panel">
+    <div class="row">
+      <label>筛选</label>
+      <select id="h-filter"><option value="">全部模型</option></select>
+      <button class="mini" onclick="loadHistory()">刷新</button>
+    </div>
+    <div id="history-list"></div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
