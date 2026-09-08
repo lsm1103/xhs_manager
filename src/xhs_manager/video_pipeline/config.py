@@ -59,11 +59,12 @@ class VideoPipelineSettings(BaseSettings):
 
     # ── 背景音乐 ──
     bgm_enabled: bool = True
-    # 曲库目录，逗号分隔。默认用 MoneyPrinterTurbo 自带的 29 首
-    bgm_dirs: list[str] = Field(default_factory=lambda: [
-        "/Users/xm/Desktop/xm_project/code/ai_agent_project/MoneyPrinterTurbo/resource/songs",
-        "data/bgm",
-    ])
+    # 曲库目录，逗号分隔。
+    # 不再用 MoneyPrinterTurbo 自带的 29 首：那批谱心全在 430-597Hz、
+    # energy 0.53-0.65，是同一个低沉氛围风格包，出不了科技感。
+    # 而且情绪分类走的是**库内百分位**，两个风格混在一个库里会互相稀释——
+    # 科技风的曲子在混合库里未必排得进对应情绪的区间。曲库要保持风格单一。
+    bgm_dirs: list[str] = Field(default_factory=lambda: ["data/bgm"])
     bgm_index_path: str = "data/video_pipeline/bgm_index.json"
 
     # ── 渲染 ──
