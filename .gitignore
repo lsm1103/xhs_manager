@@ -14,3 +14,14 @@ data/backups/*
 !data/backups/.gitkeep
 
 .DS_Store
+
+# ── 生成产物（体积大、可重新生成，不进版本库）──
+# 视频流水线：素材、成片、封面、音轨、曲库索引
+data/video_pipeline/
+# TTS Studio：生成的音频、上传的参考音色、SQLite
+data/tts_studio/
+# TTS A/B 对比样本（index.html 是手写的，单独保留）
+data/tts_compare/*
+!data/tts_compare/index.html
+# BGM 曲库（音乐文件自行准备）
+data/bgm/

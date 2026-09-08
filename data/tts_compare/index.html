@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>TTS 方案 A/B 对比</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font:15px/1.7 -apple-system,"PingFang SC",sans-serif;background:#f6f7f9;color:#1a1a1a;padding:32px 20px}
+  .wrap{max-width:860px;margin:0 auto}
+  h1{font-size:22px;margin-bottom:6px}
+  .sub{color:#666;font-size:13px;margin-bottom:22px}
+  .text{background:#fff;border-left:3px solid #667eea;padding:14px 18px;border-radius:6px;
+        color:#444;font-size:14px;margin-bottom:26px}
+  .card{background:#fff;border-radius:10px;padding:18px 20px;margin-bottom:14px;
+        box-shadow:0 1px 3px rgba(0,0,0,.07)}
+  .card.base{border-left:3px solid #999}
+  .card.pick{border-left:3px solid #667eea}
+  .hd{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .name{font-weight:600;font-size:16px}
+  .tag{font-size:11px;padding:2px 8px;border-radius:10px;background:#eef;color:#556}
+  .tag.slow{background:#fee;color:#c33}
+  .tag.fast{background:#efe;color:#282}
+  audio{width:100%;height:36px;margin:6px 0}
+  .meta{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:#777;margin-top:8px}
+  .meta b{color:#333;font-weight:600}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;
+        overflow:hidden;margin-top:26px;font-size:13px}
+  th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #eee}
+  th{background:#fafafa;font-weight:600;color:#555}
+  td.num{font-variant-numeric:tabular-nums}
+  .note{margin-top:22px;padding:14px 18px;background:#fffbe6;border-left:3px solid #f0c14b;
+        border-radius:6px;font-size:13px;color:#665}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>TTS 方案 A/B 对比</h1>
+  <div class="sub">同一段 140 字中文 · 实测于 Apple M5 / 16GB</div>
+
+  <div class="text">
+    每天花两小时跟 AI 聊天，结果全丢在聊天记录里。问题不在模型不够强，而在于你每次都从零开始描述需求。
+    把重复任务压缩成四个问题：输入是什么，分几步做，怎么算合格，结果存哪。
+    回答清楚这四个问题，同样的活儿从两小时压到十五分钟。更重要的是，这套流程写一次就能一直用，不用每次重新解释。
+  </div>
+
+  <div class="card base">
+    <div class="hd"><span class="name">Edge TTS（当前方案）</span>
+      <span class="tag fast">RTF 0.074 · 最快</span></div>
+    <audio controls preload="none" src="edge_当前方案.mp3"></audio>
+    <div class="meta"><span>音频 <b>29.7s</b></span><span>耗时 <b>2.2s</b></span>
+      <span>采样率 <b>24kHz</b></span><span>音色 <b>zh-CN-XiaoxiaoNeural</b></span>
+      <span>情绪控制 <b>无</b></span></div>
+  </div>
+
+  <div class="card pick">
+    <div class="hd"><span class="name">VoxCPM2 · 纯合成</span>
+      <span class="tag slow">RTF 2.616 · 慢 35×</span></div>
+    <audio controls preload="none" src="voxcpm2_纯合成.mp3"></audio>
+    <div class="meta"><span>音频 <b>30.9s</b></span><span>耗时 <b>80.8s</b></span>
+      <span>采样率 <b>48kHz</b></span><span>许可 <b>Apache-2.0</b></span></div>
+  </div>
+
+  <div class="card pick">
+    <div class="hd"><span class="name">VoxCPM2 · 情绪指令</span>
+      <span class="tag slow">RTF 2.593</span></div>
+    <audio controls preload="none" src="voxcpm2_情绪指令.mp3"></audio>
+    <div class="meta"><span>音频 <b>23.7s</b></span><span>耗时 <b>61.4s</b></span>
+      <span>指令 <b>(语气轻快，有感染力的女声)</b></span></div>
+  </div>
+
+  <div class="card pick">
+    <div class="hd"><span class="name">IndexTTS-2 · 克隆</span>
+      <span class="tag slow">RTF 4.016 · 慢 54×</span></div>
+    <audio controls preload="none" src="indextts2_克隆.mp3"></audio>
+    <div class="meta"><span>音频 <b>28.3s</b></span><span>耗时 <b>113.7s</b></span>
+      <span>采样率 <b>22.05kHz</b></span>
+      <span>分解 <b>GPT 48.6s + S2Mel 27.5s + BigVGAN 25.3s</b></span></div>
+  </div>
+
+  <div class="card pick">
+    <div class="hd"><span class="name">IndexTTS-2 · 情绪</span>
+      <span class="tag slow">RTF 3.692</span></div>
+    <audio controls preload="none" src="indextts2_情绪.mp3"></audio>
+    <div class="meta"><span>音频 <b>27.6s</b></span><span>耗时 <b>102.1s</b></span>
+      <span>参数 <b>happy:0.7,calm:0.3 · emo-alpha 0.6</b></span></div>
+  </div>
+
+  <table>
+    <tr><th>能力</th><th>Edge TTS</th><th>VoxCPM2</th><th>IndexTTS-2</th></tr>
+    <tr><td>RTF（越小越快）</td><td class="num">0.074</td><td class="num">2.616</td><td class="num">4.016</td></tr>
+    <tr><td>预置音色</td><td>14 个固定</td><td>无</td><td>无</td></tr>
+    <tr><td>克隆自己的声音</td><td>❌</td><td>✅</td><td>✅ 必须给参考音频</td></tr>
+    <tr><td>情绪控制</td><td>❌</td><td>✅ 自然语言指令</td><td>✅ 8 维加权混合</td></tr>
+    <tr><td>采样率</td><td>24kHz</td><td>48kHz</td><td>22.05kHz</td></tr>
+    <tr><td>磁盘占用</td><td>0</td><td>2.4GB</td><td>6.4GB</td></tr>
+    <tr><td>许可证</td><td>免费</td><td>Apache-2.0</td><td>B站协议（可商用）</td></tr>
+  </table>
+
+  <div class="note">
+    <b>试听时请注意：</b>IndexTTS-2 的两个样本是拿 Edge 生成的音频当参考克隆的（为了公平对比），
+    所以音色接近晓晓。它真正的价值要用<b>你自己的录音</b>当参考才能体现。<br><br>
+    <b>官方数字都不成立：</b>VoxCPM2 官方称 M4 Pro 上 RTF 1.76（实测 2.616），
+    IndexTTS-2 README 称 M2 Max 上 RTF 0.5（实测 4.016，<b>差 8 倍</b>）。
+    你的 M5 是标准版，内存带宽不及 Pro/Max 系列。
+  </div>
+</div>
+</body>
+</html>
