@@ -1,5 +1,6 @@
 """BGM 分段配乐 —— 把场景情绪合并成乐段，选曲、裁剪、交叉淡化、与旁白混音。"""
 
+import json
 import logging
 import subprocess
 from dataclasses import dataclass
@@ -119,9 +120,18 @@ def _consolidate(segs: list[BgmSegment]) -> list[BgmSegment]:
     return segs
 
 
-def assign_tracks(segments: list[BgmSegment], library: MusicLibrary) -> list[BgmSegment]:
-    """给每个乐段选曲，同一视频内尽量不重复。"""
-    used: set[str] = set()
+def assign_tracks(
+    segments: list[BgmSegment],
+    library: MusicLibrary,
+    avoid: Optional[set[str]] = None,
+) -> list[BgmSegment]:
+    """给每个乐段选曲，同一视频内不重复，并避开 avoid 里最近用过的曲子。
+
+    avoid 是跨视频的：一条片子只有两三个乐段，就算选曲已经是加权随机，
+    连着几条还是容易撞上同一首。把最近用过的先排除掉，
+    排除完没得选时再退回全库——宁可重复也不能没有音乐。
+    """
+    used: set[str] = set(avoid or ())
     for seg in segments:
         # 留出 crossfade 的余量
         need = seg.duration + CROSSFADE_S * 2
@@ -132,6 +142,41 @@ def assign_tracks(segments: list[BgmSegment], library: MusicLibrary) -> list[Bgm
         else:
             logger.warning("乐段 %s 未选到曲子", seg.mood.value)
     return segments
+
+
+# 跨视频记忆的曲目数。太小挡不住重复，太大会把小曲库掏空。
+RECENT_MEMORY = 12
+
+
+def _load_recent(path: Optional[Path]) -> set[str]:
+    if not path or not path.exists():
+        return set()
+    try:
+        return set(json.loads(path.read_text(encoding="utf-8")).get("recent", []))
+    except Exception as e:
+        logger.warning("最近曲目读取失败，忽略: %s", e)
+        return set()
+
+
+def _save_recent(path: Optional[Path], picked: list[str]) -> None:
+    if not path:
+        return
+    old = []
+    if path.exists():
+        try:
+            old = json.loads(path.read_text(encoding="utf-8")).get("recent", [])
+        except Exception:
+            old = []
+    # 新的排前面，去重后截断
+    merged: list[str] = []
+    for x in picked + old:
+        if x not in merged:
+            merged.append(x)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"recent": merged[:RECENT_MEMORY]}, ensure_ascii=False, indent=1),
+        encoding="utf-8",
+    )
 
 
 def build_bgm_track(
@@ -236,9 +281,16 @@ def compose_soundtrack(
 ) -> tuple[Optional[Path], list[BgmSegment]]:
     """一站式：规划乐段 → 选曲 → 拼 BGM → 与旁白混音。"""
     work_dir.mkdir(parents=True, exist_ok=True)
-    segments = assign_tracks(plan_segments(scenes), library)
+    recent_path = (
+        Path(library.cache_path).with_name("bgm_recent.json")
+        if library.cache_path else None
+    )
+    segments = assign_tracks(
+        plan_segments(scenes), library, avoid=_load_recent(recent_path),
+    )
     if not segments:
         return None, []
+    _save_recent(recent_path, [s.track.path for s in segments if s.track])
 
     bgm = build_bgm_track(segments, work_dir / "bgm_track.m4a", total_duration)
     if not bgm:

@@ -9,6 +9,7 @@ MoneyPrinterTurbo 自带 29 首曲子，文件名是 output000.mp3 这种，
 
 import json
 import logging
+import random
 import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -158,8 +159,20 @@ class MusicLibrary:
         return len(self.tracks)
 
     def pick(self, mood: BgmMood, min_duration: float = 0.0,
-             exclude: Optional[set[str]] = None) -> Optional[Track]:
-        """按情绪选一首。同一条视频内尽量不重复（exclude 传已用过的路径）。"""
+             exclude: Optional[set[str]] = None,
+             rng: "random.Random | None" = None,
+             band: float = 0.88, top_k: int = 6) -> Optional[Track]:
+        """按情绪选一首。同一条视频内尽量不重复（exclude 传已用过的路径）。
+
+        为什么不是取最高分：argmax 是确定性的，同一个情绪永远选中同一首。
+        曲库从 20 首扩到 60 首也救不了——每条片子听到的还是那几首。
+        改成在「最高分的 band 倍以内、最多 top_k 首」里按分数加权随机：
+        质量下限还是分数说了算，但不再钉死在第一名上。
+
+        band 不宜再放宽：0.88 大致意味着"和最佳差距在一成出头以内"，
+        再松就会把明显不搭的曲子放进候选。
+        """
+        rng = rng or random
         exclude = exclude or set()
         cands = [
             t for t in self.tracks
@@ -170,7 +183,15 @@ class MusicLibrary:
             cands = [t for t in self.tracks if t.duration >= min_duration]
         if not cands:
             return None
-        return max(cands, key=lambda t: t.scores.get(mood.value, 0.0))
+
+        cands.sort(key=lambda t: t.scores.get(mood.value, 0.0), reverse=True)
+        best = cands[0].scores.get(mood.value, 0.0)
+        if best <= 0:
+            return cands[0]
+
+        pool = [t for t in cands[:top_k] if t.scores.get(mood.value, 0.0) >= best * band]
+        weights = [t.scores.get(mood.value, 0.0) for t in pool]
+        return rng.choices(pool, weights=weights, k=1)[0]
 
     def stats(self) -> dict[str, int]:
         """每个情绪下的曲目数，用于检查曲库覆盖是否均衡。"""

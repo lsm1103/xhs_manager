@@ -1,6 +1,6 @@
 {
   "title": "程序员失业后的必经四关",
-  "angle": "用自嘲段子讲程序员失业后的转型路径，最后落到铁人三项的反差包袱",
+  "angle": "用自嘲段子讲程序员失业后的转型路径，每一关都给一个具体的翻车细节，最后落到铁人三项的反差包袱",
   "why_now": "裁员话题常年高热，自嘲式内容在技术圈传播力强",
   "target_audience": "互联网从业者、程序员、正在焦虑就业的年轻人",
   "video_type": "commentary",
@@ -9,7 +9,7 @@
     {
       "scene_id": "s01",
       "order": 1,
-      "duration": 7,
+      "duration": 6,
       "visual_desc": "深夜无人的办公室，屏幕蓝光",
       "text_overlay": {
         "main": "讲个扎心的事实",
@@ -24,16 +24,16 @@
     {
       "scene_id": "s02",
       "order": 2,
-      "duration": 4,
+      "duration": 5,
       "visual_desc": "长长的走廊，一道道门",
       "text_overlay": {
         "main": "他会先走完这四关",
-        "sub": "",
+        "sub": "每一关都以为自己找到了新出路",
         "animation": "pop_in"
       },
       "transition": "slide_left",
-      "bgm_mood": "explain",
-      "narration": "他会先走完这四关。",
+      "bgm_mood": "hook",
+      "narration": "他会先走完这四关。每一关，都以为自己找到了新出路。",
       "material_hints": ["search:long corridor neon lights tunnel"]
     },
     {
@@ -43,78 +43,138 @@
       "visual_desc": "笔记本电脑上滚动的代码",
       "text_overlay": {
         "main": "第一关 · 独立开发",
-        "sub": "梦想是睡后收入",
+        "sub": "梦想是睡后收入，从此不用打工",
         "animation": "slide_up"
       },
       "transition": "zoom_in",
       "bgm_mood": "explain",
-      "narration": "第一关，独立开发，梦想是睡后收入。",
+      "narration": "第一关，独立开发。梦想是睡后收入，从此不用打工。",
       "material_hints": ["search:laptop screen source code scrolling"]
     },
     {
       "scene_id": "s04",
       "order": 4,
       "duration": 6,
-      "visual_desc": "仓库里堆满的纸箱",
+      "visual_desc": "一条趴在底部的数据曲线",
       "text_overlay": {
-        "main": "第二关 · 跨境电商",
-        "sub": "库存堆满了客厅",
+        "main": "三个月后，App 上线了",
+        "sub": "日活 2 —— 一个是我，一个是我妈",
         "animation": "slide_up"
       },
-      "transition": "slide_left",
+      "transition": "wipe",
       "bgm_mood": "explain",
-      "narration": "第二关，跨境电商，库存堆满了客厅。",
-      "material_hints": ["search:cardboard boxes stacked warehouse shelves"]
+      "narration": "三个月后，App 上线了。日活两个人，一个是我，一个是我妈。",
+      "material_hints": ["search:analytics dashboard flat line graph screen"]
     },
     {
       "scene_id": "s05",
       "order": 5,
       "duration": 6,
-      "visual_desc": "跳动的红绿K线图",
+      "visual_desc": "港口集装箱与货轮",
       "text_overlay": {
-        "main": "第三关 · 炒股炒币",
-        "sub": "K线比代码还熟",
+        "main": "第二关 · 跨境电商",
+        "sub": "看完三天免费课，感觉自己是下一个首富",
         "animation": "slide_up"
       },
-      "transition": "glitch",
-      "bgm_mood": "tension",
-      "narration": "第三关，炒股炒币，K线看得比代码还熟。",
-      "material_hints": ["search:stock market candlestick chart screen red green"]
+      "transition": "slide_left",
+      "bgm_mood": "explain",
+      "narration": "第二关，跨境电商。看完三天免费课程，感觉自己就是下一个首富。",
+      "material_hints": ["search:cargo container ship port aerial view"]
     },
     {
       "scene_id": "s06",
       "order": 6,
-      "duration": 6,
-      "visual_desc": "手机屏幕上飞快滑动的短视频流",
+      "duration": 7,
+      "visual_desc": "堆满纸箱的仓库",
       "text_overlay": {
-        "main": "第四关 · 做自媒体",
-        "sub": "播放量始终三位数",
+        "main": "结果客厅堆满了库存",
+        "sub": "退货率 40%，运费比货还贵",
         "animation": "slide_up"
       },
-      "transition": "slide_left",
-      "bgm_mood": "tension",
-      "narration": "第四关，做自媒体，播放量始终三位数。",
-      "material_hints": ["search:smartphone screen scrolling social media feed"]
+      "transition": "zoom_out",
+      "bgm_mood": "explain",
+      "narration": "结果客厅堆满了库存，退货率百分之四十，运费比货还贵。",
+      "material_hints": ["search:cardboard boxes stacked warehouse shelves"]
     },
     {
       "scene_id": "s07",
       "order": 7,
-      "duration": 5,
-      "visual_desc": "雨夜空荡的街道",
+      "duration": 6,
+      "visual_desc": "跳动的红绿K线图",
       "text_overlay": {
-        "main": "全部折腾一遍以后",
-        "sub": "",
-        "animation": "highlight"
+        "main": "第三关 · 炒股炒币",
+        "sub": "K线看得比自己写的代码还熟",
+        "animation": "slide_up"
       },
-      "transition": "blur",
-      "bgm_mood": "reveal",
-      "narration": "全部折腾一遍以后，",
-      "material_hints": ["search:empty street rainy night reflection"]
+      "transition": "glitch",
+      "bgm_mood": "tension",
+      "narration": "第三关，炒股炒币。K线看得比自己写的代码还熟。",
+      "material_hints": ["search:stock market candlestick chart screen red green"]
     },
     {
       "scene_id": "s08",
       "order": 8,
-      "duration": 8,
+      "duration": 7,
+      "visual_desc": "一路向下的红色曲线",
+      "text_overlay": {
+        "main": "技术能力确实提升了",
+        "sub": "账户余额也确实归零了",
+        "animation": "highlight"
+      },
+      "transition": "glitch",
+      "bgm_mood": "tension",
+      "narration": "技术能力确实提升了，账户余额也确实归零了。很有技术含量。",
+      "material_hints": ["search:red falling chart crash trading screen"]
+    },
+    {
+      "scene_id": "s09",
+      "order": 9,
+      "duration": 6,
+      "visual_desc": "空对着的相机与补光灯",
+      "text_overlay": {
+        "main": "第四关 · 做自媒体",
+        "sub": "对着镜头讲了三十条",
+        "animation": "slide_up"
+      },
+      "transition": "slide_left",
+      "bgm_mood": "tension",
+      "narration": "第四关，做自媒体。对着镜头，一口气讲了三十条。",
+      "material_hints": ["search:camera lens ring light studio equipment closeup"]
+    },
+    {
+      "scene_id": "s10",
+      "order": 10,
+      "duration": 7,
+      "visual_desc": "手机屏幕上飞快滑动的短视频流",
+      "text_overlay": {
+        "main": "最高播放量 800",
+        "sub": "其中 600，是自己反复刷出来的",
+        "animation": "slide_up"
+      },
+      "transition": "wipe",
+      "bgm_mood": "tension",
+      "narration": "最高播放量八百。其中六百，是自己反复刷出来的。",
+      "material_hints": ["search:smartphone screen scrolling social media feed"]
+    },
+    {
+      "scene_id": "s11",
+      "order": 11,
+      "duration": 7,
+      "visual_desc": "雨夜空荡的街道",
+      "text_overlay": {
+        "main": "全部折腾一遍以后",
+        "sub": "积蓄没了，简历上还空了两年",
+        "animation": "highlight"
+      },
+      "transition": "blur",
+      "bgm_mood": "reveal",
+      "narration": "全部折腾一遍以后，积蓄没了，简历上还空了两年。",
+      "material_hints": ["search:empty street rainy night reflection"]
+    },
+    {
+      "scene_id": "s12",
+      "order": 12,
+      "duration": 7,
       "visual_desc": "城市夜晚车流延时",
       "text_overlay": {
         "main": "才正式解锁：铁人三项",
@@ -122,16 +182,61 @@
         "animation": "pop_in"
       },
       "transition": "zoom_out",
-      "bgm_mood": "uplift",
-      "narration": "才正式解锁：外卖、快递、网约车，铁人三项。",
+      "bgm_mood": "reveal",
+      "narration": "这才正式解锁：外卖、快递、网约车，铁人三项。",
       "material_hints": ["search:city traffic timelapse night light trails"]
+    },
+    {
+      "scene_id": "s13",
+      "order": 13,
+      "duration": 7,
+      "visual_desc": "夜晚街头飞驰而过的车灯",
+      "text_overlay": {
+        "main": "最讽刺的是",
+        "sub": "这是四关里唯一当天干活、当天结算的",
+        "animation": "slide_up"
+      },
+      "transition": "slide_left",
+      "bgm_mood": "uplift",
+      "narration": "最讽刺的是，这是四关里唯一一个，当天干活、当天就能结算的。",
+      "material_hints": ["search:night city street headlights motion blur"]
+    },
+    {
+      "scene_id": "s14",
+      "order": 14,
+      "duration": 6,
+      "visual_desc": "地铁隧道里的运动模糊",
+      "text_overlay": {
+        "main": "所以别急着笑",
+        "sub": "你可能只是还卡在第一关",
+        "animation": "pop_in"
+      },
+      "transition": "blur",
+      "bgm_mood": "uplift",
+      "narration": "所以别急着笑。你可能只是，还卡在第一关。",
+      "material_hints": ["search:subway train tunnel motion blur speed"]
+    },
+    {
+      "scene_id": "s15",
+      "order": 15,
+      "duration": 5,
+      "visual_desc": "深夜键盘特写",
+      "text_overlay": {
+        "main": "你走到第几关了？",
+        "sub": "评论区报个数",
+        "animation": "typewriter"
+      },
+      "transition": "fade",
+      "bgm_mood": "uplift",
+      "narration": "你走到第几关了？评论区报个数。",
+      "material_hints": ["search:mechanical keyboard backlit closeup dark"]
     }
   ],
   "platform_metadata": {
     "xiaohongshu": {
       "title": "程序员失业后，不会直接去送外卖",
-      "desc": "而是先走完：独立开发 → 跨境电商 → 炒股炒币 → 做自媒体。\n全部折腾一遍以后，才正式解锁铁人三项：外卖、快递、网约车。\n\n每一关都以为自己找到了新出路，最后发现只是把积蓄换成了经验。\n你走到第几关了？",
-      "tags": ["程序员", "互联网裁员", "职场", "副业", "打工人"]
+      "desc": "而是先走完这四关：\n\n1️⃣ 独立开发 —— 梦想是睡后收入，三个月后日活 2，一个是我，一个是我妈\n2️⃣ 跨境电商 —— 看完三天免费课就觉得自己是下一个首富，结果客厅堆满库存，退货率 40%\n3️⃣ 炒股炒币 —— K线看得比代码还熟，技术能力确实提升了，账户余额也确实归零了\n4️⃣ 做自媒体 —— 三十条视频，最高播放 800，其中 600 是自己刷的\n\n全部折腾一遍以后，积蓄没了，简历上还空了两年，才正式解锁铁人三项：外卖、快递、网约车。\n\n最讽刺的是，这是四关里唯一一个当天干活、当天就能结算的。\n\n所以别急着笑，你可能只是还卡在第一关。\n你走到第几关了？评论区报个数 👇",
+      "tags": ["程序员", "互联网裁员", "职场", "副业", "打工人", "失业"]
     }
   }
 }
