@@ -21,6 +21,16 @@ def build_providers(settings) -> list[TtsProvider]:
     chain: list[TtsProvider] = []
     preferred = (getattr(settings, "tts_provider", "") or "edge").lower()
 
+    if preferred == "studio":
+        from xhs_manager.video_pipeline.tts.studio import StudioTtsProvider
+        chain.append(StudioTtsProvider(
+            base_url=getattr(settings, "tts_studio_url", "http://127.0.0.1:8420"),
+            model_id=getattr(settings, "tts_studio_model", "indextts2"),
+            ref_audio=getattr(settings, "tts_studio_ref", ""),
+            emotion=getattr(settings, "tts_studio_emotion", ""),
+            emo_alpha=getattr(settings, "tts_studio_emo_alpha", None),
+        ))
+
     if preferred == "voxcpm":
         try:
             from xhs_manager.video_pipeline.tts.voxcpm import VoxCpmProvider

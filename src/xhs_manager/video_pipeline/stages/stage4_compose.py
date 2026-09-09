@@ -351,21 +351,38 @@ def _get_base_css(width: int, height: int) -> str:
       text-align: center;
     }}
 
+    /* 文字后面单独垫一层椭圆暗场。
+       全屏均匀压暗（.clip::after）只能压低整体亮度，压不掉文字正后方的
+       高频细节——K线图、代码、车流这类素材的对比度本身就很高，
+       白字压在上面边缘会被"咬"掉。局部渐变把文字区域单独抹平，
+       边缘羽化到透明，不会像贴了个方块底。 */
+    .scene-content::before {{
+      content: '';
+      position: absolute;
+      left: -10%; right: -10%; top: -12%; bottom: -12%;
+      background: radial-gradient(ellipse at center,
+                    rgba(0,0,0,0.60) 0%,
+                    rgba(0,0,0,0.38) 55%,
+                    rgba(0,0,0,0) 100%);
+      z-index: -1;
+    }}
+
     .text-main {{
-      font-size: 64px;
+      font-size: 76px;
       font-weight: 700;
       color: #ffffff;
-      line-height: 1.4;
-      text-shadow: 0 2px 20px rgba(0,0,0,0.5);
-      margin-bottom: 20px;
+      line-height: 1.35;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.85), 0 4px 24px rgba(0,0,0,0.6);
+      margin-bottom: 24px;
     }}
 
     .text-sub {{
-      font-size: 36px;
-      font-weight: 400;
-      color: rgba(255,255,255,0.85);
+      font-size: 42px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.92);
       line-height: 1.5;
-      text-shadow: 0 1px 10px rgba(0,0,0,0.4);
+      text-shadow: 0 2px 5px rgba(0,0,0,0.85), 0 2px 16px rgba(0,0,0,0.55);
     }}
 
     .scene-audio {{

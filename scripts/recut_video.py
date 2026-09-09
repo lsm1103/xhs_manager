@@ -41,6 +41,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("script_id")
     ap.add_argument("--moods", help="逗号分隔，按场景顺序覆盖 bgm_mood")
+    ap.add_argument("--reuse-narration", action="store_true",
+                    help="复用已合成的分段旁白（只想换 BGM 重渲时用，省掉几分钟 TTS）")
     args = ap.parse_args()
 
     logging.basicConfig(
@@ -80,6 +82,7 @@ def main() -> int:
         # 1+2. 逐场景合成 → 校准时长
         track, total = build_aligned_narration(
             scenes, comp_dir / "assets", settings,
+            reuse=args.reuse_narration,
         )
         if not track:
             print("旁白合成失败，中止")

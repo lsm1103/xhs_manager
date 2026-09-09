@@ -123,17 +123,48 @@ def calibrate_scene_durations(
     return round(total, 2)
 
 
+def load_scenes(
+    scenes: list[dict[str, Any]],
+    out_dir: Path,
+    tail_pause: float = TAIL_PAUSE_S,
+) -> list[SceneNarration]:
+    """复用磁盘上已有的逐场景旁白，不重新合成。
+
+    IndexTTS-2 在这台机器上 RTF 十几倍，一条 8 场景的片子要合成七八分钟。
+    只是想换个 BGM 情绪重渲一遍时，没有理由再付一次这个钱。
+    任一场景缺文件就返回空——宁可全量重合成，也不要新旧音频混在一条轨里。
+    """
+    items: list[SceneNarration] = []
+    for i, sc in enumerate(scenes):
+        if not (sc.get("narration") or "").strip():
+            continue
+        sid = sc.get("scene_id") or f"s{i + 1:02d}"
+        p = out_dir / f"{sid}_narration.mp3"
+        if not p.exists():
+            logger.warning("场景 %s 没有已合成的旁白: %s", sid, p)
+            return []
+        speech = _probe(p)
+        items.append(SceneNarration(sid, p, speech, speech + tail_pause))
+    return items
+
+
 def build_aligned_narration(
     scenes: list[dict[str, Any]],
     out_dir: Path,
     settings: Any,
     tail_pause: float = TAIL_PAUSE_S,
+    reuse: bool = False,
 ) -> tuple[Optional[Path], float]:
     """一站式：逐场景合成 → 校准场景时长 → 拼成整轨。
 
+    reuse=True 时跳过合成，直接用 out_dir 里已有的分段旁白。
+
     返回 (整轨路径, 校准后的总时长)。失败时返回 (None, 原总时长)。
     """
-    items = synthesize_scenes(scenes, out_dir, settings, tail_pause)
+    items = (
+        load_scenes(scenes, out_dir, tail_pause) if reuse
+        else synthesize_scenes(scenes, out_dir, settings, tail_pause)
+    )
     if not items:
         return None, sum(float(s.get("duration") or 0) for s in scenes)
 

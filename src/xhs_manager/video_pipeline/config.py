@@ -53,9 +53,17 @@ class VideoPipelineSettings(BaseSettings):
     claude_effort: str = "high"                 # low/medium/high/xhigh/max
 
     # ── TTS ──
-    tts_provider: str = "edge"                  # edge | azure | openai
+    tts_provider: str = "edge"                  # edge | voxcpm | studio
     tts_voice: str = "zh-CN-XiaoxiaoNeural"     # 默认中文女声
     tts_rate: str = "+10%"                      # 语速
+
+    # tts_provider=studio 时走 TTS Studio 服务（模型常驻，免每条片子重复加载）。
+    # 服务不可达或模型未 ready 会自动回落到 edge。
+    tts_studio_url: str = "http://127.0.0.1:8420"
+    tts_studio_model: str = "indextts2"
+    tts_studio_ref: str = ""                    # data/tts_studio/refs/ 下的文件名
+    tts_studio_emotion: str = ""                # 留空则按场景 bgm_mood 映射
+    tts_studio_emo_alpha: float | None = None
 
     # ── 背景音乐 ──
     bgm_enabled: bool = True
