@@ -32,20 +32,36 @@
 ┌─────────────────────────────────────────────────────┐
 │  每日定时触发（默认 UTC 00:00 = 北京 08:00）         │
 │                                                      │
-│  并行采集 4 个平台：                                  │
-│  ├─ 小红书：AI/科技/效率 热门笔记                     │
-│  ├─ 抖音：科技/知识类 热门视频话题                     │
-│  ├─ B站：科技区/知识区 热门视频                       │
-│  └─ X(Twitter)：AI/Tech 趋势话题                     │
+│  每个平台是一条**后端链**，逐级降级而不是整体归零：    │
+│    站内 API  →  登录态通道  →  站外索引               │
 │                                                      │
-│  每个平台提取 top 20 热点 → 聚合去重 → 存入数据库      │
+│  bilibili   B站公开 API              → 索引          │
+│  v2ex       V2EX API + sov2ex 全文    → 索引          │
+│  toutiao    头条热榜 API（搜索走索引）                │
+│  baidu      百度热搜 API                              │
+│  wechat     搜狗微信搜索（免登录）                    │
+│  zhihu      ZHIHU_COOKIE → 浏览器站内 → 索引          │
+│  weibo      WEIBO_COOKIE → 浏览器站内 → 索引          │
+│  xiaohongshu / douyin / twitter                      │
+│             opencli → 浏览器站内 → 索引               │
+│  juejin / 36kr / web   仅索引                         │
+│                                                      │
+│  聚合去重 → 平台内排名归一 → 存入数据库                │
 └─────────────────────────────────────────────────────┘
 ```
 
 **技术方案**:
-- 使用 `agent-reach` skill 的多平台搜索能力
-- 每个平台配置搜索关键词模板（从账号策略版本中读取）
-- 信号存入 `video_trend_signals` 表，含平台、热度指标、原文摘要
+- 后端链定义在 `integrations/collectors.py:PLATFORM_BACKENDS`，
+  采集结果带 `backend` / `status` / `notes`，降级原因可观测。
+- 站外索引 = DuckDuckGo（支持 `site:`）+ 360 兜底，
+  **严格校验域名**：跨站结果宁可丢弃，也不冒充成该平台的样本。
+  两个引擎都被风控时会如实标记不可用，而不是报"无结果"。
+- 登录态通道有两条：`site-login <platform>` 扫码（项目自带 Playwright +
+  常驻 profile，不依赖第三方扩展）、或配 `ZHIHU_COOKIE` / `WEIBO_COOKIE`。
+- 定向话题调研：`stage collecting --platforms ... --keywords ...`，
+  此时默认不取平台热榜（当日泛热点会稀释话题信号）。
+- 随时诊断：`cli collect-doctor`。
+- 信号存入 `video_trend_signals` 表，含平台、热度指标、原文摘要。
 
 ### Stage 2: 选题 + 脚本生成 (`select_topics`)
 
