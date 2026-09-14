@@ -762,7 +762,8 @@ def test_index_channel_rejects_cross_site_results():
 def test_hot_board_can_be_disabled_for_topic_research(monkeypatch):
     """定向调研时不取热榜：当日泛热榜会稀释话题信号。"""
     from xhs_manager.video_pipeline.integrations.collectors import (
-        TrendItem, collect_platform,
+        TrendItem,
+        collect_platform,
     )
 
     class HotOnly:
