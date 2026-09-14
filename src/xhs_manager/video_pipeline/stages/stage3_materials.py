@@ -15,7 +15,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from xhs_manager.domain import new_id, utcnow
+from xhs_manager.domain import new_id
 from xhs_manager.video_pipeline.config import VideoPipelineSettings
 from xhs_manager.video_pipeline.domain import (
     MaterialSource,
@@ -160,115 +160,135 @@ def _collect_via_moneyprinter(
     materials_saved = 0
     tts_saved = 0
 
-    # 1. 从所有场景中提取搜索关键词
-    all_terms: list[str] = []
-    for scene in script.scenes:
-        all_terms.extend(_search_terms_for_scene(scene))
+    # 1. 逐场景搜素材
+    #
+    # 原来是「把所有关键词拼成一次搜索，再按 i % len(materials) 轮着分」。
+    # 这在 6 场景的短片上还看得过去，17 个场景就穿帮了：
+    # 素材池只有 5 条，同一段背景要出现三四次，而且第 12 个场景配的
+    # 是第 3 个场景的搜索词搜来的画面——画面和内容完全对不上。
+    #
+    # 改成每个场景用自己的 material_hints 搜，并且跨场景去重。
+    # 代价是 MPT CLI 要跑 N 次（慢），换来的是画面真的对得上内容。
+    scenes = script.scenes
+    n_scenes = max(len(scenes), 1)
+    used_paths: set[str] = set()
+    leftovers: list[dict[str, Any]] = []
+    task_id = ""
 
-    if not all_terms:
-        logger.info("脚本无可用搜索词，跳过 MoneyPrinterTurbo 素材搜索")
-        return {"materials_saved": 0, "tts_saved": 0}
+    def _save(scene_id: str, mat: dict[str, Any]) -> bool:
+        """把一条素材落盘并入库。"""
+        dst_path = output_dir / f"{scene_id}_clip.mp4"
+        try:
+            shutil.copy2(mat["path"], str(dst_path))
+        except Exception as e:
+            logger.warning("素材复制失败 (场景 %s): %s", scene_id, e)
+            return False
+        session.add(VideoMaterial(
+            id=new_id(),
+            script_id=script.id,
+            scene_id=scene_id,
+            material_type=MaterialType.VIDEO_CLIP.value,
+            source_tool="moneyprinter",
+            source_url=mat.get("source_url"),
+            local_path=str(dst_path),
+            license_type="pexels",
+            file_size=mat.get("size"),
+            selected=True,
+            extra_meta={"mpt_task_id": task_id, "search_terms": mat.get("terms", [])},
+        ))
+        used_paths.add(mat["path"])
+        return True
 
-    # 2. 批量搜索素材
-    # 每个场景至少要一个素材。MPT 按「累计时长」决定下载量，
-    # 所以 clip_duration 要按场景平均时长设置，让它下够片段数。
-    n_scenes = max(len(script.scenes), 1)
-    avg_scene_dur = max(3, script.total_duration // n_scenes)
-    logger.info(
-        "MoneyPrinterTurbo 搜索素材: %d 个关键词，目标 %d 个场景",
-        len(all_terms), n_scenes,
-    )
-    search_result = mpt.search_materials(
-        search_terms=all_terms[:10],
-        video_aspect="9:16",
-        source="pexels",
-        clip_duration=avg_scene_dur,
-    )
+    pending: list[tuple[str, int]] = []      # 本轮没搜到素材的场景
+    for scene in scenes:
+        scene_id = scene.get("scene_id", f"s{scene.get('order', 0):02d}")
+        terms = _search_terms_for_scene(scene)
+        if not terms:
+            pending.append((scene_id, int(scene.get("duration", 6))))
+            continue
 
-    if search_result["success"] and search_result.get("materials"):
-        mpt_materials = _reject_portrait_materials(search_result["materials"])
-        scenes = script.scenes
+        clip_dur = max(3, int(scene.get("duration", script.total_duration // n_scenes)))
+        result = mpt.search_materials(
+            search_terms=terms,
+            video_aspect="9:16",
+            source="pexels",
+            clip_duration=clip_dur,
+        )
+        task_id = result.get("task_id", task_id)
+        candidates = _reject_portrait_materials(result.get("materials") or [])
+        for c in candidates:
+            c.setdefault("terms", terms)
 
-        # 分配素材到各场景。素材不足时循环复用，
-        # 保证每个场景都有画面（总比降级成纯文字卡片好）。
-        for i, scene in enumerate(scenes):
-            scene_id = scene.get("scene_id", f"s{scene.get('order', 0):02d}")
-
-            if mpt_materials:
-                mpt_mat = mpt_materials[i % len(mpt_materials)]
-                src_path = Path(mpt_mat["path"])
-
-                # 复制到我们的输出目录
-                dst_path = output_dir / f"{scene_id}_clip.mp4"
-                try:
-                    shutil.copy2(str(src_path), str(dst_path))
-                except Exception as e:
-                    logger.warning("素材复制失败: %s", e)
-                    continue
-
-                material = VideoMaterial(
-                    id=new_id(),
-                    script_id=script.id,
-                    scene_id=scene_id,
-                    material_type=MaterialType.VIDEO_CLIP.value,
-                    source_tool="moneyprinter",
-                    source_url=mpt_mat.get("source_url"),
-                    local_path=str(dst_path),
-                    license_type="pexels",
-                    file_size=mpt_mat.get("size"),
-                    selected=True,
-                    extra_meta={"mpt_task_id": search_result.get("task_id")},
-                )
-                session.add(material)
+        fresh = [c for c in candidates if c["path"] not in used_paths]
+        if fresh:
+            if _save(scene_id, fresh[0]):
                 materials_saved += 1
-
-    # 3. 批量生成 TTS（把所有旁白拼成一段，由 MPT 生成后切分）
-    all_narrations = []
-    for scene in script.scenes:
-        narration = scene.get("narration", "")
-        if narration:
-            all_narrations.append(narration)
-
-    if all_narrations:
-        full_script = "\n\n".join(all_narrations)
-        tts_result = mpt.generate_tts(
-            script_text=full_script,
-            voice_name=settings.tts_voice.replace("Neural", "Neural-Female"),
+            leftovers.extend(fresh[1:])
+        else:
+            # 这一轮全是已经用过的画面，先记下来，最后用别的场景的余料补
+            leftovers.extend(candidates)
+            pending.append((scene_id, clip_dur))
+        logger.info(
+            "场景 %s: 搜到 %d 条，可用 %d 条（关键词 %s）",
+            scene_id, len(candidates), len(fresh), "/".join(terms[:2]),
         )
 
-        if tts_result["success"] and tts_result.get("audio_path"):
-            audio_src = Path(tts_result["audio_path"])
-            if audio_src.exists():
-                # 整段音频作为完整旁白保存
-                audio_dst = output_dir / "full_narration.mp3"
-                shutil.copy2(str(audio_src), str(audio_dst))
+    # 2. 补齐：没搜到自己画面的场景，用别处的余料顶上（仍然优先没用过的）
+    for scene_id, _dur in pending:
+        spare = next((m for m in leftovers if m["path"] not in used_paths), None)
+        if spare is None:
+            continue
+        if _save(scene_id, spare):
+            materials_saved += 1
+            logger.info("场景 %s: 用余料补位", scene_id)
 
-                # 为第一个场景记录完整音频
-                first_scene = script.scenes[0]
-                first_scene_id = first_scene.get("scene_id", "s01")
-                tts_material = VideoMaterial(
-                    id=new_id(),
-                    script_id=script.id,
-                    scene_id=first_scene_id,
-                    material_type="audio",
-                    source_tool="moneyprinter",
-                    local_path=str(audio_dst),
-                    license_type="generated",
-                    selected=True,
-                    extra_meta={
-                        "type": "full_narration",
-                        "mpt_task_id": tts_result.get("task_id"),
-                    },
-                )
-                session.add(tts_material)
-                tts_saved += 1
+    # 3. 逐场景合成旁白，并用真实语音时长校准场景时长
+    #
+    # 以前这里是「把 17 段旁白拼成一整段丢给 MPT 合成」。问题在于
+    # 脚本里的 duration 是人写的估算值，而 TTS 念完要多久是另一回事：
+    # 本片标称 195 秒，整段合成出来 228 秒——成片按 195 秒截断，
+    # 最后三个场景的话直接没了，BGM 的情绪转折点也全部错位。
+    #
+    # audio/narration.py 早就实现了「逐段合成 → 量出真实时长 → 回写场景时长」，
+    # 但一直没有人调用它。这里把它接上：时间轴以语音为准，而不是以估算为准。
+    from xhs_manager.video_pipeline.audio.narration import build_aligned_narration
 
-            # 复制字幕文件
-            if tts_result.get("subtitle_path"):
-                sub_src = Path(tts_result["subtitle_path"])
-                if sub_src.exists():
-                    sub_dst = output_dir / "subtitle.srt"
-                    shutil.copy2(str(sub_src), str(sub_dst))
+    scenes = list(script.scenes)   # 副本，校准后整体回写才能让 JSON 列生效
+    track, total = build_aligned_narration(scenes, output_dir, settings)
+
+    if track is None:
+        logger.warning("逐场景旁白合成失败，退回 MPT 整段合成（时长可能对不齐）")
+        full_script = "\n\n".join(
+            sc.get("narration", "") for sc in scenes if sc.get("narration")
+        )
+        if full_script:
+            tts_result = mpt.generate_tts(
+                script_text=full_script,
+                voice_name=settings.tts_voice.replace("Neural", "Neural-Female"),
+            )
+            if tts_result["success"] and tts_result.get("audio_path"):
+                src = Path(tts_result["audio_path"])
+                if src.exists():
+                    track = output_dir / "full_narration.mp3"
+                    shutil.copy2(str(src), str(track))
+    else:
+        script.scenes = scenes
+        script.total_duration = int(round(total))
+        logger.info("场景时长已按真实语音校准：总时长 %.1fs", total)
+
+    if track and Path(track).exists():
+        session.add(VideoMaterial(
+            id=new_id(),
+            script_id=script.id,
+            scene_id=scenes[0].get("scene_id", "s01"),
+            material_type="audio",
+            source_tool="tts",
+            local_path=str(track),
+            license_type="generated",
+            selected=True,
+            extra_meta={"type": "full_narration", "aligned": track is not None},
+        ))
+        tts_saved += 1
 
     return {"materials_saved": materials_saved, "tts_saved": tts_saved}
 

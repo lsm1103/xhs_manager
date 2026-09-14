@@ -389,6 +389,8 @@ _SO360_THROTTLE = _Throttle(1.5)
 _DDG_COOLDOWN_S = 180.0
 _DDG_STATE = {"cool_until": 0.0, "misses": 0}
 _SEARCH_CACHE: dict[str, list[tuple[str, str, str]]] = {}
+# 被风控的引擎在本次进程内不再重试，并把原因暴露给诊断信息
+_SEARCH_STATE = {"ddg_blocked": False, "so360_blocked": False}
 
 SEARCH_HEADERS = {"User-Agent": UA, "Accept-Language": "zh-CN,zh;q=0.9"}
 
@@ -403,6 +405,8 @@ def _ddg_fetch(query: str, limit: int) -> list[tuple[str, str, str]]:
                 data={"q": query},
                 headers=SEARCH_HEADERS,
             )
+        if _looks_blocked(r.text):
+            _SEARCH_STATE["ddg_blocked"] = True
         soup = BeautifulSoup(r.text, "html.parser")
         rows: list[tuple[str, str, str]] = []
         for res in soup.select("div.result")[:limit]:
@@ -454,8 +458,17 @@ def _ddg_search(query: str, limit: int) -> list[tuple[str, str, str]]:
     return rows
 
 
+# 搜索引擎的风控页返回 200，内容却是验证码。识别出来才能如实说明
+# 「不是没搜到，是被风控了」——否则诊断信息会误导人去改查询词。
+_CAPTCHA_MARKS = ("请输入验证码", "访问异常页面", "unusual traffic", "Just a moment")
+
+
+def _looks_blocked(text: str) -> bool:
+    return any(mark in text for mark in _CAPTCHA_MARKS)
+
+
 def _so360_search(query: str, limit: int) -> list[tuple[str, str, str]]:
-    """360 搜索（中文语料覆盖好，抗限流）。真实 URL 在 data-mdurl 上。"""
+    """360 搜索（中文语料覆盖好）。真实 URL 在 data-mdurl 上。"""
     _SO360_THROTTLE.wait()
     try:
         with httpx.Client(timeout=40, follow_redirects=True) as c:
@@ -464,6 +477,10 @@ def _so360_search(query: str, limit: int) -> list[tuple[str, str, str]]:
                 params={"q": query},
                 headers=SEARCH_HEADERS,
             )
+        if _looks_blocked(r.text):
+            logger.warning("360 搜索触发风控验证码，本轮索引通道不可用")
+            _SEARCH_STATE["so360_blocked"] = True
+            return []
         soup = BeautifulSoup(r.text, "html.parser")
         rows: list[tuple[str, str, str]] = []
         for li in soup.select("li.res-list")[:limit * 2]:
@@ -521,7 +538,8 @@ class SearchIndexCollector:
         return f"索引(ddg/360):{self.site}"
 
     def available(self) -> bool:
-        return True  # 两个引擎互为兜底，可用性在实际查询里判断
+        """两个引擎都被风控时才算不可用，否则让实际查询去判断。"""
+        return not (_SEARCH_STATE["ddg_blocked"] and _SEARCH_STATE["so360_blocked"])
 
     def _matches_site(self, url: str) -> bool:
         """严格域名校验。
