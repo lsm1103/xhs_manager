@@ -134,8 +134,20 @@ def collect_materials(
 
     run.video_count = len(scripts)
 
-    if total_materials == 0:
+    # 判据是「库里到底有没有画面」，不是「这一轮新存了几条」——
+    # 重跑时素材已经齐了、一条都不用新下，那是正常情况，不是失败。
+    on_hand = (
+        session.query(VideoMaterial.id)
+        .filter(
+            VideoMaterial.script_id.in_([sc.id for sc in scripts]),
+            VideoMaterial.material_type != "audio",
+            VideoMaterial.selected.is_(True),
+        )
+        .count()
+    )
+    if on_hand == 0:
         raise StageError("collect_materials", "未能收集到任何素材")
+    total_materials = max(total_materials, on_hand)
 
     return {
         "total_materials": total_materials,
@@ -199,9 +211,25 @@ def _collect_via_moneyprinter(
         used_paths.add(mat["path"])
         return True
 
+    def _already_has_visual(scene_id: str) -> bool:
+        """这个场景已经有选中的画面素材了吗。
+
+        改脚本、换旁白之后要重跑本阶段，没必要把 17 个场景的素材重下一遍——
+        Pexels 有配额，MPT 每次调用也要十几秒。
+        """
+        return session.query(VideoMaterial.id).filter(
+            VideoMaterial.script_id == script.id,
+            VideoMaterial.scene_id == scene_id,
+            VideoMaterial.material_type != "audio",
+            VideoMaterial.selected.is_(True),
+        ).first() is not None
+
     pending: list[tuple[str, int]] = []      # 本轮没搜到素材的场景
     for scene in scenes:
         scene_id = scene.get("scene_id", f"s{scene.get('order', 0):02d}")
+        if _already_has_visual(scene_id):
+            logger.info("场景 %s: 已有素材，跳过搜索", scene_id)
+            continue
         terms = _search_terms_for_scene(scene)
         if not terms:
             pending.append((scene_id, int(scene.get("duration", 6))))

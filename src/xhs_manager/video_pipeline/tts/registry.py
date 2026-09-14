@@ -58,15 +58,35 @@ def get_provider(name: str, settings) -> Optional[TtsProvider]:
     return None
 
 
+def speed_from_settings(settings) -> float:
+    """把配置里的 tts_rate（"+25%" 这种写法）换算成倍速。
+
+    这里存在的理由：配置里写了语速，调用方却只传 speed=1.0，
+    结果 tts_rate 从来没生效过——整条片子一直是默认语速。
+    """
+    raw = str(getattr(settings, "tts_rate", "") or "").strip()
+    if not raw.endswith("%"):
+        return 1.0
+    try:
+        return max(0.5, 1.0 + float(raw[:-1]) / 100.0)
+    except ValueError:
+        return 1.0
+
+
 def synthesize(
     text: str,
     output_path: Path,
     settings,
     *,
     mood: Optional[str] = None,
-    speed: float = 1.0,
+    speed: Optional[float] = None,
 ) -> TtsResult:
-    """按优先级尝试各提供方，返回第一个成功的结果。"""
+    """按优先级尝试各提供方，返回第一个成功的结果。
+
+    speed 为 None 时按 settings.tts_rate 推导，而不是硬编码 1.0。
+    """
+    if speed is None:
+        speed = speed_from_settings(settings)
     req = TtsRequest(
         text=text, output_path=Path(output_path), mood=mood, speed=speed,
     )
