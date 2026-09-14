@@ -174,11 +174,23 @@ class HtmlVideoRenderer:
         height: int = 1920,
         fps: int = 30,
         chrome_path: str = CHROME_PATH,
+        frame_format: str = "jpeg",
+        frame_quality: int = 95,
     ) -> None:
         self.width = width
         self.height = height
         self.fps = fps
         self.chrome_path = chrome_path
+        # 中间帧默认走 JPEG。实测 1080x1920 下 PNG 截图 ~947ms/帧，
+        # JPEG q95 ~176ms/帧 —— 5 倍多的差距，瓶颈是 PNG 编码而不是页面渲染。
+        # 反正这些帧最后都要被 H.264 (CRF 23) 重编一遍，q95 的损失可以忽略。
+        # 需要无损中间产物（比如调试逐帧差异）时传 frame_format="png"。
+        self.frame_format = frame_format
+        self.frame_quality = frame_quality
+
+    @property
+    def frame_suffix(self) -> str:
+        return "jpg" if self.frame_format == "jpeg" else self.frame_format
 
     def available(self) -> bool:
         try:
@@ -244,12 +256,16 @@ class HtmlVideoRenderer:
                   )
                 """)
 
+                shot_kwargs = {"type": self.frame_format}
+                if self.frame_format == "jpeg":
+                    shot_kwargs["quality"] = self.frame_quality
+
                 for i in range(total_frames):
                     elapsed = i / self.fps
                     page.evaluate(SEEK_JS, elapsed)
                     page.screenshot(
-                        path=str(frames_dir / f"frame_{i:05d}.png"),
-                        type="png",
+                        path=str(frames_dir / f"frame_{i:05d}.{self.frame_suffix}"),
+                        **shot_kwargs,
                     )
                     if on_progress and i and i % (self.fps * 5) == 0:
                         on_progress(i, total_frames)
@@ -257,7 +273,7 @@ class HtmlVideoRenderer:
             finally:
                 browser.close()
 
-        captured = len(list(frames_dir.glob("frame_*.png")))
+        captured = len(list(frames_dir.glob(f"frame_*.{self.frame_suffix}")))
         logger.info("截帧完成: %d/%d 帧", captured, total_frames)
         return captured
 
@@ -279,7 +295,7 @@ class HtmlVideoRenderer:
         cmd = [
             ffmpeg, "-y",
             "-framerate", str(self.fps),
-            "-i", str(frames_dir / "frame_%05d.png"),
+            "-i", str(frames_dir / f"frame_%05d.{self.frame_suffix}"),
         ]
         if audio_path and audio_path.exists():
             cmd += ["-i", str(audio_path), "-c:a", "aac", "-b:a", "192k", "-shortest"]
@@ -352,6 +368,10 @@ def extract_covers(
     if not ffmpeg:
         logger.warning("找不到 ffmpeg，跳过封面生成")
         return covers
+
+    # ffmpeg 不会自己建目录，输出目录不存在就静默失败。
+    # 流水线里传的是成片所在目录（必然存在），但别的调用方不一定。
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     base = output_dir / "cover_default.jpg"
     r = subprocess.run(
