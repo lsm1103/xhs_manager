@@ -46,6 +46,8 @@ class StudioTtsProvider(TtsProvider):
         ref_audio: str = "",
         emotion: str = "",
         emo_alpha: Optional[float] = None,
+        ref_text: str = "",
+        instruct: str = "",
         timeout: int = 600,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -53,6 +55,8 @@ class StudioTtsProvider(TtsProvider):
         self.ref_audio = ref_audio
         self.emotion = emotion
         self.emo_alpha = emo_alpha
+        self.ref_text = ref_text
+        self.instruct = instruct
         self.timeout = timeout
 
     # ── 可用性 ────────────────────────────────────────────────
@@ -73,7 +77,7 @@ class StudioTtsProvider(TtsProvider):
                 continue
             if m["status"] != "ready":
                 return False, f"{m['name']} 未加载（当前 {m['status']}），请先在 Studio 里加载"
-            if m.get("supports_ref") and not self.ref_audio:
+            if self.model_id == "indextts2" and not self.ref_audio:
                 return False, f"{m['name']} 需要参考音频，但未配置 tts_studio_ref"
             return True, ""
         return False, f"Studio 没有模型 {self.model_id}"
@@ -90,6 +94,8 @@ class StudioTtsProvider(TtsProvider):
             ) or None,
             "emotion": emotion or None,
             "emo_alpha": self.emo_alpha,
+            "ref_text": self.ref_text or None,
+            "instruct": self.instruct or None,
             "speed": req.speed,
         }
 

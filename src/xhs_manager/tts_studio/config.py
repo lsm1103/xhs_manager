@@ -1,7 +1,6 @@
 """TTS Studio 配置。"""
 
 from pathlib import Path
-from typing import Any
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -32,10 +31,18 @@ class StudioSettings(BaseSettings):
 
     indextts_repo: str = str(AI_ROOT / "mlx-indextts")
     indextts_model: str = str(AI_ROOT / "mlx-indextts/models/IndexTTS-2-MLX")
+    omnivoice_repo: str = str(Path.home() / "models/omnivoice-runtime")
+    omnivoice_model: str = str(Path.home() / "models/OmniVoice")
+    omnivoice_device: str = "mps"
+    omnivoice_dtype: str = "float16"
 
     @property
     def indextts_python(self) -> str:
         return str(Path(self.indextts_repo) / ".venv/bin/python")
+
+    @property
+    def omnivoice_python(self) -> str:
+        return str(Path(self.omnivoice_repo) / ".venv/bin/python")
 
 
 def get_settings() -> StudioSettings:

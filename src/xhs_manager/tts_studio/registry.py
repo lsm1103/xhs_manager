@@ -3,7 +3,7 @@
 三类模型的加载语义不同，这里如实区分而不是假装一致：
   - edge:     无模型，HTTP 调用，always ready
   - voxcpm2:  C++ CLI，每次调用自行加载（~8s），无常驻收益
-  - indextts2: Python 类，加载 54s，常驻 worker 进程后每次省掉这段
+  - indextts2/omnivoice: Python 类，常驻 worker 进程
 """
 
 import json
@@ -60,6 +60,12 @@ SPECS: dict[str, ModelSpec] = {
         id="indextts2", name="IndexTTS-2 (MLX)", kind="worker",
         supports_ref=True, supports_emotion=True, emotions=INDEXTTS_EMOTIONS,
         note="必须提供参考音频。8 维情感可加权混合。加载约 54s，常驻后免重复加载。",
+    ),
+    "omnivoice": ModelSpec(
+        id="omnivoice", name="OmniVoice", kind="worker",
+        supports_ref=True,
+        note=("600+ 语言零样本 TTS。支持参考音频克隆、声音设计 instruct 和自动音色；"
+              "Apple Silicon 使用 MPS。"),
     ),
 }
 
@@ -121,9 +127,15 @@ class Registry:
                 elif st.spec.kind == "cli":
                     self._check_voxcpm()
                 elif st.spec.kind == "worker":
-                    self._start_indextts(st)
+                    if model_id == "indextts2":
+                        self._start_indextts(st)
+                    elif model_id == "omnivoice":
+                        self._start_omnivoice(st)
                 st.status = "ready"
-                st.load_elapsed = getattr(st, "worker_load_elapsed", None) or round(time.time() - t0, 2)
+                st.load_elapsed = (
+                    getattr(st, "worker_load_elapsed", None)
+                    or round(time.time() - t0, 2)
+                )
             except Exception as e:
                 st.status = "error"
                 st.error = str(e)[:400]
@@ -186,6 +198,34 @@ class Registry:
         if not r.get("ok"):
             raise RuntimeError(self._worker_err(st, r))
         # 用 worker 上报的真实加载耗时，父进程计时会漏掉 import 开销
+        st.worker_load_elapsed = r.get("elapsed")
+
+    def _start_omnivoice(self, st: ModelState):
+        import os
+        s = self.settings
+        py = s.omnivoice_python
+        model_dir = (s.omnivoice_model or "").strip() or str(Path.home() / "models/OmniVoice")
+        if not Path(py).exists():
+            raise FileNotFoundError(f"找不到 {py}，请先创建 OmniVoice 独立环境")
+        if not Path(model_dir).exists():
+            raise FileNotFoundError(f"找不到模型目录 {model_dir}，请先执行 hf download")
+        worker = Path(__file__).with_name("worker_omnivoice.py")
+        env = dict(os.environ)
+        env.update({"OMNIVOICE_MODEL": model_dir,
+                    "OMNIVOICE_DEVICE": s.omnivoice_device,
+                    "OMNIVOICE_DTYPE": s.omnivoice_dtype})
+        st.stderr_path = Path("/tmp") / f"omnivoice_worker_{id(st)}.err"
+        errf = open(st.stderr_path, "w")
+        st.proc = subprocess.Popen(
+            [py, "-u", str(worker)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=errf, text=True, bufsize=1, env=env,
+        )
+        ping = self._rpc(st, {"cmd": "ping"}, timeout=120)
+        if not ping.get("ok"):
+            raise RuntimeError(self._worker_err(st, ping))
+        r = self._rpc(st, {"cmd": "load"}, timeout=1800)
+        if not r.get("ok"):
+            raise RuntimeError(self._worker_err(st, r))
         st.worker_load_elapsed = r.get("elapsed")
 
     def _worker_err(self, st: ModelState, resp: dict) -> str:

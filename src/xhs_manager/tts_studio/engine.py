@@ -56,6 +56,7 @@ def probe(path: Path) -> tuple[Optional[float], Optional[int]]:
 
 def gen_edge(text: str, out: Path, voice: str, speed: float = 1.0) -> float:
     import asyncio
+
     import edge_tts
 
     rate = f"{int((speed - 1) * 100):+d}%"
@@ -100,6 +101,28 @@ def gen_indextts(registry, text: str, out: Path, ref: str,
     if speed is not None:
         req["speed"] = speed
 
+    with st.lock:
+        r = registry._rpc(st, req, timeout=1800)
+    if not r.get("ok"):
+        raise RuntimeError(r.get("error", "生成失败"))
+    return float(r.get("elapsed", 0))
+
+
+def gen_omnivoice(registry, text: str, out: Path, ref: Optional[str] = None,
+                  ref_text: str = "", instruct: str = "",
+                  speed: Optional[float] = None) -> float:
+    st = registry.get("omnivoice")
+    if st.status != "ready":
+        raise RuntimeError("OmniVoice 未加载，请先在模型面板加载")
+    req: dict[str, Any] = {"cmd": "generate", "text": text, "output": str(out)}
+    if ref:
+        req["ref_audio"] = ref
+    if ref_text:
+        req["ref_text"] = ref_text
+    if instruct:
+        req["instruct"] = instruct
+    if speed is not None:
+        req["speed"] = float(speed)
     with st.lock:
         r = registry._rpc(st, req, timeout=1800)
     if not r.get("ok"):

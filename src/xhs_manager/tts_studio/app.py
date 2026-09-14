@@ -115,6 +115,7 @@ class GenReq(BaseModel):
     text: str
     voice: Optional[str] = None
     ref_audio: Optional[str] = None       # refs/ 下的文件名
+    ref_text: Optional[str] = None        # 参考音频转写（OmniVoice 可选）
     emotion: Optional[str] = None
     emo_alpha: Optional[float] = None
     instruct: Optional[str] = None        # VoxCPM 的括号指令
@@ -136,7 +137,7 @@ def api_generate(req: GenReq):
 
     if ref_path and not Path(ref_path).exists():
         raise HTTPException(400, f"参考音频不存在: {req.ref_audio}")
-    if st.spec.kind == "worker" and not ref_path:
+    if req.model_id == "indextts2" and not ref_path:
         raise HTTPException(400, "IndexTTS-2 必须提供参考音频")
 
     params = req.model_dump(exclude={"model_id", "text", "ref_audio"})
@@ -149,6 +150,11 @@ def api_generate(req: GenReq):
         elif req.model_id == "indextts2":
             elapsed = engine.gen_indextts(registry, req.text, out, ref_path,
                                           req.emotion or "", req.emo_alpha, req.speed)
+        elif req.model_id == "omnivoice":
+            elapsed = engine.gen_omnivoice(
+                registry, req.text, out, ref_path, req.ref_text or "",
+                req.instruct or "", req.speed,
+            )
         else:
             raise HTTPException(400, "不支持的模型")
     except Exception as e:

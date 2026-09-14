@@ -64,6 +64,8 @@ class VideoPipelineSettings(BaseSettings):
     tts_studio_ref: str = ""                    # data/tts_studio/refs/ 下的文件名
     tts_studio_emotion: str = ""                # 留空则按场景 bgm_mood 映射
     tts_studio_emo_alpha: float | None = None
+    tts_studio_ref_text: str = ""
+    tts_studio_instruct: str = ""
 
     # ── 背景音乐 ──
     bgm_enabled: bool = True

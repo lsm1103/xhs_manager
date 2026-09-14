@@ -79,9 +79,10 @@ function onModelChange() {
 
   $('#row-voice').hidden = !m.supports_voice;
   $('#row-ref').hidden = !m.supports_ref;
+  $('#row-ref-text').hidden = m.id !== 'omnivoice';
   $('#row-emotion').hidden = !m.emotions.length;
   $('#row-alpha').hidden = !m.emotions.length;
-  $('#row-instruct').hidden = m.id !== 'voxcpm2';
+  $('#row-instruct').hidden = !['voxcpm2', 'omnivoice'].includes(m.id);
 
   if (m.supports_voice)
     $('#g-voice').innerHTML = m.voices.map(v => `<option>${v}</option>`).join('');
@@ -124,11 +125,13 @@ $('#g-run').onclick = async () => {
   const body = { model_id: m.id, text, speed: 1.0 };
   if (m.supports_voice) body.voice = $('#g-voice').value;
   if (m.supports_ref && $('#g-ref').value) body.ref_audio = $('#g-ref').value;
+  if (m.id === 'omnivoice' && $('#g-ref-text').value.trim())
+    body.ref_text = $('#g-ref-text').value.trim();
   if (m.emotions.length) {
     if ($('#g-emotion').value.trim()) body.emotion = $('#g-emotion').value.trim();
     body.emo_alpha = parseFloat($('#g-alpha').value);
   }
-  if (m.id === 'voxcpm2' && $('#g-instruct').value.trim())
+  if (['voxcpm2', 'omnivoice'].includes(m.id) && $('#g-instruct').value.trim())
     body.instruct = $('#g-instruct').value.trim();
 
   $('#g-run').disabled = true;

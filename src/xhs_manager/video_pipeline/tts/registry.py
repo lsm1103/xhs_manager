@@ -29,6 +29,8 @@ def build_providers(settings) -> list[TtsProvider]:
             ref_audio=getattr(settings, "tts_studio_ref", ""),
             emotion=getattr(settings, "tts_studio_emotion", ""),
             emo_alpha=getattr(settings, "tts_studio_emo_alpha", None),
+            ref_text=getattr(settings, "tts_studio_ref_text", ""),
+            instruct=getattr(settings, "tts_studio_instruct", ""),
         ))
 
     if preferred == "voxcpm":
