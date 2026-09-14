@@ -1,0 +1,547 @@
+/* ════════════════════════════════════════════════════════════════
+   视频组合样式表
+   其中的 dollar-brace 占位符由 composition/styles.py 用主题值替换后内联进 index.html。
+
+   ── 核心约定：确定性动画 ──
+   渲染器是逐帧截图的，两帧之间的真实耗时是不确定的（几十到几百毫秒）。
+   所以**任何依赖墙钟的 CSS 动画都会渲染错**——动画会按截图速度推进，
+   而不是按视频时间推进。
+
+   解决办法：所有动画一律 `animation-play-state: paused`，
+   进度完全由负 delay 决定：
+       animation-delay: calc((var(--s) - var(--t)) * 1s)
+   其中 --s 是该动画的绝对起始秒，--t 是当前视频时间（由渲染器每帧写入 :root）。
+   于是「第 N 帧的画面」只是 --t 的纯函数，可复现、可重跑。
+   ════════════════════════════════════════════════════════════════ */
+
+:root {
+  --t: 0;                   /* 当前视频时间（秒），渲染器每帧覆写 */
+  --bg: ${bg};
+  --bg-alt: ${bg_alt};
+  --ink: ${ink};
+  --ink-muted: ${ink_muted};
+  --accent: ${accent};
+  --accent-2: ${accent_2};
+  --accent-ink: ${accent_ink};
+  --safe-top: ${safe_top}px;
+  --safe-bottom: ${safe_bottom}px;
+  --safe-left: ${safe_left}px;
+  --safe-right: ${safe_right}px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  width: ${width}px;
+  height: ${height}px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ${font_stack};
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.stage {
+  position: relative;
+  width: ${width}px;
+  height: ${height}px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* ── 动画基类 ───────────────────────────────────────────────────
+   .m 只负责「怎么被时间驱动」，具体动哪个属性由 .m-* 指定 animation-name。 */
+.m {
+  animation-duration: calc(var(--d, 0.6) * 1s);
+  animation-delay: calc((var(--s, 0) - var(--t)) * 1s);
+  animation-fill-mode: both;
+  animation-play-state: paused;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.m-linear { animation-timing-function: linear; }
+
+/* ════════ 背景层：动态渐变网格 ════════
+   纯 CSS 的缓慢漂移，给静态素材垫一点「活」的底子。
+   也走 --t 驱动，否则截图时它会静止不动。 */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(60% 45% at 20% 18%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
+    radial-gradient(55% 40% at 82% 72%, color-mix(in srgb, var(--accent-2) 24%, transparent), transparent 70%),
+    linear-gradient(160deg, var(--bg) 0%, var(--bg-alt) 55%, var(--bg) 100%);
+  animation-name: meshDrift;
+  animation-duration: 24s;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  /* 和其它动画一样必须由 --t 驱动。漏掉这两行，背景就会按截图速度漂移，
+     同一时间点两次渲染出来的画面不一致（曾经真的漏过）。 */
+  animation-delay: calc(var(--t) * -1s);
+  animation-play-state: paused;
+}
+@keyframes meshDrift {
+  from { transform: scale(1.04) translate3d(-1.5%, -1%, 0); filter: hue-rotate(0deg); }
+  to   { transform: scale(1.12) translate3d(1.5%, 1.5%, 0); filter: hue-rotate(14deg); }
+}
+
+/* ════════ 场景层 ════════ */
+.scenes { position: absolute; inset: 0; z-index: 1; }
+
+.scene {
+  position: absolute;
+  inset: 0;
+  display: none;
+  overflow: hidden;
+}
+.scene.on { display: block; }
+
+/* 媒体（视频/图片）铺满，上面压一层可读性渐变 */
+.scene-media { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.scene-media video,
+.scene-media .still {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-size: cover;
+  background-position: center;
+}
+
+/* Ken Burns：静图必须给推拉，否则 6 秒静止画面观感像 PPT */
+.still.m-kenburns { animation-name: kenBurns; }
+@keyframes kenBurns {
+  from { transform: scale(1.02) translate3d(0, 0, 0); }
+  to   { transform: scale(1.16) translate3d(-2.2%, -1.6%, 0); }
+}
+.still.m-kenburns-alt { animation-name: kenBurnsAlt; }
+@keyframes kenBurnsAlt {
+  from { transform: scale(1.16) translate3d(1.8%, 1.2%, 0); }
+  to   { transform: scale(1.02) translate3d(0, 0, 0); }
+}
+
+/* 可读性：底部重、顶部轻的定向压暗，比全屏均匀压暗保留更多画面 */
+.scene-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg,
+      rgba(0,0,0,0.58) 0%,
+      rgba(0,0,0,0.18) 26%,
+      rgba(0,0,0,0.22) 54%,
+      rgba(0,0,0,0.78) 100%);
+}
+/* 品牌色轻微染一层，让不同来源的素材看起来像同一个片子 */
+.scene-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  mix-blend-mode: soft-light;
+  opacity: 0.55;
+  background: linear-gradient(150deg,
+    color-mix(in srgb, var(--accent) 60%, transparent),
+    transparent 55%,
+    color-mix(in srgb, var(--accent-2) 55%, transparent));
+}
+
+.scene-content {
+  position: absolute;
+  z-index: 3;
+  left: var(--safe-left);
+  right: var(--safe-right);
+  top: var(--safe-top);
+  bottom: var(--safe-bottom);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* ════════ 排版 ════════ */
+.kicker {
+  font-size: ${size_kicker}px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.kicker::before {
+  content: '';
+  width: 56px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.display {
+  font-size: ${size_display}px;
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: -1px;
+  text-shadow: 0 3px 18px rgba(0,0,0,0.72);
+}
+.title {
+  font-size: ${size_title}px;
+  font-weight: 800;
+  line-height: 1.28;
+  text-shadow: 0 3px 16px rgba(0,0,0,0.72);
+}
+.body {
+  font-size: ${size_body}px;
+  font-weight: 500;
+  line-height: 1.52;
+  color: var(--ink-muted);
+  margin-top: 26px;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+}
+
+.mark {                       /* 关键词高亮：一条动态下划线 */
+  position: relative;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* ════════ 版面模板 ════════ */
+
+/* hook：开场，超大字顶天立地 */
+.layout-hook .scene-content { justify-content: flex-end; padding-bottom: 40px; }
+.layout-hook .display { font-size: calc(${size_display}px * 1.12); }
+
+/* statement：通用陈述，垂直居中 */
+.layout-statement .scene-content { justify-content: center; }
+
+/* stat：一个大数字压住整屏 */
+.layout-stat .scene-content { justify-content: center; align-items: flex-start; }
+.stat-value {
+  font-size: 260px;
+  font-weight: 900;
+  line-height: 0.92;
+  letter-spacing: -6px;
+  background: linear-gradient(180deg, var(--ink) 30%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 6px 24px rgba(0,0,0,0.6));
+}
+.stat-unit {
+  font-size: 54px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 8px;
+}
+
+/* quote：引用块 */
+.layout-quote .scene-content { justify-content: center; }
+.quote-mark {
+  font-size: 180px;
+  line-height: 0.7;
+  font-weight: 900;
+  color: var(--accent);
+  opacity: 0.5;
+}
+.quote-text {
+  font-size: calc(${size_title}px * 0.94);
+  font-weight: 700;
+  line-height: 1.42;
+  margin-top: 10px;
+  text-shadow: 0 3px 16px rgba(0,0,0,0.72);
+}
+.quote-source {
+  margin-top: 30px;
+  font-size: 38px;
+  color: var(--ink-muted);
+}
+.quote-source::before { content: '— '; }
+
+/* bullets：要点逐条入场 */
+.layout-bullets .scene-content { justify-content: center; }
+.bullet-list { margin-top: 34px; display: flex; flex-direction: column; gap: 22px; }
+.bullet {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  font-size: calc(${size_body}px * 1.08);
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 20px 24px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.09);
+  border: 1px solid rgba(255,255,255,0.16);
+  backdrop-filter: blur(14px);
+}
+.bullet-index {
+  flex: 0 0 auto;
+  width: 46px; height: 46px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 900;
+  font-size: 28px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* compare：左右分屏对比 */
+.layout-compare .scene-content { justify-content: center; }
+.compare-grid {
+  margin-top: 36px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 18px;
+}
+.compare-card {
+  padding: 34px 26px;
+  border-radius: 22px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  backdrop-filter: blur(14px);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1.34;
+  text-align: center;
+  min-height: 220px;
+  display: flex; align-items: center; justify-content: center;
+}
+.compare-card.is-b { border-color: color-mix(in srgb, var(--accent) 70%, transparent); }
+.compare-vs {
+  font-size: 44px;
+  font-weight: 900;
+  color: var(--accent);
+  letter-spacing: 1px;
+}
+
+/* outro：收尾行动号召 */
+.layout-outro .scene-content { justify-content: center; align-items: center; text-align: center; }
+.outro-cta {
+  margin-top: 40px;
+  padding: 24px 52px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 42px;
+  font-weight: 800;
+}
+
+/* ════════ 文字动画 ════════ */
+.m-pop-in   { animation-name: popIn; }
+.m-slide-up { animation-name: slideUp; }
+.m-fade-in  { animation-name: fadeIn; }
+.m-highlight{ animation-name: markGrow; }
+.m-counter  { animation-name: counterIn; }
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.86) translateY(18px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(46px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes counterIn {
+  from { opacity: 0; transform: scale(0.7); filter: blur(10px); }
+  to   { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+/* 打字机：按字数走 steps，避免半个字露出来 */
+.m-typewriter {
+  animation-name: typing;
+  animation-timing-function: steps(var(--steps, 16), end);
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  max-width: 100%;
+}
+@keyframes typing { from { max-width: 0; } to { max-width: 100%; } }
+
+/* 高亮下划线从左往右长出来 */
+.mark::after {
+  content: '';
+  position: absolute;
+  left: 0; bottom: -4px;
+  height: 8px;
+  width: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+  opacity: 0.42;
+  transform-origin: left center;
+  animation-name: markGrow;
+  animation-duration: calc(var(--d, 0.6) * 1s);
+  animation-delay: calc((var(--s, 0) - var(--t)) * 1s);
+  animation-fill-mode: both;
+  animation-play-state: paused;
+}
+@keyframes markGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* ════════ 转场 ════════ */
+.x-fade        { animation-name: fadeIn; }
+.x-slide-left  { animation-name: xSlideLeft; }
+.x-slide-right { animation-name: xSlideRight; }
+.x-zoom-in     { animation-name: xZoomIn; }
+.x-zoom-out    { animation-name: xZoomOut; }
+.x-blur        { animation-name: xBlur; }
+.x-wipe        { animation-name: xWipe; }
+.x-flip        { animation-name: xFlip; }
+.x-glitch      { animation-name: xGlitch; animation-timing-function: steps(5, end); }
+.x-none        { animation-name: none; }
+
+@keyframes xSlideLeft  { from { opacity: 0; transform: translateX(12%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes xSlideRight { from { opacity: 0; transform: translateX(-12%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes xZoomIn     { from { opacity: 0; transform: scale(1.22); } to { opacity: 1; transform: scale(1); } }
+@keyframes xZoomOut    { from { opacity: 0; transform: scale(0.82); } to { opacity: 1; transform: scale(1); } }
+@keyframes xBlur       { from { opacity: 0; filter: blur(26px); } to { opacity: 1; filter: blur(0); } }
+@keyframes xWipe       { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes xFlip       { from { opacity: 0; transform: perspective(1400px) rotateY(-22deg); } to { opacity: 1; transform: perspective(1400px) rotateY(0); } }
+@keyframes xGlitch {
+  0%   { opacity: 0; transform: translate3d(14px, -9px, 0) skewX(7deg); filter: hue-rotate(80deg) saturate(2.4); }
+  40%  { opacity: 0.7; transform: translate3d(-9px, 6px, 0) skewX(-5deg); filter: hue-rotate(-50deg) saturate(1.8); }
+  70%  { opacity: 0.9; transform: translate3d(4px, -3px, 0) skewX(2deg); filter: none; }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+/* ════════ 外壳层（贯穿全片的固定构件）════════ */
+.shell { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+
+.shell-top {
+  position: absolute;
+  top: 54px; left: var(--safe-left); right: var(--safe-right);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.brand {
+  display: flex; align-items: center; gap: 14px;
+  font-size: 30px; font-weight: 700; letter-spacing: 0.5px;
+  color: rgba(255,255,255,0.94);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+}
+.brand-dot {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.chapter {
+  font-size: 26px; font-weight: 700;
+  color: rgba(255,255,255,0.78);
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.38);
+  border: 1px solid rgba(255,255,255,0.18);
+  backdrop-filter: blur(10px);
+}
+
+/* 分段进度条：让观众知道「还有多久」，完播率的小杠杆 */
+.progress {
+  position: absolute;
+  left: var(--safe-left); right: var(--safe-right);
+  bottom: calc(var(--safe-bottom) - 96px);
+  display: flex; gap: 6px; height: 6px;
+}
+.progress-seg {
+  flex: var(--w, 1);
+  border-radius: 3px;
+  background: rgba(255,255,255,0.22);
+  overflow: hidden;
+}
+.progress-fill {
+  display: block;
+  width: 100%; height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transform-origin: left center;
+  animation-name: progressGrow;
+  animation-timing-function: linear;
+  animation-duration: calc(var(--d, 1) * 1s);
+  animation-delay: calc((var(--s, 0) - var(--t)) * 1s);
+  animation-fill-mode: both;
+  animation-play-state: paused;
+}
+@keyframes progressGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* 字幕带：一次只显示一条，靠 --t 精确开关 */
+.captions {
+  position: absolute;
+  left: var(--safe-left); right: var(--safe-right);
+  bottom: calc(var(--safe-bottom) - 210px);
+  min-height: 96px;
+  display: flex; align-items: center; justify-content: center;
+}
+.caption {
+  position: absolute;
+  max-width: 100%;
+  font-size: ${size_caption}px;
+  font-weight: 700;
+  line-height: 1.36;
+  text-align: center;
+  color: #fff;
+  padding: 16px 30px;
+  border-radius: 16px;
+  background: rgba(0,0,0,0.52);
+  border: 1px solid rgba(255,255,255,0.14);
+  backdrop-filter: blur(16px);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+  /* 整条字幕的生命周期（进→停→出）压进一条 keyframe。
+     配合 fill-mode: both，窗口之外自动停在 opacity:0 的那一帧，
+     于是「同一时刻只有一条字幕可见」完全由 CSS 保证，不需要 JS 逐帧开关。 */
+  animation-name: captionLife;
+  animation-duration: calc(var(--d, 2) * 1s);
+  animation-delay: calc((var(--s, 0) - var(--t)) * 1s);
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  animation-play-state: paused;
+}
+@keyframes captionLife {
+  0%   { opacity: 0; transform: translateY(14px); }
+  9%   { opacity: 1; transform: translateY(0); }
+  91%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+
+.watermark {
+  position: absolute;
+  bottom: calc(var(--safe-bottom) - 300px);
+  right: var(--safe-right);
+  font-size: 24px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 2px;
+}
+
+/* 颗粒 + 暗角：压掉「素材是东拼西凑的」那种塑料感 */
+.grain {
+  position: absolute; inset: -50%;
+  z-index: 6;
+  opacity: 0.055;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'>\
+<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/></filter>\
+<rect width='160' height='160' filter='url(%23n)'/></svg>");
+  animation-name: grainShift;
+  animation-duration: 0.6s;
+  animation-timing-function: steps(6, end);
+  animation-iteration-count: infinite;
+  animation-delay: calc(var(--t) * -1s);
+  animation-play-state: paused;
+}
+@keyframes grainShift {
+  0%   { transform: translate3d(0, 0, 0); }
+  20%  { transform: translate3d(-3%, 2%, 0); }
+  40%  { transform: translate3d(2%, -3%, 0); }
+  60%  { transform: translate3d(-2%, -2%, 0); }
+  80%  { transform: translate3d(3%, 1%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+.vignette {
+  position: absolute; inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  background: radial-gradient(ellipse 78% 62% at 50% 45%,
+    transparent 55%, rgba(0,0,0,0.45) 100%);
+}

@@ -157,13 +157,23 @@
 └─────────────────────────────────────────────────────┘
 ```
 
-**技术方案**:
-- 基于 HyperFrames 核心合约构建 HTML 组合
-- 预置 8+ 转场效果模板和 5+ 文字动画模板
-- Tailwind CSS + 自定义动画
-- TTS 旁白通过 `media-use` skill 的 `resolve` 动作获取
-- BGM 通过 `media-use` skill 搜索匹配
-- 输出 HTML 文件存储在 `data/video_compositions/{video_id}/index.html`
+**技术方案**（已实现，见 `video_pipeline/composition/`）:
+
+- **确定性时间轴**：所有动画 `animation-play-state: paused`，
+  进度由 `animation-delay: calc((var(--s) - var(--t)) * 1s)` 决定。
+  渲染器每帧只写 `:root { --t }`，画面因此是 `--t` 的纯函数。
+  这是逐帧截图渲染能正确出片的前提——CSS 动画默认走墙钟，
+  而两帧之间的真实耗时不确定，不锁住就会渲染出「动画瞬间结束」的画面。
+- **版面模板**（`layouts.py`）：hook / statement / stat / quote / bullets /
+  compare / outro，按内容特征自动推断，也可由脚本显式指定 `layout`。
+- **贯穿外壳**（`builder.py`）：品牌条、章节角标、分段进度条、字幕带、
+  水印、颗粒 + 暗角；按平台 UI 留安全区。
+- **主题**（`theme.py`）：tech_night / warm_paper / electric，颜色字阶集中一处。
+- **样式**：`assets/base.css`，占位符在 build 时替换后内联进产物。
+- 输出 HTML 存储在 `{output_base_dir}/{run_id}/{script_id}/composition/index.html`
+
+**预览**：`python -m xhs_manager.video_pipeline.composition.preview`，
+不跑流水线就能看版面；浏览器打开加 `#preview` 才自动播放。
 
 ### Stage 5: 录制视频 (`render_video`)
 

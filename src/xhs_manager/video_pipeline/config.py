@@ -77,6 +77,12 @@ class VideoPipelineSettings(BaseSettings):
     bgm_dirs: list[str] = Field(default_factory=lambda: ["data/bgm"])
     bgm_index_path: str = "data/video_pipeline/bgm_index.json"
 
+    # ── 视觉（HTML 组合）──
+    # 主题见 video_pipeline/composition/theme.py：tech_night | warm_paper | electric
+    composition_theme: str = "tech_night"
+    brand_name: str = "AI 工作流实验员"       # 片头左上角
+    brand_handle: str = "@ai-workflow-lab"    # 右下角水印
+
     # ── 渲染 ──
     render_fps: int = 30
     render_resolution: str = "1080x1920"        # 竖版
