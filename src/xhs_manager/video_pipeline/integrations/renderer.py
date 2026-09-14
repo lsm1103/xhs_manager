@@ -7,6 +7,7 @@
 """
 
 import logging
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -14,11 +15,79 @@ from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
-CHROME_PATH = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+# 按优先级探测 Chrome/Chromium。写死 macOS 路径会让 Linux/CI 上直接 available()=False。
+CHROME_CANDIDATES = (
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/opt/pw-browsers/chromium",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome",
+)
 
-# 注入页面的时间控制函数：按经过秒数激活对应场景
+
+def detect_chrome_path() -> str:
+    """返回第一个存在的 Chrome 可执行文件。
+
+    XHS_CHROME_PATH 优先，方便在容器/CI 里显式指定。
+    都找不到就返回空串，交给 available() 判定为不可用。
+    """
+    env = os.environ.get("XHS_CHROME_PATH", "").strip()
+    if env:
+        return env
+    for candidate in CHROME_CANDIDATES:
+        if Path(candidate).exists():
+            return candidate
+    return ""
+
+
+CHROME_PATH = detect_chrome_path()
+
+
+# ffmpeg 同理：PATH 里没有不代表机器上没有。Playwright 自带一份，可以直接用。
+FFMPEG_CANDIDATES = ("/opt/pw-browsers/ffmpeg-1011/ffmpeg-linux",)
+
+
+def detect_ffmpeg() -> str:
+    """返回可用的 ffmpeg 路径，找不到返回空串。"""
+    env = os.environ.get("XHS_FFMPEG_PATH", "").strip()
+    if env:
+        return env
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    for candidate in FFMPEG_CANDIDATES:
+        if Path(candidate).exists():
+            return candidate
+    return ""
+
+
+def detect_ffprobe() -> str:
+    """ffprobe 通常和 ffmpeg 同目录；Playwright 自带的那份没有 ffprobe。"""
+    env = os.environ.get("XHS_FFPROBE_PATH", "").strip()
+    if env:
+        return env
+    found = shutil.which("ffprobe")
+    if found:
+        return found
+    ffmpeg = detect_ffmpeg()
+    if ffmpeg:
+        sibling = Path(ffmpeg).with_name("ffprobe")
+        if sibling.exists():
+            return str(sibling)
+    return ""
+
+# 注入页面的时间控制函数：按经过秒数把画面定位到该时刻。
+#
+# 新版组合（composition/builder.py 生成）自带 window.__seek，
+# 所有动画都由 :root 的 --t 驱动，画面是 --t 的纯函数。
+# 旧版组合没有 __seek，回落到下面按 .clip 切换 class 的逻辑。
 SEEK_JS = """
 (elapsed) => {
+  if (typeof window.__seek === 'function') {
+    window.__seek(elapsed);
+    return -1;
+  }
+
   const clips = Array.from(document.querySelectorAll('.clip'));
 
   // 定位当前时间落在哪个场景，并算出场景内的局部时间
@@ -84,7 +153,7 @@ class HtmlVideoRenderer:
             import playwright  # noqa: F401
         except ImportError:
             return False
-        return Path(self.chrome_path).exists() and shutil.which("ffmpeg") is not None
+        return bool(self.chrome_path) and Path(self.chrome_path).exists() and bool(detect_ffmpeg())
 
     # ── 逐帧截图 ──────────────────────────────────────────────
 
@@ -122,14 +191,15 @@ class HtmlVideoRenderer:
                 )
                 page.wait_for_timeout(800)  # 字体
 
-                # 停掉页面自带的 requestAnimationFrame 播放循环，改为手动 seek
+                # 停掉页面自带的 requestAnimationFrame 播放循环，改为手动 seek。
+                # 新版组合只在 URL 带 #preview 时才自播，这里不带 hash，天然是静止的。
                 page.evaluate("() => { window.__frameMode = true; }")
 
                 # 等所有背景视频的元数据就绪：没有 duration 就无法 seek，
                 # 会导致整段画面停在第一帧或黑屏
                 page.evaluate("""
                   () => Promise.all(
-                    Array.from(document.querySelectorAll('video.bg-video')).map(v =>
+                    Array.from(document.querySelectorAll('video.bg-video, .scene-media video')).map(v =>
                       v.readyState >= 1
                         ? Promise.resolve()
                         : new Promise(res => {
@@ -167,8 +237,13 @@ class HtmlVideoRenderer:
         audio_path: Optional[Path] = None,
     ) -> bool:
         """把帧序列合成 MP4，可选混入音轨。"""
+        ffmpeg = detect_ffmpeg()
+        if not ffmpeg:
+            logger.error("找不到 ffmpeg")
+            return False
+
         cmd = [
-            "ffmpeg", "-y",
+            ffmpeg, "-y",
             "-framerate", str(self.fps),
             "-i", str(frames_dir / "frame_%05d.png"),
         ]
@@ -239,9 +314,14 @@ def extract_covers(
     """从视频抽帧生成各平台尺寸封面。"""
     covers: dict[str, str] = {}
 
+    ffmpeg = detect_ffmpeg()
+    if not ffmpeg:
+        logger.warning("找不到 ffmpeg，跳过封面生成")
+        return covers
+
     base = output_dir / "cover_default.jpg"
     r = subprocess.run(
-        ["ffmpeg", "-y", "-ss", str(at_second), "-i", str(video_path),
+        [ffmpeg, "-y", "-ss", str(at_second), "-i", str(video_path),
          "-vframes", "1", "-q:v", "2", str(base)],
         capture_output=True, timeout=60,
     )
@@ -259,7 +339,7 @@ def extract_covers(
     for platform, (w, h) in sizes.items():
         out = output_dir / f"cover_{platform}.jpg"
         rr = subprocess.run(
-            ["ffmpeg", "-y", "-i", str(base),
+            [ffmpeg, "-y", "-i", str(base),
              "-vf", f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}",
              "-q:v", "2", str(out)],
             capture_output=True, timeout=60,
@@ -273,9 +353,12 @@ def extract_covers(
 def probe_duration(video_path: Path) -> Optional[float]:
     """用 ffprobe 读真实时长（秒）。有旁白时 ffmpeg -shortest 会按音轨截断，
     成片时长可能短于脚本时长，必须以此为准回写数据库。"""
+    ffprobe = detect_ffprobe()
+    if not ffprobe:
+        return None
     try:
         r = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+            [ffprobe, "-v", "error", "-show_entries", "format=duration",
              "-of", "csv=p=0", str(video_path)],
             capture_output=True, text=True, timeout=30,
         )

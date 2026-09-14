@@ -17,11 +17,15 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+
+from xhs_manager.video_pipeline.integrations.renderer import detect_chrome_path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-CHROME_PATH = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+# 和渲染器共用一套探测逻辑：写死 macOS 路径会让 Linux/CI 上永远「找不到 Chrome」，
+# 连「视频文件不存在」这种更靠前的错误都报不出来。
+CHROME_PATH = detect_chrome_path()
 DEFAULT_PROFILE_DIR = Path.home() / ".xhs_pipeline_chrome"
 
 PUBLISH_URL = (
