@@ -1,0 +1,161 @@
+/* ════════════════════════════════════════════════════════════════
+   封面样式表。占位符（dollar-brace 形式）由 cover.py 替换后内联。
+
+   和视频组合分开写，因为封面是**为比例重新排版**的静帧，
+   不是从 9:16 成片里裁一块——裁出来必然丢掉顶部品牌条和底部字幕。
+   ════════════════════════════════════════════════════════════════ */
+
+:root {
+  --bg: ${bg};
+  --bg-alt: ${bg_alt};
+  --ink: ${ink};
+  --ink-muted: ${ink_muted};
+  --accent: ${accent};
+  --accent-2: ${accent_2};
+  --accent-ink: ${accent_ink};
+  --pad: ${pad}px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  width: ${width}px;
+  height: ${height}px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ${font_stack};
+  -webkit-font-smoothing: antialiased;
+}
+
+.cover {
+  position: relative;
+  width: ${width}px;
+  height: ${height}px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* ── 背景 ── */
+.cover-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.cover-bg video,
+.cover-bg .still {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  background-size: cover;
+  background-position: center;
+  /* 封面是静帧，轻微放大避免素材边缘露底 */
+  transform: scale(1.04);
+}
+.cover-bg.is-gradient {
+  background:
+    radial-gradient(62% 48% at 18% 16%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 70%),
+    radial-gradient(58% 44% at 84% 76%, color-mix(in srgb, var(--accent-2) 28%, transparent), transparent 70%),
+    linear-gradient(158deg, var(--bg) 0%, var(--bg-alt) 55%, var(--bg) 100%);
+}
+
+/* 可读性压暗：封面比视频更狠，因为它要在信息流里被缩到很小还看得清 */
+.cover-scrim {
+  position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(180deg,
+    rgba(0,0,0,0.52) 0%,
+    rgba(0,0,0,0.22) 34%,
+    rgba(0,0,0,0.62) 72%,
+    rgba(0,0,0,0.88) 100%);
+}
+.cover-tint {
+  position: absolute; inset: 0; z-index: 2;
+  mix-blend-mode: soft-light;
+  opacity: 0.5;
+  background: linear-gradient(150deg,
+    color-mix(in srgb, var(--accent) 60%, transparent),
+    transparent 55%,
+    color-mix(in srgb, var(--accent-2) 55%, transparent));
+}
+
+/* ── 内容 ── */
+.cover-body {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: var(--pad);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* 16:9 上文字不该横跨整幅，太宽读起来累 */
+.cover.is-wide .cover-foot { max-width: 66%; }
+
+.cover-brand {
+  display: flex; align-items: center; gap: ${gap}px;
+  font-size: ${brand_size}px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.95);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.85);
+}
+.cover-brand-dot {
+  width: ${dot}px; height: ${dot}px;
+  border-radius: ${dot_radius}px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 26px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+
+.cover-foot { display: flex; flex-direction: column; }
+
+.cover-kicker {
+  display: inline-flex; align-items: center; gap: ${gap}px;
+  font-size: ${kicker_size}px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: ${kicker_gap}px;
+}
+.cover-kicker::before {
+  content: '';
+  width: ${rule}px; height: ${rule_h}px;
+  border-radius: ${rule_h}px;
+  background: var(--accent);
+}
+
+.cover-title {
+  font-size: ${title_size}px;
+  font-weight: 900;
+  line-height: 1.14;
+  letter-spacing: -1px;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.8), 0 2px 6px rgba(0,0,0,0.9);
+}
+/* 标题里的重点词 */
+.cover-title .hl {
+  color: var(--accent);
+  text-shadow: 0 4px 20px rgba(0,0,0,0.8);
+}
+
+.cover-sub {
+  margin-top: ${sub_gap}px;
+  font-size: ${sub_size}px;
+  font-weight: 600;
+  line-height: 1.42;
+  color: var(--ink-muted);
+  text-shadow: 0 2px 12px rgba(0,0,0,0.85);
+}
+
+/* 时长角标 */
+.cover-badge {
+  align-self: flex-start;
+  margin-top: ${sub_gap}px;
+  padding: ${badge_pad_v}px ${badge_pad_h}px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: ${badge_size}px;
+  font-weight: 800;
+}
+
+.vignette {
+  position: absolute; inset: 0; z-index: 4;
+  background: radial-gradient(ellipse 80% 64% at 50% 44%,
+    transparent 52%, rgba(0,0,0,0.5) 100%);
+}

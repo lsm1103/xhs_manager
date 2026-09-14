@@ -353,6 +353,86 @@ class HtmlVideoRenderer:
                 shutil.rmtree(frames_dir, ignore_errors=True)
 
 
+# ── HTML → 静帧 ───────────────────────────────────────────────
+
+
+def render_html_images(
+    jobs: "list[tuple[Path, Path, int, int]]",
+    chrome_path: str = "",
+    quality: int = 92,
+    seek_second: float = 1.0,
+) -> "dict[Path, Path]":
+    """把若干 HTML 各自截成一张 JPEG。
+
+    jobs 是 (html_path, out_path, width, height) 的列表，共用一个浏览器实例——
+    每张封面单独起一次 Chromium 的话，光启动开销就比渲染本身贵。
+
+    返回 {out_path: out_path}，失败的那张不会出现在结果里。
+    """
+    chrome = chrome_path or detect_chrome_path()
+    if not chrome:
+        logger.warning("找不到 Chrome，跳过静帧渲染")
+        return {}
+
+    from playwright.sync_api import sync_playwright
+
+    done: dict[Path, Path] = {}
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            executable_path=chrome,
+            headless=True,
+            args=["--disable-web-security", "--allow-file-access-from-files"],
+        )
+        try:
+            for html_path, out_path, width, height in jobs:
+                try:
+                    page = browser.new_page(
+                        viewport={"width": width, "height": height},
+                        device_scale_factor=1,
+                    )
+                    page.goto(
+                        html_path.resolve().as_uri(), wait_until="load", timeout=60000,
+                    )
+                    page.wait_for_timeout(600)  # 字体
+
+                    # 背景若是视频，必须手动 seek 到某一帧，否则截到黑屏
+                    page.evaluate(
+                        """
+                        (t) => Promise.all(
+                          Array.from(document.querySelectorAll('video')).map(v =>
+                            new Promise(res => {
+                              const seek = () => {
+                                const d = v.duration;
+                                if (d && isFinite(d) && d > 0) {
+                                  v.currentTime = Math.min(t, d - 0.05);
+                                }
+                                v.pause();
+                                setTimeout(res, 220);
+                              };
+                              if (v.readyState >= 1) seek();
+                              else {
+                                v.addEventListener('loadedmetadata', seek, {once: true});
+                                setTimeout(res, 4000);
+                              }
+                            })
+                          )
+                        )
+                        """,
+                        seek_second,
+                    )
+
+                    out_path.parent.mkdir(parents=True, exist_ok=True)
+                    page.screenshot(path=str(out_path), type="jpeg", quality=quality)
+                    page.close()
+                    done[out_path] = out_path
+                except Exception as e:  # noqa: BLE001 - 一张失败不该拖垮其余的
+                    logger.warning("静帧渲染失败 %s: %s", out_path.name, e)
+        finally:
+            browser.close()
+
+    return done
+
+
 # ── 封面图 ────────────────────────────────────────────────────
 
 
