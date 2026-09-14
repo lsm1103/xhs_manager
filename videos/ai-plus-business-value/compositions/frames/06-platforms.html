@@ -1,0 +1,525 @@
+<template>
+  <div id="root" data-composition-id="06-platforms" data-width="1920" data-height="1080" data-duration="10.4">
+    <div class="clip" data-start="0" data-duration="10.4" data-track-index="0" data-f06-ground></div>
+
+    <div class="clip" data-start="0" data-duration="10.4" data-track-index="1" data-f06-stage>
+      <div data-f06-rail>
+        <span data-f06-rail-line></span>
+        <span data-f06-rail-seed id="06-platforms-seed"></span>
+      </div>
+
+      <div data-f06-columns>
+        <div data-f06-column data-f06-active id="06-platforms-bilibili">
+          <div data-f06-panel>
+            <div data-f06-panel-head>
+              <span data-f06-index>01</span>
+              <strong>B站</strong>
+            </div>
+            <div data-f06-words>
+              <span>数据</span>
+              <span>流程</span>
+            </div>
+            <span data-f06-accent></span>
+          </div>
+        </div>
+
+        <div data-f06-column data-f06-active id="06-platforms-weibo">
+          <div data-f06-panel>
+            <div data-f06-panel-head>
+              <span data-f06-index>02</span>
+              <strong>微博</strong>
+            </div>
+            <div data-f06-words>
+              <span>结果</span>
+              <span>交易</span>
+            </div>
+            <span data-f06-accent></span>
+          </div>
+        </div>
+
+        <div data-f06-column data-f06-active id="06-platforms-x">
+          <div data-f06-panel>
+            <div data-f06-panel-head>
+              <span data-f06-index>03</span>
+              <strong>X</strong>
+            </div>
+            <div data-f06-words>
+              <span>治理</span>
+              <span>回滚</span>
+            </div>
+            <span data-f06-accent></span>
+          </div>
+        </div>
+
+        <div data-f06-column data-f06-empty id="06-platforms-xhs">
+          <div data-f06-panel>
+            <div data-f06-panel-head>
+              <span data-f06-index>04</span>
+              <strong>小红书</strong>
+              <em data-f06-small-gap>样本不足</em>
+            </div>
+            <div data-f06-blank>
+              <span data-f06-blank-line></span>
+              <span data-f06-blank-line></span>
+              <span data-f06-blank-line></span>
+              <b id="06-platforms-gap-stamp">样本不足</b>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <svg data-f06-flow viewBox="0 0 1920 900" aria-hidden="true">
+        <path data-f06-branch id="06-platforms-branch-bilibili" d="M 357 540 C 357 606 760 620 960 654" />
+        <path data-f06-branch id="06-platforms-branch-weibo" d="M 759 540 C 759 606 870 636 960 654" />
+        <path data-f06-branch id="06-platforms-branch-x" d="M 1161 540 C 1161 606 1050 636 960 654" />
+        <path data-f06-trunk id="06-platforms-trunk" d="M 960 654 L 960 706" />
+      </svg>
+
+      <div data-f06-hero>
+        <strong id="06-platforms-hero">真实业务</strong>
+        <span id="06-platforms-pusher"></span>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    #root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      container-type: size;
+      color: #f0ece5;
+      font-family: sans-serif;
+    }
+
+    [data-f06-ground] {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: #111111;
+    }
+
+    [data-f06-stage] {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      overflow: hidden;
+      perspective: 1800px;
+    }
+
+    [data-f06-rail] {
+      position: absolute;
+      top: 64px;
+      left: 106px;
+      right: 106px;
+      height: 28px;
+    }
+
+    [data-f06-rail-line] {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #282826;
+    }
+
+    [data-f06-rail-seed] {
+      position: absolute;
+      top: -2px;
+      left: calc(50% - 54px);
+      width: 108px;
+      height: 5px;
+      background: #e85d26;
+      transform-origin: 50% 50%;
+      will-change: transform, opacity;
+    }
+
+    [data-f06-columns] {
+      position: absolute;
+      top: 130px;
+      left: 177px;
+      width: 1566px;
+      height: 410px;
+      display: grid;
+      grid-template-columns: repeat(4, 360px);
+      gap: 42px;
+      transform-style: preserve-3d;
+    }
+
+    [data-f06-column] {
+      width: 360px;
+      height: 410px;
+      transform-style: preserve-3d;
+      will-change: transform, opacity;
+    }
+
+    [data-f06-panel] {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+      border-top: 1px solid #282826;
+      border-bottom: 1px solid #282826;
+      background: #1a1a18;
+      transform-style: preserve-3d;
+      transform-origin: 50% 50%;
+      will-change: transform, height, border-color, background-color;
+    }
+
+    [data-f06-panel-head] {
+      position: relative;
+      height: 78px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 20px 16px;
+      border-bottom: 1px solid #282826;
+      color: #888880;
+    }
+
+    [data-f06-panel-head] strong {
+      font-size: 32px;
+      font-weight: 900;
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+    }
+
+    [data-f06-index] {
+      font-family: monospace;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: #505048;
+    }
+
+    [data-f06-small-gap] {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      font-family: monospace;
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #505048;
+    }
+
+    [data-f06-words] {
+      position: absolute;
+      top: 116px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transform-origin: 50% 100%;
+      will-change: transform, opacity;
+    }
+
+    [data-f06-words] span {
+      display: block;
+      font-size: 64px;
+      font-weight: 900;
+      line-height: 0.95;
+      letter-spacing: -0.055em;
+      color: #505048;
+      will-change: color, transform, opacity;
+    }
+
+    [data-f06-words] span + span {
+      padding-top: 14px;
+      border-top: 1px solid #282826;
+    }
+
+    [data-f06-accent] {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      bottom: 18px;
+      height: 8px;
+      background: #e85d26;
+      transform-origin: 0% 50%;
+      will-change: transform, opacity;
+    }
+
+    [data-f06-empty] {
+      opacity: 0.48;
+    }
+
+    [data-f06-empty] [data-f06-panel] {
+      background: #111111;
+      border-top-style: dashed;
+      border-bottom-style: dashed;
+    }
+
+    [data-f06-blank] {
+      position: absolute;
+      top: 112px;
+      left: 20px;
+      right: 20px;
+      bottom: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 47px;
+    }
+
+    [data-f06-blank-line] {
+      height: 1px;
+      width: 100%;
+      background: #282826;
+    }
+
+    [data-f06-blank] b {
+      position: absolute;
+      top: 86px;
+      left: 34px;
+      width: 252px;
+      height: 84px;
+      box-sizing: border-box;
+      display: grid;
+      place-items: center;
+      border: 3px solid #e85d26;
+      color: #e85d26;
+      background: #111111;
+      font-size: 31px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      transform-origin: 50% 50%;
+      will-change: transform, opacity;
+    }
+
+    [data-f06-flow] {
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 1920px;
+      height: 900px;
+      z-index: 3;
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    [data-f06-flow] path {
+      fill: none;
+      stroke: #e85d26;
+      stroke-linecap: square;
+      stroke-linejoin: miter;
+      vector-effect: non-scaling-stroke;
+    }
+
+    [data-f06-branch] {
+      stroke-width: 8;
+    }
+
+    [data-f06-trunk] {
+      stroke-width: 24;
+    }
+
+    [data-f06-hero] {
+      position: absolute;
+      top: 500px;
+      left: 106px;
+      width: 1708px;
+      height: 330px;
+      z-index: 5;
+      overflow: hidden;
+    }
+
+    [data-f06-hero] strong {
+      position: absolute;
+      top: 54px;
+      left: 0;
+      width: 100%;
+      display: block;
+      color: #f0ece5;
+      font-size: 172px;
+      font-weight: 900;
+      line-height: 0.88;
+      letter-spacing: -0.065em;
+      text-align: center;
+      will-change: transform, opacity, filter;
+    }
+
+    [data-f06-hero] > span {
+      position: absolute;
+      top: 206px;
+      left: 0;
+      width: 100%;
+      height: 20px;
+      background: #e85d26;
+      transform-origin: 50% 50%;
+      will-change: transform, opacity;
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (() => {
+      const columns = [
+        {
+          root: document.getElementById("06-platforms-bilibili"),
+          at: 0.12,
+          lightAt: 0.42,
+          fromX: -330,
+          tiltFrom: 22,
+          tiltTo: 12
+        },
+        {
+          root: document.getElementById("06-platforms-weibo"),
+          at: 0.92,
+          lightAt: 1.27,
+          fromX: -230,
+          tiltFrom: 14,
+          tiltTo: 5
+        },
+        {
+          root: document.getElementById("06-platforms-x"),
+          at: 1.82,
+          lightAt: 2.18,
+          fromX: 300,
+          tiltFrom: -22,
+          tiltTo: -12
+        }
+      ];
+
+      const xhs = document.getElementById("06-platforms-xhs");
+      const xhsPanel = xhs.querySelector("[data-f06-panel]");
+      const gapStamp = document.getElementById("06-platforms-gap-stamp");
+      const hero = document.getElementById("06-platforms-hero");
+      const pusher = document.getElementById("06-platforms-pusher");
+      const seed = document.getElementById("06-platforms-seed");
+      const branchIds = [
+        "06-platforms-branch-bilibili",
+        "06-platforms-branch-weibo",
+        "06-platforms-branch-x"
+      ];
+      const branches = branchIds.map((id) => document.getElementById(id));
+      const trunk = document.getElementById("06-platforms-trunk");
+
+      [...branches, trunk].forEach((path) => {
+        const length = path.getTotalLength();
+        path.style.strokeDasharray = String(length);
+        path.style.strokeDashoffset = String(length);
+      });
+
+      const tl = gsap.timeline({ paused: true });
+
+      tl.fromTo(
+        seed,
+        { scaleX: 0, opacity: 0 },
+        { scaleX: 1, opacity: 1, duration: 0.34, ease: "power3.out" },
+        0.08
+      );
+
+      columns.forEach((item) => {
+        const panel = item.root.querySelector("[data-f06-panel]");
+        const words = item.root.querySelectorAll("[data-f06-words] span");
+        const accent = item.root.querySelector("[data-f06-accent]");
+
+        tl.fromTo(
+          item.root,
+          { x: item.fromX, scale: 0.86, opacity: 0 },
+          { x: 0, scale: 1, opacity: 1, duration: 0.74, ease: "power3.out" },
+          item.at
+        );
+        tl.fromTo(
+          panel,
+          { rotateY: item.tiltFrom },
+          { rotateY: item.tiltTo, duration: 0.74, ease: "power3.out" },
+          item.at
+        );
+        tl.fromTo(
+          words,
+          { y: 24, opacity: 0.28 },
+          { y: 0, opacity: 1, duration: 0.52, stagger: 0.08, ease: "power2.out" },
+          item.lightAt
+        );
+        tl.to(
+          words,
+          { color: "#f0ece5", duration: 0.28, stagger: 0.05, ease: "power1.out" },
+          item.lightAt
+        );
+        tl.fromTo(
+          accent,
+          { scaleX: 0, opacity: 0 },
+          { scaleX: 1, opacity: 1, duration: 0.5, ease: "power3.out" },
+          item.lightAt + 0.08
+        );
+        tl.to(panel, { borderTopColor: "#e85d26", duration: 0.24, ease: "none" }, item.lightAt);
+      });
+
+      tl.fromTo(
+        xhs,
+        { x: 320, scale: 0.86, opacity: 0 },
+        { x: 0, scale: 1, opacity: 0.48, duration: 0.76, ease: "power3.out" },
+        3.28
+      );
+      tl.fromTo(
+        xhsPanel,
+        { rotateY: -22 },
+        { rotateY: -12, duration: 0.76, ease: "power3.out" },
+        3.28
+      );
+      tl.fromTo(
+        gapStamp,
+        { scale: 0, opacity: 0, y: 12 },
+        { scale: 1, opacity: 1, y: 0, duration: 0.56, ease: "power3.out" },
+        4.72
+      );
+
+      branches.forEach((path, index) => {
+        tl.to(
+          path,
+          { strokeDashoffset: 0, duration: 1.1, ease: "power2.inOut" },
+          3.82 + index * 0.52
+        );
+      });
+
+      columns.forEach((item, index) => {
+        const words = item.root.querySelector("[data-f06-words]");
+        tl.to(
+          words,
+          { y: 184, scaleX: 0.66, scaleY: 0.1, opacity: 0.18, duration: 0.72, ease: "power3.in" },
+          4.08 + index * 0.48
+        );
+      });
+
+      tl.to(trunk, { strokeDashoffset: 0, duration: 0.62, ease: "power3.out" }, 5.92);
+
+      const allColumns = [...columns.map((item) => item.root), xhs];
+      allColumns.forEach((column, index) => {
+        const panel = column.querySelector("[data-f06-panel]");
+        tl.to(
+          column,
+          { y: -52, duration: 0.46, ease: "power4.in" },
+          6.5 + index * 0.035
+        );
+        tl.to(
+          panel,
+          { height: 78, rotateY: 0, backgroundColor: "#111111", duration: 0.46, ease: "power4.out" },
+          6.72 + index * 0.035
+        );
+      });
+
+      tl.to(gapStamp, { opacity: 0, y: -90, duration: 0.24, ease: "power3.in" }, 6.52);
+
+      tl.fromTo(
+        hero,
+        { y: 150, opacity: 0.15, filter: "blur(10px)" },
+        { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.72, ease: "expo.out" },
+        6.82
+      );
+      tl.fromTo(
+        pusher,
+        { y: 0, scaleX: 0.08, opacity: 1 },
+        { y: -164, scaleX: 1, opacity: 1, duration: 0.82, ease: "power4.out" },
+        6.72
+      );
+
+      window.__timelines["06-platforms"] = tl;
+    })();
+  </script>
+</template>

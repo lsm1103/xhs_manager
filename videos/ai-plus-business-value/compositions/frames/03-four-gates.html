@@ -1,0 +1,596 @@
+<template>
+  <style>
+    #root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      container-type: size;
+      color: #f0ece5;
+      font-family: sans-serif;
+    }
+
+    .hf-f03-bg,
+    .hf-f03-stage {
+      position: absolute;
+      inset: 0;
+    }
+
+    .hf-f03-bg {
+      background: #111111;
+    }
+
+    .hf-f03-stage {
+      overflow: hidden;
+    }
+
+    .hf-f03-world {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 4320px;
+      transform-origin: 50% 50%;
+      will-change: transform;
+    }
+
+    .hf-f03-station {
+      position: absolute;
+      left: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+    }
+
+    .hf-f03-station::before {
+      content: "";
+      position: absolute;
+      left: 106px;
+      right: 106px;
+      top: 70px;
+      height: 1px;
+      background: #282826;
+    }
+
+    .hf-f03-station-1 { top: 0; }
+    .hf-f03-station-2 { top: 1080px; }
+    .hf-f03-station-3 { top: 2160px; }
+    .hf-f03-station-4 { top: 3240px; }
+
+    .hf-f03-kicker {
+      position: absolute;
+      top: 92px;
+      left: 106px;
+      font-family: monospace;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: #e85d26;
+    }
+
+    .hf-f03-title {
+      position: absolute;
+      top: 115px;
+      left: 100px;
+      width: 540px;
+      font-size: 94px;
+      line-height: 0.88;
+      font-weight: 900;
+      letter-spacing: -0.045em;
+      text-transform: lowercase;
+    }
+
+    .hf-f03-num {
+      display: block;
+      color: #e85d26;
+      font-size: 172px;
+      line-height: 0.8;
+    }
+
+    .hf-f03-rail {
+      position: absolute;
+      left: 0;
+      top: 600px;
+      width: 1920px;
+      height: 126px;
+      border-top: 1px solid #505048;
+      border-bottom: 1px solid #505048;
+      background: #1a1a18;
+      overflow: hidden;
+    }
+
+    .hf-f03-rail-ticks {
+      position: absolute;
+      inset: 0;
+      width: 2880px;
+      display: flex;
+    }
+
+    .hf-f03-rail-ticks span {
+      display: block;
+      flex: 0 0 70px;
+      height: 100%;
+      box-sizing: border-box;
+      border-left: 2px solid #282826;
+    }
+
+    .hf-f03-flow-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 662px;
+      height: 2px;
+      background: #e85d26;
+    }
+
+    .hf-f03-gate {
+      position: absolute;
+      top: 205px;
+      left: 710px;
+      width: 500px;
+      height: 525px;
+      z-index: 5;
+    }
+
+    .hf-f03-post,
+    .hf-f03-crossbar {
+      position: absolute;
+      background: #f0ece5;
+    }
+
+    .hf-f03-post {
+      top: 0;
+      width: 24px;
+      height: 525px;
+    }
+
+    .hf-f03-post-left { left: 0; }
+    .hf-f03-post-right { right: 0; }
+
+    .hf-f03-crossbar {
+      top: 0;
+      left: 0;
+      width: 500px;
+      height: 24px;
+    }
+
+    .hf-f03-gate-label {
+      position: absolute;
+      top: 42px;
+      left: 48px;
+      right: 48px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #505048;
+      font-family: monospace;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-align: center;
+    }
+
+    .hf-f03-block {
+      position: absolute;
+      top: 607px;
+      left: 410px;
+      width: 112px;
+      height: 112px;
+      z-index: 4;
+      display: grid;
+      place-items: center;
+      background: #e85d26;
+      color: #111111;
+      font-family: monospace;
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+
+    .hf-f03-stamps {
+      position: absolute;
+      top: 748px;
+      left: 1240px;
+      display: flex;
+      gap: 18px;
+    }
+
+    .hf-f03-stamp {
+      padding: 11px 15px;
+      border: 1px solid #e85d26;
+      color: #e85d26;
+      font-family: monospace;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+    }
+
+    .hf-f03-branch {
+      position: absolute;
+      top: 500px;
+      left: 1210px;
+      width: 440px;
+      border-top: 1px dashed #505048;
+      color: #505048;
+      font-family: monospace;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      padding-top: 13px;
+    }
+
+    .hf-f03-existing {
+      position: absolute;
+      top: 745px;
+      left: 1040px;
+      color: #888880;
+      font-family: monospace;
+      font-size: 15px;
+      letter-spacing: 0.14em;
+    }
+
+    .hf-f03-route-svg {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .hf-f03-route-path {
+      fill: none;
+      stroke: #e85d26;
+      stroke-width: 4;
+      stroke-linecap: square;
+      stroke-linejoin: miter;
+    }
+
+    .hf-f03-responsibility {
+      position: absolute;
+      top: 300px;
+      left: 1260px;
+      display: grid;
+      grid-template-columns: repeat(3, 105px);
+      gap: 16px;
+    }
+
+    .hf-f03-resp-item {
+      height: 105px;
+      border: 1px solid #505048;
+      display: grid;
+      place-items: center;
+      color: #505048;
+      font-family: monospace;
+      font-size: 34px;
+      font-weight: 800;
+    }
+
+    .hf-f03-resp-label {
+      position: absolute;
+      top: 425px;
+      left: 1260px;
+      width: 347px;
+      display: flex;
+      justify-content: space-between;
+      color: #888880;
+      font-family: monospace;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+
+    .hf-f03-trace {
+      position: absolute;
+      top: 758px;
+      left: 1240px;
+      width: 320px;
+      padding-top: 12px;
+      border-top: 1px solid #e85d26;
+      color: #e85d26;
+      font-family: monospace;
+      font-size: 16px;
+      letter-spacing: 0.14em;
+    }
+
+    .hf-f03-door {
+      position: absolute;
+      top: 118px;
+      width: 174px;
+      height: 350px;
+      background: #e85d26;
+    }
+
+    .hf-f03-door-left { left: 48px; }
+    .hf-f03-door-right { right: 48px; }
+
+    .hf-f03-module {
+      position: absolute;
+      top: 603px;
+      width: 120px;
+      height: 120px;
+      z-index: 4;
+      display: grid;
+      place-items: center;
+      border: 4px solid #e85d26;
+      background: #111111;
+      color: #e85d26;
+      font-family: monospace;
+      font-size: 36px;
+      font-weight: 800;
+    }
+
+    .hf-f03-module-a { left: 850px; }
+    .hf-f03-module-b { left: 1120px; }
+
+    .hf-f03-client-tag {
+      position: absolute;
+      top: 748px;
+      padding-top: 10px;
+      border-top: 1px solid #505048;
+      color: #888880;
+      font-family: monospace;
+      font-size: 14px;
+      letter-spacing: 0.12em;
+    }
+
+    .hf-f03-client-a { left: 850px; width: 120px; }
+    .hf-f03-client-b { left: 1120px; width: 120px; color: #e85d26; }
+
+    .hf-f03-summary {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      background: #111111;
+      padding: 76px 106px 0;
+      box-sizing: border-box;
+      will-change: transform, filter, opacity;
+    }
+
+    .hf-f03-summary-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #282826;
+    }
+
+    .hf-f03-summary-kicker {
+      color: #e85d26;
+      font-family: monospace;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+    }
+
+    .hf-f03-summary-title {
+      font-size: 82px;
+      line-height: 0.9;
+      font-weight: 900;
+      letter-spacing: -0.045em;
+      text-transform: lowercase;
+    }
+
+    .hf-f03-list {
+      margin-top: 28px;
+      display: grid;
+      gap: 0;
+    }
+
+    .hf-f03-row {
+      height: 158px;
+      display: grid;
+      grid-template-columns: 125px 1fr 310px;
+      align-items: center;
+      border-bottom: 1px solid #282826;
+    }
+
+    .hf-f03-row-num {
+      color: #888880;
+      font-family: monospace;
+      font-size: 20px;
+      letter-spacing: 0.14em;
+    }
+
+    .hf-f03-row-name {
+      font-size: 54px;
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: -0.035em;
+      text-transform: lowercase;
+    }
+
+    .hf-f03-row-state {
+      justify-self: end;
+      color: #888880;
+      font-family: monospace;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+    }
+
+    .hf-f03-row-final .hf-f03-row-num,
+    .hf-f03-row-final .hf-f03-row-name,
+    .hf-f03-row-final .hf-f03-row-state {
+      color: #e85d26;
+    }
+
+    .hf-f03-mini-gate {
+      display: inline-block;
+      width: 30px;
+      height: 42px;
+      margin-right: 22px;
+      border-top: 5px solid currentColor;
+      border-right: 5px solid currentColor;
+      border-left: 5px solid currentColor;
+      vertical-align: -5px;
+    }
+  </style>
+
+  <div id="root" data-composition-id="03-four-gates" data-width="1920" data-height="1080" data-duration="12.5">
+    <div class="clip hf-f03-bg" data-start="0" data-duration="12.5" data-track-index="0"></div>
+
+    <div class="clip hf-f03-stage" data-start="0" data-duration="12.5" data-track-index="1">
+      <div class="hf-f03-world" id="hf-f03-world">
+        <section class="hf-f03-station hf-f03-station-1">
+          <div class="hf-f03-kicker">GATE / BUSINESS CHECK</div>
+          <div class="hf-f03-title"><span class="hf-f03-num">01</span>demand</div>
+          <div class="hf-f03-rail"><div class="hf-f03-rail-ticks"></div></div>
+          <div class="hf-f03-flow-line"></div>
+          <div class="hf-f03-block" id="hf-f03-block-1">AI</div>
+          <div class="hf-f03-gate" id="hf-f03-gate-1">
+            <div class="hf-f03-post hf-f03-post-left"></div><div class="hf-f03-post hf-f03-post-right"></div><div class="hf-f03-crossbar"></div>
+            <div class="hf-f03-gate-label">DEMAND</div>
+          </div>
+          <div class="hf-f03-stamps">
+            <div class="hf-f03-stamp" id="hf-f03-stamp-1">FREQUENT</div>
+            <div class="hf-f03-stamp" id="hf-f03-stamp-2">BUDGET</div>
+          </div>
+        </section>
+
+        <section class="hf-f03-station hf-f03-station-2">
+          <div class="hf-f03-kicker">GATE / BUSINESS CHECK</div>
+          <div class="hf-f03-title"><span class="hf-f03-num">02</span>flow</div>
+          <div class="hf-f03-rail"><div class="hf-f03-rail-ticks"></div></div>
+          <div class="hf-f03-flow-line"></div>
+          <svg class="hf-f03-route-svg" viewBox="0 0 1920 1080" aria-hidden="true">
+            <path class="hf-f03-route-path" id="hf-f03-route-2" d="M 410 663 H 1510" />
+          </svg>
+          <div class="hf-f03-block" id="hf-f03-block-2">AI</div>
+          <div class="hf-f03-gate" id="hf-f03-gate-2">
+            <div class="hf-f03-post hf-f03-post-left"></div><div class="hf-f03-post hf-f03-post-right"></div><div class="hf-f03-crossbar"></div>
+            <div class="hf-f03-gate-label">FLOW</div>
+          </div>
+          <div class="hf-f03-branch">NEW SIDE WORKBENCH / REJECTED</div>
+          <div class="hf-f03-existing" id="hf-f03-existing">CURRENT FLOW / EMBEDDED</div>
+        </section>
+
+        <section class="hf-f03-station hf-f03-station-3">
+          <div class="hf-f03-kicker">GATE / BUSINESS CHECK</div>
+          <div class="hf-f03-title"><span class="hf-f03-num">03</span>owner</div>
+          <div class="hf-f03-rail"><div class="hf-f03-rail-ticks"></div></div>
+          <div class="hf-f03-flow-line"></div>
+          <div class="hf-f03-block" id="hf-f03-block-3">AI</div>
+          <div class="hf-f03-gate" id="hf-f03-gate-3">
+            <div class="hf-f03-post hf-f03-post-left"></div><div class="hf-f03-post hf-f03-post-right"></div><div class="hf-f03-crossbar"></div>
+            <div class="hf-f03-gate-label">OWNER</div>
+          </div>
+          <div class="hf-f03-responsibility">
+            <div class="hf-f03-resp-item" id="hf-f03-review">OK</div>
+            <div class="hf-f03-resp-item" id="hf-f03-reject">NO</div>
+            <div class="hf-f03-resp-item" id="hf-f03-rollback">UNDO</div>
+          </div>
+          <div class="hf-f03-resp-label"><span>REVIEW</span><span>REJECT</span><span>ROLLBACK</span></div>
+          <div class="hf-f03-trace" id="hf-f03-trace">TRACE ID / —</div>
+        </section>
+
+        <section class="hf-f03-station hf-f03-station-4">
+          <div class="hf-f03-kicker">GATE / BUSINESS CHECK</div>
+          <div class="hf-f03-title"><span class="hf-f03-num">04</span>reuse</div>
+          <div class="hf-f03-rail"><div class="hf-f03-rail-ticks"></div></div>
+          <div class="hf-f03-flow-line"></div>
+          <div class="hf-f03-gate" id="hf-f03-gate-4">
+            <div class="hf-f03-post hf-f03-post-left"></div><div class="hf-f03-post hf-f03-post-right"></div><div class="hf-f03-crossbar"></div>
+            <div class="hf-f03-gate-label">REUSE</div>
+            <div class="hf-f03-door hf-f03-door-left" id="hf-f03-door-left"></div>
+            <div class="hf-f03-door hf-f03-door-right" id="hf-f03-door-right"></div>
+          </div>
+          <div class="hf-f03-module hf-f03-module-a" id="hf-f03-module-a">A</div>
+          <div class="hf-f03-module hf-f03-module-b" id="hf-f03-module-b">B</div>
+          <div class="hf-f03-client-tag hf-f03-client-a" id="hf-f03-client-a">CLIENT A</div>
+          <div class="hf-f03-client-tag hf-f03-client-b" id="hf-f03-client-b">CLIENT B</div>
+        </section>
+      </div>
+
+      <div class="hf-f03-summary" id="hf-f03-summary">
+        <div class="hf-f03-summary-head">
+          <div class="hf-f03-summary-kicker">FOUR GATES / ONE DECISION</div>
+          <div class="hf-f03-summary-title">business gates</div>
+        </div>
+        <div class="hf-f03-list">
+          <div class="hf-f03-row" id="hf-f03-row-1"><div class="hf-f03-row-num">01</div><div class="hf-f03-row-name"><span class="hf-f03-mini-gate"></span>demand</div><div class="hf-f03-row-state">GO LIVE</div></div>
+          <div class="hf-f03-row" id="hf-f03-row-2"><div class="hf-f03-row-num">02</div><div class="hf-f03-row-name"><span class="hf-f03-mini-gate"></span>flow</div><div class="hf-f03-row-state">GO LIVE</div></div>
+          <div class="hf-f03-row" id="hf-f03-row-3"><div class="hf-f03-row-num">03</div><div class="hf-f03-row-name"><span class="hf-f03-mini-gate"></span>owner</div><div class="hf-f03-row-state">GO LIVE</div></div>
+          <div class="hf-f03-row hf-f03-row-final" id="hf-f03-row-4"><div class="hf-f03-row-num">04</div><div class="hf-f03-row-name"><span class="hf-f03-mini-gate"></span>reuse</div><div class="hf-f03-row-state">PRODUCT</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const world = document.getElementById("hf-f03-world");
+      const summary = document.getElementById("hf-f03-summary");
+      const route = document.getElementById("hf-f03-route-2");
+      const ticks = Array.from(document.querySelectorAll(".hf-f03-rail-ticks"));
+      const cam = { x: 0, y: 0, scale: 1 };
+      const belt = { x: 0 };
+
+      function applyCamera() {
+        world.style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.scale})`;
+      }
+
+      function applyBelt() {
+        ticks.forEach((tick) => {
+          tick.style.transform = `translateX(${belt.x}px)`;
+        });
+      }
+
+      applyCamera();
+      applyBelt();
+
+      ticks.forEach((tick) => {
+        for (let index = 0; index < 42; index += 1) {
+          tick.appendChild(document.createElement("span"));
+        }
+      });
+
+      const routeLength = route.getTotalLength();
+      route.style.strokeDasharray = String(routeLength);
+      route.style.strokeDashoffset = String(routeLength);
+
+      const tl = gsap.timeline({ paused: true });
+
+      tl.set(summary, { opacity: 0 }, 0);
+      tl.set(["#hf-f03-stamp-1", "#hf-f03-stamp-2", "#hf-f03-existing", "#hf-f03-trace", "#hf-f03-module-b", "#hf-f03-client-a", "#hf-f03-client-b"], { opacity: 0 }, 0);
+      tl.set(["#hf-f03-review", "#hf-f03-reject", "#hf-f03-rollback"], { color: "#505048", borderColor: "#505048", backgroundColor: "#111111" }, 0);
+      tl.set(["#hf-f03-row-1", "#hf-f03-row-2", "#hf-f03-row-3", "#hf-f03-row-4"], { opacity: 0, x: 230 }, 0);
+
+      tl.to(belt, { x: -900, duration: 12, ease: "none", onUpdate: applyBelt }, 0);
+
+      tl.fromTo("#hf-f03-gate-1", { y: 250, opacity: 0.35 }, { y: 0, opacity: 1, duration: 0.48, ease: "power4.out" }, 0);
+      tl.fromTo("#hf-f03-block-1", { x: -260 }, { x: 700, duration: 1.25, ease: "power2.inOut" }, 0.45);
+      tl.fromTo("#hf-f03-stamp-1", { y: 34, opacity: 0, scale: 0.82 }, { y: 0, opacity: 1, scale: 1, duration: 0.38, ease: "back.out(1.7)" }, 1.35);
+      tl.fromTo("#hf-f03-stamp-2", { y: 34, opacity: 0, scale: 0.82 }, { y: 0, opacity: 1, scale: 1, duration: 0.38, ease: "back.out(1.7)" }, 1.82);
+
+      tl.to(cam, { y: -1080, duration: 0.62, ease: "power3.inOut", onUpdate: applyCamera }, 2.18);
+      tl.fromTo("#hf-f03-gate-2", { y: 230, opacity: 0.45 }, { y: 0, opacity: 1, duration: 0.42, ease: "power4.out" }, 2.48);
+      tl.to(route, { strokeDashoffset: 0, duration: 0.72, ease: "power2.out" }, 2.78);
+      tl.fromTo("#hf-f03-block-2", { x: -80 }, { x: 910, duration: 1.35, ease: "power2.inOut" }, 3.0);
+      tl.fromTo("#hf-f03-existing", { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42, ease: "power3.out" }, 4.12);
+
+      tl.to(cam, { y: -2160, duration: 0.62, ease: "power3.inOut", onUpdate: applyCamera }, 4.68);
+      tl.fromTo("#hf-f03-gate-3", { y: 230, opacity: 0.45 }, { y: 0, opacity: 1, duration: 0.42, ease: "power4.out" }, 4.98);
+      tl.fromTo("#hf-f03-block-3", { x: -160 }, { x: 690, duration: 1.35, ease: "power2.inOut" }, 5.2);
+      tl.to("#hf-f03-review", { color: "#111111", borderColor: "#e85d26", backgroundColor: "#e85d26", duration: 0.22, ease: "power1.out" }, 5.55);
+      tl.to("#hf-f03-reject", { color: "#111111", borderColor: "#e85d26", backgroundColor: "#e85d26", duration: 0.22, ease: "power1.out" }, 6.08);
+      tl.to("#hf-f03-rollback", { color: "#111111", borderColor: "#e85d26", backgroundColor: "#e85d26", duration: 0.22, ease: "power1.out" }, 6.61);
+      tl.fromTo("#hf-f03-trace", { x: 120, opacity: 0 }, { x: 0, opacity: 1, duration: 0.42, ease: "power4.out" }, 6.98);
+
+      tl.to(cam, { y: -3240, duration: 0.62, ease: "power3.inOut", onUpdate: applyCamera }, 7.18);
+      tl.fromTo("#hf-f03-gate-4", { y: 230, opacity: 0.45 }, { y: 0, opacity: 1, duration: 0.42, ease: "power4.out" }, 7.48);
+      tl.fromTo("#hf-f03-module-a", { x: -500 }, { x: 0, duration: 0.9, ease: "power3.inOut" }, 7.78);
+      tl.to("#hf-f03-door-left", { x: -138, duration: 0.54, ease: "power3.inOut" }, 8.18);
+      tl.to("#hf-f03-door-right", { x: 138, duration: 0.54, ease: "power3.inOut" }, 8.18);
+      tl.fromTo("#hf-f03-module-b", { x: -270, opacity: 0 }, { x: 0, opacity: 1, duration: 0.58, ease: "power4.out" }, 8.66);
+      tl.fromTo("#hf-f03-client-a", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.34, ease: "power3.out" }, 9.15);
+      tl.fromTo("#hf-f03-client-b", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.34, ease: "power3.out" }, 9.52);
+
+      tl.to(world, { opacity: 0.15, filter: "blur(20px)", duration: 0.2, ease: "none" }, 10.0);
+      tl.set(world, { opacity: 0 }, 10.2);
+      tl.fromTo(summary, { opacity: 0.15, scale: 1.25, filter: "blur(10px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, 10.2);
+      tl.fromTo("#hf-f03-row-1", { x: 230, opacity: 0.35 }, { x: 0, opacity: 1, duration: 0.3, ease: "power4.out" }, 10.27);
+      tl.fromTo("#hf-f03-row-2", { x: 230, opacity: 0.35 }, { x: 0, opacity: 1, duration: 0.3, ease: "power4.out" }, 10.47);
+      tl.fromTo("#hf-f03-row-3", { x: 230, opacity: 0.35 }, { x: 0, opacity: 1, duration: 0.3, ease: "power4.out" }, 10.68);
+      tl.fromTo("#hf-f03-row-4", { x: 230, opacity: 0.35 }, { x: 0, opacity: 1, duration: 0.34, ease: "power4.out" }, 10.9);
+
+      window.__timelines["03-four-gates"] = tl;
+    })();
+  </script>
+</template>

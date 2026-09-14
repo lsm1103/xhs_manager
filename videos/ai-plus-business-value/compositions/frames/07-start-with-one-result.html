@@ -1,0 +1,308 @@
+<template>
+  <div id="root" data-composition-id="07-start-with-one-result" data-width="1080" data-height="1920">
+    <div class="clip 07-start-with-one-result-ground" data-start="0" data-duration="10" data-track-index="0"></div>
+
+    <div class="07-start-with-one-result-corner">AI+</div>
+
+    <svg class="07-start-with-one-result-cycle" viewBox="0 0 1920 900" aria-hidden="true">
+      <path class="07-start-with-one-result-wire" d="M 440 260 L 760 414" />
+      <path class="07-start-with-one-result-wire" d="M 1480 260 L 1160 414" />
+      <path class="07-start-with-one-result-wire" d="M 440 664 L 760 486" />
+      <path class="07-start-with-one-result-wire" d="M 1480 664 L 1160 486" />
+      <path class="07-start-with-one-result-pulse" d="M 440 260 L 760 414" />
+      <path class="07-start-with-one-result-pulse" d="M 1480 260 L 1160 414" />
+      <path class="07-start-with-one-result-pulse" d="M 440 664 L 760 486" />
+      <path class="07-start-with-one-result-pulse" d="M 1480 664 L 1160 486" />
+    </svg>
+
+    <div class="07-start-with-one-result-node 07-start-with-one-result-node-input">
+      <span>01</span><strong>input</strong>
+    </div>
+    <div class="07-start-with-one-result-node 07-start-with-one-result-node-run">
+      <span>02</span><strong>run</strong>
+    </div>
+    <div class="07-start-with-one-result-node 07-start-with-one-result-node-review">
+      <span>03</span><strong>review</strong>
+    </div>
+    <div class="07-start-with-one-result-node 07-start-with-one-result-node-rollback">
+      <span>04</span><strong>rollback</strong>
+    </div>
+
+    <div class="07-start-with-one-result-anchor 07-start-with-one-result-anchor-a">
+      <span class="07-start-with-one-result-client">client A</span>
+      <strong>one result</strong>
+      <i class="07-start-with-one-result-stamp">measurable</i>
+    </div>
+
+    <div class="07-start-with-one-result-anchor 07-start-with-one-result-anchor-b">
+      <span class="07-start-with-one-result-client 07-start-with-one-result-copy-client-a">client A</span>
+      <span class="07-start-with-one-result-client 07-start-with-one-result-copy-client-b">client B</span>
+      <strong>one result</strong>
+      <i class="07-start-with-one-result-stamp">measurable</i>
+    </div>
+
+    <div class="07-start-with-one-result-lockup" aria-label="run one, then add">
+      <span>run one.</span>
+      <span>then add +</span>
+    </div>
+
+    <style>
+      #root {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        container-type: size;
+        color: #111111;
+        font-family: sans-serif;
+      }
+
+      [class~="07-start-with-one-result-ground"] {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background: #E85D26;
+      }
+
+      [class~="07-start-with-one-result-corner"] {
+        position: absolute;
+        z-index: 6;
+        top: 5.5cqw;
+        right: 5.5cqw;
+        font-family: monospace;
+        font-size: 1.1cqw;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        line-height: 1;
+        text-transform: uppercase;
+        opacity: 0.4;
+      }
+
+      [class~="07-start-with-one-result-cycle"] {
+        position: absolute;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100cqw;
+        height: 83cqh;
+        pointer-events: none;
+      }
+
+      [class~="07-start-with-one-result-wire"],
+      [class~="07-start-with-one-result-pulse"] {
+        fill: none;
+        stroke: #111111;
+        stroke-width: 2;
+        vector-effect: non-scaling-stroke;
+      }
+
+      [class~="07-start-with-one-result-wire"] {
+        opacity: 0.18;
+        stroke-dasharray: 8 10;
+      }
+
+      [class~="07-start-with-one-result-pulse"] {
+        opacity: 0;
+        stroke-width: 5;
+        stroke-dasharray: 360;
+        stroke-dashoffset: 360;
+      }
+
+      [class~="07-start-with-one-result-node"] {
+        position: absolute;
+        z-index: 3;
+        display: grid;
+        grid-template-columns: 3.2cqw auto;
+        align-items: center;
+        width: 17cqw;
+        height: 7.4cqh;
+        padding: 0 1.25cqw;
+        box-sizing: border-box;
+        border-top: 1px solid rgba(17,17,17,0.4);
+        color: rgba(17,17,17,0.42);
+      }
+
+      [class~="07-start-with-one-result-node"] span {
+        font-family: monospace;
+        font-size: 0.82cqw;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+      }
+
+      [class~="07-start-with-one-result-node"] strong {
+        font-size: 1.65cqw;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+
+      [class~="07-start-with-one-result-node-input"] { left: 14.5cqw; top: 19cqh; }
+      [class~="07-start-with-one-result-node-run"] { right: 14.5cqw; top: 19cqh; }
+      [class~="07-start-with-one-result-node-review"] { left: 14.5cqw; top: 57cqh; }
+      [class~="07-start-with-one-result-node-rollback"] { right: 14.5cqw; top: 57cqh; }
+
+      [class~="07-start-with-one-result-anchor"] {
+        position: absolute;
+        z-index: 4;
+        left: 50%;
+        top: 41.7cqh;
+        width: 27cqw;
+        min-height: 19cqh;
+        margin-left: -13.5cqw;
+        margin-top: -9.5cqh;
+        box-sizing: border-box;
+        padding: 3.1cqh 2.1cqw 2.4cqh;
+        border: 2px solid #111111;
+        background: #E85D26;
+      }
+
+      [class~="07-start-with-one-result-anchor"] strong {
+        display: block;
+        font-size: 5.9cqw;
+        font-weight: 900;
+        letter-spacing: -0.055em;
+        line-height: 0.82;
+        text-transform: lowercase;
+        white-space: nowrap;
+      }
+
+      [class~="07-start-with-one-result-client"] {
+        display: block;
+        margin-bottom: 1.5cqh;
+        font-family: monospace;
+        font-size: 0.82cqw;
+        font-style: normal;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      [class~="07-start-with-one-result-copy-client-b"] {
+        position: absolute;
+        top: 3.1cqh;
+        left: 2.1cqw;
+      }
+
+      [class~="07-start-with-one-result-stamp"] {
+        position: absolute;
+        right: -2.4cqw;
+        bottom: -2.25cqh;
+        display: block;
+        padding: 0.75cqh 0.8cqw;
+        border: 2px solid #111111;
+        background: #E85D26;
+        font-family: monospace;
+        font-size: 0.88cqw;
+        font-style: normal;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      [class~="07-start-with-one-result-lockup"] {
+        position: absolute;
+        z-index: 5;
+        left: 5.5cqw;
+        top: 15.5cqh;
+        width: 78cqw;
+        font-size: 7.5cqw;
+        font-weight: 900;
+        letter-spacing: -0.045em;
+        line-height: 0.86;
+        text-transform: lowercase;
+      }
+
+      [class~="07-start-with-one-result-lockup"] span { display: block; }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <script>
+      (() => {
+        const root = document.querySelector('[data-composition-id="07-start-with-one-result"]');
+        const q = (name) => root.querySelector('[class~="' + name + '"]');
+        const qa = (name) => Array.from(root.querySelectorAll('[class~="' + name + '"]'));
+        const nodes = [
+          q('07-start-with-one-result-node-input'),
+          q('07-start-with-one-result-node-run'),
+          q('07-start-with-one-result-node-review'),
+          q('07-start-with-one-result-node-rollback')
+        ];
+        const pulses = qa('07-start-with-one-result-pulse');
+        const anchorA = q('07-start-with-one-result-anchor-a');
+        const anchorB = q('07-start-with-one-result-anchor-b');
+        const stamps = qa('07-start-with-one-result-stamp');
+        const copyClientA = q('07-start-with-one-result-copy-client-a');
+        const copyClientB = q('07-start-with-one-result-copy-client-b');
+        const lockup = q('07-start-with-one-result-lockup');
+        const lockupWords = lockup.querySelectorAll('span');
+
+        const tl = gsap.timeline({ paused: true });
+        tl.set(anchorB, { autoAlpha: 0 }, 0);
+        tl.set(stamps, { opacity: 0 }, 0);
+        tl.set(copyClientB, { opacity: 0 }, 0);
+        tl.set(lockup, { autoAlpha: 0 }, 0);
+
+        tl.fromTo(anchorA,
+          { opacity: 0, scale: 0.92 },
+          { opacity: 1, scale: 1, duration: 0.42, ease: 'power3.out' },
+          0.04
+        );
+
+        const beats = [2.8, 3.65, 4.5, 5.35];
+        beats.forEach((time, index) => {
+          tl.to(nodes[index], {
+            color: '#111111',
+            borderTopColor: '#111111',
+            duration: 0.16,
+            ease: 'none'
+          }, time);
+          tl.fromTo(pulses[index],
+            { opacity: 0.9, strokeDashoffset: 360 },
+            { opacity: 1, strokeDashoffset: 0, duration: 0.55, ease: 'power2.inOut' },
+            time + 0.08
+          );
+        });
+
+        tl.fromTo(stamps[0],
+          { opacity: 0, scale: 1.18, rotation: -4 },
+          { opacity: 1, scale: 1, rotation: -4, duration: 0.24, ease: 'power3.out' },
+          6.0
+        );
+
+        tl.set([...nodes, ...pulses], { opacity: 0 }, 6.48);
+        tl.set(anchorB, { autoAlpha: 1 }, 6.5);
+        tl.set(stamps[1], { opacity: 1 }, 6.5);
+        tl.to(anchorA, { x: '-15cqw', duration: 0.58, ease: 'power3.inOut' }, 6.5);
+        tl.to(anchorB, { x: '15cqw', duration: 0.58, ease: 'power3.inOut' }, 6.5);
+        tl.set(copyClientA, { opacity: 0 }, 6.78);
+        tl.set(copyClientB, { opacity: 1 }, 6.78);
+        tl.fromTo(anchorB,
+          { scale: 0.93 },
+          { scale: 1, duration: 0.45, ease: 'power3.out' },
+          6.55
+        );
+
+        tl.to(anchorA, { x: '-18cqw', y: '31cqh', scale: 0.52, duration: 0.65, ease: 'power3.inOut' }, 8.1);
+        tl.to(anchorB, { x: '18cqw', y: '31cqh', scale: 0.52, duration: 0.65, ease: 'power3.inOut' }, 8.1);
+        tl.set(lockup, { autoAlpha: 1 }, 8.1);
+        tl.fromTo(lockupWords[0],
+          { opacity: 0, y: '3.5cqh' },
+          { opacity: 1, y: 0, duration: 0.42, ease: 'power3.out' },
+          8.12
+        );
+        tl.fromTo(lockupWords[1],
+          { opacity: 0, y: '3.5cqh' },
+          { opacity: 1, y: 0, duration: 0.42, ease: 'power3.out' },
+          8.44
+        );
+        tl.to(q('07-start-with-one-result-corner'), { opacity: 1, duration: 0.22, ease: 'none' }, 8.58);
+
+        window.__timelines = window.__timelines || {};
+        window.__timelines['07-start-with-one-result'] = tl;
+      })();
+    </script>
+  </div>
+</template>

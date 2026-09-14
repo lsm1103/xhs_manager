@@ -1,0 +1,501 @@
+<template>
+  <style>
+    #root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      container-type: size;
+      color: #111111;
+      font-family: sans-serif;
+    }
+
+    [class~="02-value-lives-in-workflow-ground"] {
+      position: absolute;
+      inset: 0;
+      background: #e85d26;
+    }
+
+    [class~="02-value-lives-in-workflow-ai-plus"] {
+      position: absolute;
+      z-index: 5;
+      top: 20.5cqh;
+      left: 26.5cqw;
+      margin: 0;
+      color: #111111;
+      font-size: 27cqw;
+      font-weight: 900;
+      line-height: 0.82;
+      letter-spacing: -0.065em;
+      white-space: nowrap;
+      transform-origin: 0 0;
+    }
+
+    [class~="02-value-lives-in-workflow-ai-plus"] span {
+      display: inline-block;
+      margin-left: 0.02em;
+      font-weight: 400;
+    }
+
+    [class~="02-value-lives-in-workflow-catalogue-rule"] {
+      position: absolute;
+      z-index: 4;
+      top: 11.8cqh;
+      left: 4.6cqw;
+      width: 90.8cqw;
+      height: 1px;
+      background: rgba(17, 17, 17, 0.2);
+      transform-origin: 0 50%;
+    }
+
+    [class~="02-value-lives-in-workflow-catalogue"] {
+      position: absolute;
+      z-index: 6;
+      top: 4.4cqh;
+      right: 4.6cqw;
+      color: rgba(17, 17, 17, 0.55);
+      font-size: 0.82cqw;
+      font-family: monospace;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.14em;
+    }
+
+    [class~="02-value-lives-in-workflow-surface"] {
+      position: absolute;
+      z-index: 3;
+      top: 13.2cqh;
+      left: 4.6cqw;
+      width: 90.8cqw;
+      height: 67.6cqh;
+      overflow: hidden;
+      background: #f0ece5;
+      border-top: 1px solid rgba(17, 17, 17, 0.2);
+      border-bottom: 1px solid rgba(17, 17, 17, 0.2);
+    }
+
+    [class~="02-value-lives-in-workflow-surface-head"] {
+      position: absolute;
+      top: 4.4cqh;
+      left: 3.2cqw;
+      color: #505048;
+      font-size: 0.78cqw;
+      font-family: monospace;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.14em;
+    }
+
+    [class~="02-value-lives-in-workflow-surface-index"] {
+      position: absolute;
+      top: 4.4cqh;
+      right: 3.2cqw;
+      color: #888880;
+      font-size: 0.78cqw;
+      font-family: monospace;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.14em;
+    }
+
+    [class~="02-value-lives-in-workflow-rail"] {
+      position: absolute;
+      z-index: 1;
+      top: 33.8cqh;
+      left: 2.2cqw;
+      width: 86.5cqw;
+      height: 4px;
+      overflow: visible;
+    }
+
+    [class~="02-value-lives-in-workflow-rail-base"] {
+      stroke: #111111;
+      stroke-width: 2;
+      opacity: 0.24;
+    }
+
+    [class~="02-value-lives-in-workflow-rail-active"] {
+      fill: none;
+      stroke: #e85d26;
+      stroke-width: 8;
+      stroke-linecap: square;
+      stroke-dasharray: 400;
+    }
+
+    [class~="02-value-lives-in-workflow-node"] {
+      position: absolute;
+      z-index: 2;
+      top: 22cqh;
+      width: 14.5cqw;
+      height: 24cqh;
+      padding: 2.4cqh 1.45cqw;
+      background: #f0ece5;
+      border: 1px solid rgba(17, 17, 17, 0.25);
+      transform-origin: 50% 50%;
+    }
+
+    [class~="02-value-lives-in-workflow-node-1"] { left: 4.5cqw; }
+    [class~="02-value-lives-in-workflow-node-2"] { left: 27.6cqw; }
+    [class~="02-value-lives-in-workflow-node-3"] { left: 50.7cqw; }
+
+    [class~="02-value-lives-in-workflow-node-number"] {
+      display: block;
+      color: #888880;
+      font-size: 0.74cqw;
+      font-family: monospace;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.14em;
+    }
+
+    [class~="02-value-lives-in-workflow-node-label"] {
+      position: absolute;
+      left: 1.45cqw;
+      bottom: 2.8cqh;
+      margin: 0;
+      color: #111111;
+      font-size: 2.15cqw;
+      font-weight: 900;
+      line-height: 0.9;
+      letter-spacing: -0.04em;
+    }
+
+    [class~="02-value-lives-in-workflow-status"] {
+      position: absolute;
+      top: 2.1cqh;
+      right: 1.15cqw;
+      width: 1.8cqw;
+      height: 1.8cqw;
+      background: #111111;
+      border-radius: 50%;
+      transform-origin: 50% 50%;
+    }
+
+    [class~="02-value-lives-in-workflow-status"] svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    [class~="02-value-lives-in-workflow-check"] {
+      fill: none;
+      stroke: #f0ece5;
+      stroke-width: 2.5;
+      stroke-linecap: square;
+      stroke-linejoin: miter;
+      stroke-dasharray: 22;
+    }
+
+    [class~="02-value-lives-in-workflow-result"] {
+      position: absolute;
+      z-index: 3;
+      top: 19.5cqh;
+      right: 3.2cqw;
+      width: 20.5cqw;
+      height: 29cqh;
+      padding: 3.1cqh 1.7cqw;
+      overflow: hidden;
+      background: #e85d26;
+      border: 1px solid #111111;
+      transform-origin: 0 50%;
+    }
+
+    [class~="02-value-lives-in-workflow-result-kicker"] {
+      display: block;
+      color: rgba(17, 17, 17, 0.55);
+      font-size: 0.74cqw;
+      font-family: monospace;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.14em;
+    }
+
+    [class~="02-value-lives-in-workflow-result-label"] {
+      position: absolute;
+      left: 1.7cqw;
+      bottom: 3.1cqh;
+      margin: 0;
+      color: #111111;
+      font-size: 2.85cqw;
+      font-weight: 900;
+      line-height: 0.82;
+      letter-spacing: -0.045em;
+    }
+
+    [class~="02-value-lives-in-workflow-result-mark"] {
+      position: absolute;
+      top: 2.5cqh;
+      right: 1.5cqw;
+      width: 3.2cqw;
+      height: 3.2cqw;
+      border: 1px solid rgba(17, 17, 17, 0.4);
+      border-radius: 50%;
+    }
+
+    [class~="02-value-lives-in-workflow-result-mark"]::before,
+    [class~="02-value-lives-in-workflow-result-mark"]::after {
+      content: "";
+      position: absolute;
+      background: #111111;
+    }
+
+    [class~="02-value-lives-in-workflow-result-mark"]::before {
+      top: 50%;
+      left: 19%;
+      width: 62%;
+      height: 1px;
+    }
+
+    [class~="02-value-lives-in-workflow-result-mark"]::after {
+      top: 19%;
+      left: 50%;
+      width: 1px;
+      height: 62%;
+    }
+
+    [class~="02-value-lives-in-workflow-bottom-rule"] {
+      position: absolute;
+      left: 3.2cqw;
+      right: 3.2cqw;
+      bottom: 4.3cqh;
+      height: 1px;
+      background: rgba(17, 17, 17, 0.2);
+      transform-origin: 0 50%;
+    }
+  </style>
+
+  <div
+    id="root"
+    data-composition-id="02-value-lives-in-workflow"
+    data-width="1920"
+    data-height="1080"
+    data-duration="9.5"
+  >
+    <div
+      class="clip 02-value-lives-in-workflow-ground"
+      data-start="0"
+      data-duration="9.5"
+      data-track-index="0"
+    ></div>
+
+    <div class="02-value-lives-in-workflow-catalogue-rule" data-f02="catalogue-rule"></div>
+    <div class="02-value-lives-in-workflow-catalogue" data-f02="catalogue">NO. 02 / VALUE PATH</div>
+
+    <div class="02-value-lives-in-workflow-ai-plus" data-f02="ai-plus" aria-label="AI plus">
+      AI<span>+</span>
+    </div>
+
+    <section class="02-value-lives-in-workflow-surface" data-f02="surface" aria-label="Business workflow">
+      <div class="02-value-lives-in-workflow-surface-head">BUSINESS WORKFLOW</div>
+      <div class="02-value-lives-in-workflow-surface-index">INPUT → RESULT</div>
+
+      <svg class="02-value-lives-in-workflow-rail" viewBox="0 0 1660 4" preserveAspectRatio="none" aria-hidden="true">
+        <line class="02-value-lives-in-workflow-rail-base" data-f02="rail-base" x1="0" y1="2" x2="1660" y2="2"></line>
+        <line class="02-value-lives-in-workflow-rail-active" data-f02="segment-0" x1="0" y1="2" x2="96" y2="2"></line>
+        <line class="02-value-lives-in-workflow-rail-active" data-f02="segment-1" x1="358" y1="2" x2="496" y2="2"></line>
+        <line class="02-value-lives-in-workflow-rail-active" data-f02="segment-2" x1="758" y1="2" x2="896" y2="2"></line>
+        <line class="02-value-lives-in-workflow-rail-active" data-f02="segment-3" x1="1158" y1="2" x2="1292" y2="2"></line>
+      </svg>
+
+      <article class="02-value-lives-in-workflow-node 02-value-lives-in-workflow-node-1" data-f02="node-1">
+        <span class="02-value-lives-in-workflow-node-number">01</span>
+        <span class="02-value-lives-in-workflow-status" data-f02="status-1" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path class="02-value-lives-in-workflow-check" data-f02="check-1" d="M8 17l5 5 11-12"></path></svg>
+        </span>
+        <p class="02-value-lives-in-workflow-node-label">input</p>
+      </article>
+
+      <article class="02-value-lives-in-workflow-node 02-value-lives-in-workflow-node-2" data-f02="node-2">
+        <span class="02-value-lives-in-workflow-node-number">02</span>
+        <span class="02-value-lives-in-workflow-status" data-f02="status-2" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path class="02-value-lives-in-workflow-check" data-f02="check-2" d="M8 17l5 5 11-12"></path></svg>
+        </span>
+        <p class="02-value-lives-in-workflow-node-label">execute</p>
+      </article>
+
+      <article class="02-value-lives-in-workflow-node 02-value-lives-in-workflow-node-3" data-f02="node-3">
+        <span class="02-value-lives-in-workflow-node-number">03</span>
+        <span class="02-value-lives-in-workflow-status" data-f02="status-3" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path class="02-value-lives-in-workflow-check" data-f02="check-3" d="M8 17l5 5 11-12"></path></svg>
+        </span>
+        <p class="02-value-lives-in-workflow-node-label">review</p>
+      </article>
+
+      <article class="02-value-lives-in-workflow-result" data-f02="result">
+        <span class="02-value-lives-in-workflow-result-kicker">STABLE OUTPUT</span>
+        <span class="02-value-lives-in-workflow-result-mark" data-f02="result-mark" aria-hidden="true"></span>
+        <p class="02-value-lives-in-workflow-result-label">measurable<br />result</p>
+      </article>
+
+      <div class="02-value-lives-in-workflow-bottom-rule" data-f02="bottom-rule"></div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (() => {
+      const frame = document.querySelector('[data-composition-id="02-value-lives-in-workflow"]');
+      const one = (name) => frame.querySelector('[data-f02="' + name + '"]');
+      const many = (names) => names.map(one);
+      const tl = gsap.timeline({ paused: true });
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["02-value-lives-in-workflow"] = tl;
+
+      tl.fromTo(
+        one("ai-plus"),
+        { opacity: 0, scale: 0.9 },
+        { opacity: 1, scale: 1, duration: 0.5, ease: "expo.out" },
+        0.05
+      );
+      tl.fromTo(
+        one("catalogue-rule"),
+        { opacity: 0, scaleX: 0 },
+        { opacity: 1, scaleX: 1, duration: 0.6, ease: "power3.out" },
+        0.18
+      );
+      tl.fromTo(
+        one("catalogue"),
+        { opacity: 0, y: -16 },
+        { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+        0.34
+      );
+      tl.to(
+        one("ai-plus"),
+        { x: -418, y: -186, scale: 0.13, opacity: 0.42, duration: 1.05, ease: "power4.inOut" },
+        1.05
+      );
+
+      tl.fromTo(
+        one("surface"),
+        { opacity: 0.35, x: 230 },
+        { opacity: 1, x: 0, duration: 0.42, ease: "power4.out" },
+        2.2
+      );
+      tl.fromTo(
+        one("rail-base"),
+        { opacity: 0, scaleX: 0, transformOrigin: "0% 50%" },
+        { opacity: 0.24, scaleX: 1, duration: 0.7, ease: "power3.out" },
+        2.38
+      );
+      tl.fromTo(
+        one("segment-0"),
+        { opacity: 0, strokeDashoffset: 400 },
+        { opacity: 1, strokeDashoffset: 0, duration: 0.42, ease: "power2.out" },
+        2.55
+      );
+      tl.fromTo(
+        one("node-1"),
+        { opacity: 0, y: 34, scale: 0.94 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.48, ease: "back.out(1.35)" },
+        2.72
+      );
+      tl.fromTo(
+        one("status-1"),
+        { backgroundColor: "#111111", scale: 0 },
+        { backgroundColor: "#e85d26", scale: 1, duration: 0.35, ease: "back.out(1.8)" },
+        2.92
+      );
+
+      tl.fromTo(
+        one("segment-1"),
+        { opacity: 0, strokeDashoffset: 400 },
+        { opacity: 1, strokeDashoffset: 0, duration: 0.5, ease: "power2.out" },
+        3.48
+      );
+      tl.fromTo(
+        one("node-2"),
+        { opacity: 0, y: 34, scale: 0.94 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.48, ease: "back.out(1.35)" },
+        3.88
+      );
+      tl.fromTo(
+        one("status-2"),
+        { backgroundColor: "#111111", scale: 0 },
+        { backgroundColor: "#e85d26", scale: 1, duration: 0.35, ease: "back.out(1.8)" },
+        4.08
+      );
+      tl.fromTo(
+        one("check-1"),
+        { strokeDashoffset: 22 },
+        { strokeDashoffset: 0, duration: 0.3, ease: "power2.out" },
+        4.12
+      );
+
+      tl.fromTo(
+        one("segment-2"),
+        { opacity: 0, strokeDashoffset: 400 },
+        { opacity: 1, strokeDashoffset: 0, duration: 0.5, ease: "power2.out" },
+        4.62
+      );
+      tl.fromTo(
+        one("node-3"),
+        { opacity: 0, y: 34, scale: 0.94 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.48, ease: "back.out(1.35)" },
+        5.02
+      );
+      tl.fromTo(
+        one("status-3"),
+        { backgroundColor: "#111111", scale: 0 },
+        { backgroundColor: "#e85d26", scale: 1, duration: 0.35, ease: "back.out(1.8)" },
+        5.22
+      );
+      tl.fromTo(
+        one("check-2"),
+        { strokeDashoffset: 22 },
+        { strokeDashoffset: 0, duration: 0.3, ease: "power2.out" },
+        5.28
+      );
+
+      tl.fromTo(
+        one("segment-3"),
+        { opacity: 0, strokeDashoffset: 400 },
+        { opacity: 1, strokeDashoffset: 0, duration: 0.62, ease: "power2.out" },
+        5.78
+      );
+      tl.fromTo(
+        one("bottom-rule"),
+        { opacity: 0, scaleX: 0 },
+        { opacity: 1, scaleX: 1, duration: 0.6, ease: "power3.out" },
+        6.05
+      );
+
+      tl.fromTo(
+        one("result"),
+        { opacity: 0.15, scale: 1.25, filter: "blur(10px)" },
+        { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.5, ease: "expo.out" },
+        6.5
+      );
+      tl.to(
+        many(["node-1", "node-2", "node-3"]),
+        { opacity: 0.34, duration: 0.45, ease: "power2.out", stagger: 0.06 },
+        6.52
+      );
+      tl.to(
+        many(["segment-0", "segment-1", "segment-2", "segment-3"]),
+        { opacity: 0.22, duration: 0.45, ease: "power2.out", stagger: 0.04 },
+        6.55
+      );
+      tl.fromTo(
+        one("result-mark"),
+        { opacity: 0, scale: 0.6, rotation: -90 },
+        { opacity: 1, scale: 1, rotation: 0, duration: 0.55, ease: "back.out(1.7)" },
+        6.86
+      );
+      tl.fromTo(
+        one("check-3"),
+        { strokeDashoffset: 22 },
+        { strokeDashoffset: 0, duration: 0.3, ease: "power2.out" },
+        7.05
+      );
+      tl.fromTo(
+        one("result"),
+        { x: 0 },
+        { x: -12, duration: 1.35, ease: "power1.out" },
+        7.25
+      );
+
+      tl.seek(0);
+    })();
+  </script>
+</template>

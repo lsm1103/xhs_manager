@@ -1,0 +1,339 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      container-type: size;
+      color: #f0ece5;
+      font-family: sans-serif;
+      isolation: isolate;
+    }
+
+    #root * {
+      box-sizing: border-box;
+    }
+
+    .frame01-ground {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: #111111;
+    }
+
+    .frame01-grid {
+      position: absolute;
+      inset: 0 0 17cqh;
+      width: 100%;
+      height: 83cqh;
+      opacity: 0.42;
+    }
+
+    .frame01-grid line {
+      stroke: #282826;
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .frame01-catalogue {
+      position: absolute;
+      top: 5.5cqw;
+      left: 5.5cqw;
+      color: #505048;
+      font-family: monospace;
+      font-size: 0.9cqw;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      line-height: 1;
+    }
+
+    .frame01-stage {
+      position: absolute;
+      inset: 0 0 17cqh;
+      overflow: hidden;
+    }
+
+    .frame01-pre-final,
+    .frame01-final {
+      position: absolute;
+      inset: 0;
+      will-change: transform, opacity;
+    }
+
+    .frame01-word {
+      position: absolute;
+      margin: 0;
+      font-size: 13cqw;
+      font-weight: 900;
+      line-height: 0.82;
+      letter-spacing: -0.04em;
+      white-space: nowrap;
+      will-change: transform, opacity, filter;
+    }
+
+    .frame01-ai {
+      top: 14cqh;
+      left: 5.5cqw;
+      color: #f0ece5;
+    }
+
+    .frame01-demo {
+      top: 34cqh;
+      left: 18.5cqw;
+      color: #f0ece5;
+    }
+
+    .frame01-strong {
+      top: 12cqh;
+      right: 6.5cqw;
+      color: #e85d26;
+      font-size: 7.5cqw;
+      transform-origin: 100% 0%;
+    }
+
+    .frame01-bill-line {
+      position: absolute;
+      top: 49.5cqh;
+      left: 5.5cqw;
+      width: 89cqw;
+      height: 3px;
+      background: #e85d26;
+      transform-origin: 0% 50%;
+      will-change: transform;
+    }
+
+    .frame01-bill-notch {
+      position: absolute;
+      top: -6px;
+      right: 0;
+      width: 3px;
+      height: 15px;
+      background: #e85d26;
+    }
+
+    .frame01-paid {
+      position: absolute;
+      top: 56cqh;
+      left: 5.5cqw;
+      display: flex;
+      gap: 0.025em;
+      margin: 0;
+      color: #f0ece5;
+      font-size: 7.5cqw;
+      font-weight: 900;
+      line-height: 0.88;
+      letter-spacing: -0.04em;
+      white-space: nowrap;
+    }
+
+    .frame01-paid span {
+      display: block;
+      will-change: transform, opacity;
+    }
+
+    .frame01-conclusion {
+      position: absolute;
+      top: 18cqh;
+      left: 5.5cqw;
+      margin: 0;
+      color: #f0ece5;
+      font-size: 11.5cqw;
+      font-weight: 900;
+      line-height: 0.86;
+      letter-spacing: -0.04em;
+      white-space: nowrap;
+    }
+
+    .frame01-conclusion .frame01-not-equal {
+      display: inline-block;
+      padding: 0 0.06em;
+      color: #e85d26;
+    }
+
+    .frame01-question-row {
+      position: absolute;
+      top: 55cqh;
+      left: 6cqw;
+      display: flex;
+      align-items: flex-start;
+      gap: 1.2cqw;
+      color: #888880;
+      font-size: 4.5cqw;
+      font-weight: 700;
+      line-height: 0.9;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+
+    .frame01-question-text,
+    .frame01-question-mark {
+      display: block;
+      will-change: transform, opacity;
+    }
+
+    .frame01-question-mark {
+      margin-top: -1.5cqh;
+      color: #e85d26;
+      font-size: 9cqw;
+      font-weight: 900;
+      line-height: 0.72;
+    }
+  </style>
+
+  <div
+    id="root"
+    data-composition-id="01-demo-is-not-business"
+    data-start="0"
+    data-duration="7.4"
+    data-width="1920"
+    data-height="1080"
+  >
+    <div
+      id="01-demo-is-not-business-ground"
+      class="clip frame01-ground"
+      data-start="0"
+      data-duration="7.4"
+      data-track-index="0"
+    >
+      <svg class="frame01-grid" viewBox="0 0 1920 900" aria-hidden="true">
+        <line x1="106" y1="0" x2="106" y2="900"></line>
+        <line x1="480" y1="0" x2="480" y2="900"></line>
+        <line x1="960" y1="0" x2="960" y2="900"></line>
+        <line x1="1440" y1="0" x2="1440" y2="900"></line>
+        <line x1="1814" y1="0" x2="1814" y2="900"></line>
+        <line x1="0" y1="108" x2="1920" y2="108"></line>
+        <line x1="0" y1="450" x2="1920" y2="450"></line>
+        <line x1="0" y1="792" x2="1920" y2="792"></line>
+      </svg>
+      <div class="frame01-catalogue">NO. 01</div>
+    </div>
+
+    <div
+      id="01-demo-is-not-business-stage"
+      class="clip frame01-stage"
+      data-start="0"
+      data-duration="7.4"
+      data-track-index="1"
+    >
+      <div id="01-demo-is-not-business-pre-final" class="frame01-pre-final">
+        <div id="01-demo-is-not-business-ai" class="frame01-word frame01-ai">AI</div>
+        <div id="01-demo-is-not-business-demo" class="frame01-word frame01-demo">演示</div>
+        <div id="01-demo-is-not-business-strong" class="frame01-word frame01-strong">很强</div>
+
+        <div id="01-demo-is-not-business-bill-line" class="frame01-bill-line">
+          <span class="frame01-bill-notch"></span>
+        </div>
+
+        <div id="01-demo-is-not-business-paid" class="frame01-paid" aria-label="持续付费">
+          <span>持</span><span>续</span><span>付</span><span>费</span>
+        </div>
+      </div>
+
+      <div id="01-demo-is-not-business-final" class="frame01-final">
+        <div id="01-demo-is-not-business-conclusion" class="frame01-conclusion">
+          <span>演示</span><span class="frame01-not-equal">≠</span><span>生意</span>
+        </div>
+        <div class="frame01-question-row">
+          <span id="01-demo-is-not-business-question" class="frame01-question-text">谁付钱</span>
+          <span id="01-demo-is-not-business-question-mark" class="frame01-question-mark">？</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (() => {
+      const tl = gsap.timeline({ paused: true });
+      const ai = document.getElementById("01-demo-is-not-business-ai");
+      const demo = document.getElementById("01-demo-is-not-business-demo");
+      const strong = document.getElementById("01-demo-is-not-business-strong");
+      const billLine = document.getElementById("01-demo-is-not-business-bill-line");
+      const paid = document.getElementById("01-demo-is-not-business-paid");
+      const preFinal = document.getElementById("01-demo-is-not-business-pre-final");
+      const finalBeat = document.getElementById("01-demo-is-not-business-final");
+      const conclusion = document.getElementById("01-demo-is-not-business-conclusion");
+      const question = document.getElementById("01-demo-is-not-business-question");
+      const questionMark = document.getElementById("01-demo-is-not-business-question-mark");
+
+      tl.fromTo(
+        ai,
+        { x: -260, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.72, ease: "power3.out" },
+        0.04,
+      );
+      tl.fromTo(
+        demo,
+        { x: -360, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.88, ease: "power3.out" },
+        0.18,
+      );
+      tl.fromTo(
+        strong,
+        { scale: 0, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.62, ease: "power3.out" },
+        0.72,
+      );
+
+      tl.fromTo(
+        billLine,
+        { scaleX: 0 },
+        { scaleX: 1, duration: 0.68, ease: "power4.inOut" },
+        2.0,
+      );
+      tl.to(
+        strong,
+        { y: 355, scale: 0.34, duration: 0.72, ease: "power3.out" },
+        2.16,
+      );
+
+      paid.querySelectorAll("span").forEach((character, index) => {
+          tl.fromTo(
+            character,
+            { y: 42, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.46, ease: "power3.out" },
+            2.72 + index * 0.22,
+          );
+        });
+
+      tl.to(
+        preFinal,
+        { x: -230, duration: 0.34, ease: "power4.in" },
+        4.46,
+      );
+      tl.to(
+        preFinal,
+        { opacity: 0, duration: 0.3, ease: "power1.in" },
+        4.48,
+      );
+      tl.fromTo(
+        finalBeat,
+        { x: 230, opacity: 0.35 },
+        { x: 0, opacity: 1, duration: 0.34, ease: "power4.out" },
+        4.8,
+      );
+      tl.fromTo(
+        conclusion,
+        { scale: 0.82, filter: "blur(10px)" },
+        { scale: 1, filter: "blur(0px)", duration: 0.56, ease: "expo.out" },
+        4.8,
+      );
+      tl.fromTo(
+        question,
+        { x: 70, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.52, ease: "power3.out" },
+        5.32,
+      );
+      tl.fromTo(
+        questionMark,
+        { y: -160, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.62, ease: "power3.out" },
+        5.58,
+      );
+
+      window.__timelines["01-demo-is-not-business"] = tl;
+    })();
+  </script>
+</template>

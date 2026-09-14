@@ -1,0 +1,476 @@
+<template>
+  <div id="root" data-composition-id="05-unit-economics" data-width="1080" data-height="1920" data-duration="11.5">
+    <div class="clip f05-unit-economics-ground" data-start="0" data-duration="11.5" data-track-index="0">
+      <div class="f05-unit-economics-grid">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+      <div class="f05-unit-economics-edge f05-unit-economics-edge-top"></div>
+      <div class="f05-unit-economics-edge f05-unit-economics-edge-bottom"></div>
+    </div>
+
+    <div class="clip f05-unit-economics-content" data-start="0" data-duration="11.5" data-track-index="1">
+      <div class="f05-unit-economics-camera">
+        <div class="f05-unit-economics-kicker">UNIT ECONOMICS / 05</div>
+
+        <div class="f05-unit-economics-call-volume">
+          <span>调用量</span>
+          <b></b>
+        </div>
+
+        <div class="f05-unit-economics-scale-assembly">
+          <div class="f05-unit-economics-beam">
+            <div class="f05-unit-economics-beam-line"></div>
+            <div class="f05-unit-economics-hanger f05-unit-economics-hanger-left"></div>
+            <div class="f05-unit-economics-hanger f05-unit-economics-hanger-right"></div>
+            <div class="f05-unit-economics-pan f05-unit-economics-pan-left"></div>
+            <div class="f05-unit-economics-pan f05-unit-economics-pan-right"></div>
+
+            <div class="f05-unit-economics-value-block">
+              <span>结果</span>
+              <strong>价值</strong>
+            </div>
+
+            <div class="f05-unit-economics-cost-stack">
+              <span class="f05-unit-economics-cost-chip f05-unit-economics-cost-1">模型</span>
+              <span class="f05-unit-economics-cost-chip f05-unit-economics-cost-2">审核</span>
+              <span class="f05-unit-economics-cost-chip f05-unit-economics-cost-3">集成</span>
+              <span class="f05-unit-economics-cost-chip f05-unit-economics-cost-4">错误</span>
+              <span class="f05-unit-economics-cost-chip f05-unit-economics-cost-5">运维</span>
+            </div>
+          </div>
+
+          <div class="f05-unit-economics-fulcrum">
+            <div class="f05-unit-economics-fulcrum-cap"></div>
+          </div>
+        </div>
+
+        <div class="f05-unit-economics-formula">
+          <span>结果价值</span><b>−</b><span>全部成本</span>
+        </div>
+
+        <div class="f05-unit-economics-margin-lockup">
+          <div class="f05-unit-economics-margin-meta">
+            <span>VALUE</span><span>REMAINDER</span>
+          </div>
+          <div class="f05-unit-economics-margin-track">
+            <div class="f05-unit-economics-margin-fill"></div>
+            <div class="f05-unit-economics-margin-title">边际贡献</div>
+          </div>
+          <div class="f05-unit-economics-margin-baseline"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    #root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      container-type: size;
+      color: #F0ECE5;
+    }
+
+    .f05-unit-economics-ground,
+    .f05-unit-economics-content {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    .f05-unit-economics-ground { background: #111111; }
+
+    .f05-unit-economics-grid {
+      position: absolute;
+      left: 5.5cqw;
+      right: 5.5cqw;
+      top: 17.5cqh;
+      height: 58cqh;
+      border-top: 1px solid #282826;
+      border-bottom: 1px solid #282826;
+    }
+
+    .f05-unit-economics-grid i {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: #282826;
+    }
+
+    .f05-unit-economics-grid i:nth-child(1) { left: 10%; }
+    .f05-unit-economics-grid i:nth-child(2) { left: 20%; }
+    .f05-unit-economics-grid i:nth-child(3) { left: 30%; }
+    .f05-unit-economics-grid i:nth-child(4) { left: 40%; }
+    .f05-unit-economics-grid i:nth-child(5) { left: 50%; }
+    .f05-unit-economics-grid i:nth-child(6) { left: 60%; }
+    .f05-unit-economics-grid i:nth-child(7) { left: 70%; }
+    .f05-unit-economics-grid i:nth-child(8) { left: 80%; }
+    .f05-unit-economics-grid i:nth-child(9) { left: 90%; }
+
+    .f05-unit-economics-edge {
+      position: absolute;
+      left: 5.5cqw;
+      right: 5.5cqw;
+      height: 1px;
+      background: #282826;
+    }
+
+    .f05-unit-economics-edge-top { top: 5.5cqh; }
+    .f05-unit-economics-edge-bottom { top: 81.5cqh; }
+
+    .f05-unit-economics-camera {
+      position: absolute;
+      inset: 0;
+      transform-origin: 50% 44%;
+    }
+
+    .f05-unit-economics-kicker {
+      position: absolute;
+      left: 5.5cqw;
+      top: 8.2cqh;
+      color: #E85D26;
+      font-family: monospace;
+      font-size: 0.72cqw;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+    }
+
+    .f05-unit-economics-call-volume {
+      position: absolute;
+      right: 6.2cqw;
+      top: 7.2cqh;
+      width: 10.5cqw;
+      color: #888880;
+      font-family: sans-serif;
+      font-size: 1.65cqw;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      text-align: center;
+    }
+
+    .f05-unit-economics-call-volume b {
+      position: absolute;
+      left: -0.4cqw;
+      right: -0.4cqw;
+      top: 52%;
+      height: 3px;
+      background: #E85D26;
+      transform-origin: left center;
+    }
+
+    .f05-unit-economics-scale-assembly {
+      position: absolute;
+      left: 4.8cqw;
+      top: 17.5cqh;
+      width: 90.4cqw;
+      height: 38cqh;
+      transform-origin: 50% 58%;
+    }
+
+    .f05-unit-economics-beam {
+      position: absolute;
+      left: 0;
+      top: 7.5cqh;
+      width: 100%;
+      height: 25cqh;
+      transform-origin: 50% 2px;
+    }
+
+    .f05-unit-economics-beam-line {
+      position: absolute;
+      left: 5%;
+      right: 5%;
+      top: 0;
+      height: 5px;
+      background: #F0ECE5;
+    }
+
+    .f05-unit-economics-hanger {
+      position: absolute;
+      top: 0;
+      width: 1px;
+      height: 13cqh;
+      background: #888880;
+    }
+
+    .f05-unit-economics-hanger-left { left: 20%; }
+    .f05-unit-economics-hanger-right { right: 20%; }
+
+    .f05-unit-economics-pan {
+      position: absolute;
+      top: 12.9cqh;
+      width: 31%;
+      height: 1px;
+      background: #888880;
+    }
+
+    .f05-unit-economics-pan-left { left: 4.5%; }
+    .f05-unit-economics-pan-right { right: 4.5%; }
+
+    .f05-unit-economics-value-block {
+      position: absolute;
+      left: 6.8%;
+      top: 4.2cqh;
+      width: 26%;
+      height: 8.7cqh;
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 0.6cqw;
+      color: #111111;
+      background: #E85D26;
+      font-family: sans-serif;
+      font-size: 3.7cqw;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .f05-unit-economics-value-block strong { font-weight: 900; }
+
+    .f05-unit-economics-cost-stack {
+      position: absolute;
+      right: 5.7%;
+      top: 6cqh;
+      width: 29%;
+      height: 7cqh;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 0.55cqw;
+    }
+
+    .f05-unit-economics-cost-chip {
+      width: 5cqw;
+      height: 3.9cqh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      border: 1px solid #505048;
+      color: #F0ECE5;
+      background: #1A1A18;
+      font-family: sans-serif;
+      font-size: 1.08cqw;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .f05-unit-economics-fulcrum {
+      position: absolute;
+      left: 44%;
+      top: 7.8cqh;
+      width: 12%;
+      height: 22cqh;
+      background: #1A1A18;
+      clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    }
+
+    .f05-unit-economics-fulcrum-cap {
+      position: absolute;
+      left: 37%;
+      top: 1.2cqh;
+      width: 26%;
+      height: 1px;
+      background: #E85D26;
+    }
+
+    .f05-unit-economics-formula {
+      position: absolute;
+      left: 0;
+      top: 48cqh;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2cqw;
+      color: #F0ECE5;
+      font-family: sans-serif;
+      font-size: 3.2cqw;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .f05-unit-economics-formula b {
+      color: #E85D26;
+      font-weight: 400;
+    }
+
+    .f05-unit-economics-margin-lockup {
+      position: absolute;
+      left: 11cqw;
+      top: 62.5cqh;
+      width: 78cqw;
+      transform-origin: 50% 50%;
+    }
+
+    .f05-unit-economics-margin-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 1.2cqh;
+      color: #888880;
+      font-family: monospace;
+      font-size: 0.72cqw;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+    }
+
+    .f05-unit-economics-margin-track {
+      position: relative;
+      width: 100%;
+      height: 9.5cqh;
+      background: #1A1A18;
+      overflow: hidden;
+    }
+
+    .f05-unit-economics-margin-fill {
+      position: absolute;
+      inset: 0;
+      background: #E85D26;
+      transform-origin: left center;
+    }
+
+    .f05-unit-economics-margin-title {
+      position: absolute;
+      left: 2cqw;
+      top: 1.65cqh;
+      z-index: 1;
+      color: #111111;
+      font-family: sans-serif;
+      font-size: 3.8cqw;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .f05-unit-economics-margin-baseline {
+      width: 100%;
+      height: 1px;
+      margin-top: 1.2cqh;
+      background: #282826;
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script>
+    (() => {
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      window.__timelines["05-unit-economics"] = tl;
+
+      tl.fromTo(".f05-unit-economics-camera",
+        { scale: 0.985 },
+        { scale: 1.025, duration: 9.2, ease: "none" },
+        0
+      );
+
+      tl.fromTo(".f05-unit-economics-value-block",
+        { y: -430, opacity: 0, scale: 0.92 },
+        { y: 0, opacity: 1, scale: 1, duration: 0.62, ease: "power3.in" },
+        0.04
+      );
+      tl.fromTo(".f05-unit-economics-scale-assembly",
+        { opacity: 0 },
+        { opacity: 1, duration: 0.18, ease: "none" },
+        0
+      );
+      tl.fromTo(".f05-unit-economics-beam",
+        { rotation: 0 },
+        { rotation: -5.5, duration: 0.72, ease: "power2.out" },
+        0.46
+      );
+      tl.fromTo(".f05-unit-economics-call-volume",
+        { y: -18, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.35, ease: "power2.out" },
+        0.48
+      );
+      tl.fromTo(".f05-unit-economics-call-volume b",
+        { scaleX: 0 },
+        { scaleX: 1, duration: 0.38, ease: "power3.out" },
+        0.9
+      );
+      tl.fromTo(".f05-unit-economics-margin-lockup",
+        { opacity: 0, y: 28 },
+        { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" },
+        1.55
+      );
+      tl.fromTo(".f05-unit-economics-margin-fill",
+        { scaleX: 0 },
+        { scaleX: 1, duration: 0.6, ease: "power3.out" },
+        1.55
+      );
+      tl.fromTo(".f05-unit-economics-margin-title",
+        { opacity: 0 },
+        { opacity: 0, duration: 0.01, ease: "none" },
+        0
+      );
+
+      const chips = [
+        ".f05-unit-economics-cost-1",
+        ".f05-unit-economics-cost-2",
+        ".f05-unit-economics-cost-3",
+        ".f05-unit-economics-cost-4",
+        ".f05-unit-economics-cost-5"
+      ];
+      const drops = [2.25, 3.24, 4.23, 5.22, 6.21];
+      const remaining = [0.86, 0.72, 0.59, 0.46, 0.34];
+      const tilt = [-4.4, -3.2, -2.1, -1.0, 0.2];
+
+      chips.forEach((chip, index) => {
+        tl.fromTo(chip,
+          { y: -240 - index * 22, opacity: 0, scale: 0.78 },
+          { y: 0, opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.8)" },
+          drops[index]
+        );
+        tl.to(".f05-unit-economics-margin-fill",
+          { scaleX: remaining[index], duration: 0.56, ease: "power2.inOut" },
+          drops[index] + 0.08
+        );
+        tl.to(".f05-unit-economics-beam",
+          { rotation: tilt[index], duration: 0.52, ease: "power2.inOut" },
+          drops[index] + 0.06
+        );
+      });
+
+      tl.fromTo(".f05-unit-economics-formula",
+        { y: 34, opacity: 0, scale: 1.08 },
+        { y: 0, opacity: 1, scale: 1, duration: 0.55, ease: "power3.out" },
+        7.8
+      );
+      tl.to(".f05-unit-economics-scale-assembly",
+        { y: -85, scale: 0.78, opacity: 0.2, duration: 0.6, ease: "power2.inOut" },
+        7.8
+      );
+      tl.to(".f05-unit-economics-call-volume",
+        { opacity: 0.18, duration: 0.38, ease: "none" },
+        7.8
+      );
+
+      tl.to(".f05-unit-economics-grid, .f05-unit-economics-edge, .f05-unit-economics-scale-assembly, .f05-unit-economics-call-volume, .f05-unit-economics-kicker",
+        { opacity: 0, duration: 0.5, ease: "power2.inOut" },
+        9.2
+      );
+      tl.to(".f05-unit-economics-formula",
+        { opacity: 0, y: -24, duration: 0.42, ease: "power2.inOut" },
+        9.2
+      );
+      tl.to(".f05-unit-economics-margin-lockup",
+        { y: -145, scale: 1.1, duration: 0.7, ease: "power3.inOut" },
+        9.2
+      );
+      tl.fromTo(".f05-unit-economics-margin-title",
+        { opacity: 0, x: -36 },
+        { opacity: 1, x: 0, duration: 0.62, ease: "power3.out" },
+        9.46
+      );
+      tl.to(".f05-unit-economics-camera",
+        { scale: 1.01, duration: 0.72, ease: "power2.out" },
+        9.3
+      );
+    })();
+  </script>
+</template>

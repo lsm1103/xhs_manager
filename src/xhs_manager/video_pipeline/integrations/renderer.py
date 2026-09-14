@@ -63,6 +63,19 @@ SEEK_JS = """
 }
 """
 
+# 新版组合可以自己实现确定性寻帧协议。渲染器优先把“全片经过时间”交给页面，
+# 页面据此驱动 Web Animations、CSS 变量、Canvas 或视频；旧组合则继续走上面的
+# .clip 兼容逻辑。这样逐帧导出不依赖真实时钟，也不会因为截图速度不同而漂移。
+PAGE_SEEK_JS = f"""
+(elapsed) => {{
+  if (typeof window.__seekToTime === 'function') {{
+    return window.__seekToTime(elapsed);
+  }}
+  const legacySeek = {SEEK_JS};
+  return legacySeek(elapsed);
+}}
+"""
+
 
 class HtmlVideoRenderer:
     """把 HyperFrames 风格的 HTML 组合渲染成 MP4。"""
@@ -142,7 +155,7 @@ class HtmlVideoRenderer:
 
                 for i in range(total_frames):
                     elapsed = i / self.fps
-                    page.evaluate(SEEK_JS, elapsed)
+                    page.evaluate(PAGE_SEEK_JS, elapsed)
                     page.screenshot(
                         path=str(frames_dir / f"frame_{i:05d}.png"),
                         type="png",

@@ -1,0 +1,55 @@
+{
+  "bgm": {"path": "assets/audio/bgm.m4a", "volume": 0.08},
+  "bgm_pending": false,
+  "voices": [
+    {"frame": 1, "path": "assets/audio/01.m4a", "words": [
+      {"text": "你看到的 AI 演示", "start": 0.1, "end": 1.8},
+      {"text": "也许很厉害", "start": 1.85, "end": 3.0},
+      {"text": "但客户愿不愿为结果持续付费", "start": 3.05, "end": 5.8},
+      {"text": "是另一回事", "start": 5.85, "end": 6.85}
+    ]},
+    {"frame": 2, "path": "assets/audio/02.m4a", "words": [
+      {"text": "真正的商业价值", "start": 0.1, "end": 1.7},
+      {"text": "不在 AI 加号", "start": 1.75, "end": 3.0},
+      {"text": "而在它能不能进入工作流", "start": 3.05, "end": 5.3},
+      {"text": "稳定交付一个可计量的结果", "start": 5.35, "end": 7.6}
+    ]},
+    {"frame": 3, "path": "assets/audio/03.m4a", "words": [
+      {"text": "判断一个 AI 项目", "start": 0.1, "end": 1.7},
+      {"text": "先过四道闸门", "start": 1.75, "end": 3.0},
+      {"text": "问题是否高频", "start": 3.05, "end": 4.5},
+      {"text": "能否嵌入现有流程", "start": 4.55, "end": 6.2},
+      {"text": "出错后谁负责", "start": 6.25, "end": 7.7},
+      {"text": "第二个客户能不能复用", "start": 7.75, "end": 10.7}
+    ]},
+    {"frame": 4, "path": "assets/audio/04.m4a", "words": [
+      {"text": "还要分清四个人", "start": 0.1, "end": 1.6},
+      {"text": "谁使用 谁受益", "start": 1.65, "end": 3.1},
+      {"text": "谁采购 谁担责", "start": 3.15, "end": 4.7},
+      {"text": "只问其中一个", "start": 4.75, "end": 6.2},
+      {"text": "项目判断一定会失真", "start": 6.25, "end": 8.75}
+    ]},
+    {"frame": 5, "path": "assets/audio/05.m4a", "words": [
+      {"text": "别再只看调用量", "start": 0.1, "end": 1.6},
+      {"text": "该算一次业务结果的价值", "start": 1.65, "end": 3.7},
+      {"text": "减去模型 审核 集成", "start": 3.75, "end": 5.8},
+      {"text": "错误和持续运维", "start": 5.85, "end": 7.7},
+      {"text": "最后还剩多少", "start": 7.75, "end": 10.2}
+    ]},
+    {"frame": 6, "path": "assets/audio/06.m4a", "words": [
+      {"text": "公开讨论的措辞不同", "start": 0.1, "end": 1.7},
+      {"text": "B站谈数据和流程", "start": 1.75, "end": 3.2},
+      {"text": "微博谈结果与交易", "start": 3.25, "end": 4.7},
+      {"text": "X 更强调治理和回滚", "start": 4.75, "end": 6.6},
+      {"text": "都在把 AI 拉回真实业务", "start": 6.65, "end": 9.7}
+    ]},
+    {"frame": 7, "path": "assets/audio/07.m4a", "words": [
+      {"text": "别从万能 AI 产品开始", "start": 0.1, "end": 2.2},
+      {"text": "先选一个高频 可计量", "start": 2.25, "end": 4.3},
+      {"text": "而且能回滚的结果", "start": 4.35, "end": 6.2},
+      {"text": "把它跑通", "start": 6.25, "end": 7.2},
+      {"text": "再谈 AI 加什么", "start": 7.25, "end": 9.75}
+    ]}
+  ],
+  "sfx": []
+}

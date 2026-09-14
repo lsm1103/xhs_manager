@@ -1,0 +1,382 @@
+<template>
+  <div id="root" data-composition-id="04-four-roles" data-width="1920" data-height="1080" data-duration="9.4">
+    <div class="clip" data-start="0" data-duration="9.4" data-track-index="0" data-fr04-ground></div>
+
+    <div class="clip" data-start="0" data-duration="9.4" data-track-index="1" data-fr04-stage>
+      <div data-fr04-kicker>
+        <span>DECISION MAP</span>
+        <span>04 / 04</span>
+      </div>
+
+      <svg data-fr04-network viewBox="0 0 1920 900" aria-hidden="true">
+        <path id="04-four-roles-line-user" d="M 960 426 L 416 440" />
+        <path id="04-four-roles-line-beneficiary" d="M 960 426 L 720 185" />
+        <path id="04-four-roles-line-buyer" d="M 960 426 L 1515 400" />
+        <path id="04-four-roles-line-owner" data-fr04-owner-line d="M 960 426 L 960 724" />
+
+        <path id="04-four-roles-converge-user" data-fr04-converge d="M 416 440 L 960 426" />
+        <path id="04-four-roles-converge-beneficiary" data-fr04-converge d="M 720 185 L 960 426" />
+        <path id="04-four-roles-converge-buyer" data-fr04-converge d="M 1515 400 L 960 426" />
+        <path id="04-four-roles-converge-owner" data-fr04-converge data-fr04-owner-converge d="M 960 724 L 960 426" />
+      </svg>
+
+      <div id="04-four-roles-hub" data-fr04-hub>
+        <span data-fr04-hub-index>01</span>
+        <strong>业务结果</strong>
+      </div>
+
+      <div id="04-four-roles-user" data-fr04-node style="left: 258px; top: 388px;">
+        <span data-fr04-node-index>01</span>
+        <strong>使用者</strong>
+      </div>
+      <div id="04-four-roles-question-user" data-fr04-question style="left: 258px; top: 500px;">
+        好不好用？
+      </div>
+
+      <div id="04-four-roles-beneficiary" data-fr04-node style="left: 562px; top: 132px;">
+        <span data-fr04-node-index>02</span>
+        <strong>受益者</strong>
+      </div>
+      <div id="04-four-roles-question-beneficiary" data-fr04-question style="left: 562px; top: 244px;">
+        省了什么？
+      </div>
+
+      <div id="04-four-roles-buyer" data-fr04-node style="left: 1357px; top: 348px;">
+        <span data-fr04-node-index>03</span>
+        <strong>采购者</strong>
+      </div>
+      <div id="04-four-roles-question-buyer" data-fr04-question style="left: 1357px; top: 460px;">
+        值不值得买？
+      </div>
+
+      <div id="04-four-roles-owner" data-fr04-node data-fr04-owner style="left: 802px; top: 672px;">
+        <span data-fr04-node-index>04</span>
+        <strong>担责者</strong>
+      </div>
+      <div id="04-four-roles-question-owner" data-fr04-question data-fr04-owner-question style="left: 802px; top: 784px;">
+        出错谁负责？
+      </div>
+
+      <div id="04-four-roles-stamp" data-fr04-stamp>
+        <span>INTERVIEW RULE</span>
+        <strong>不要只访谈一个人</strong>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    #root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      container-type: size;
+      color: #f0ece5;
+      font-family: sans-serif;
+    }
+
+    [data-fr04-ground] {
+      position: absolute;
+      inset: 0;
+      background: #111111;
+      z-index: 0;
+    }
+
+    [data-fr04-stage] {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    [data-fr04-kicker] {
+      position: absolute;
+      top: 56px;
+      left: 106px;
+      right: 106px;
+      display: flex;
+      justify-content: space-between;
+      padding-top: 17px;
+      border-top: 1px solid #282826;
+      color: #888880;
+      font-family: monospace;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+    }
+
+    [data-fr04-network] {
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 1920px;
+      height: 900px;
+      overflow: visible;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    [data-fr04-network] path {
+      fill: none;
+      stroke: #505048;
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+    }
+
+    [data-fr04-network] [data-fr04-owner-line] {
+      stroke: #e85d26;
+      stroke-width: 8;
+    }
+
+    [data-fr04-network] [data-fr04-converge] {
+      stroke: #f0ece5;
+      stroke-width: 3;
+      opacity: 0;
+    }
+
+    [data-fr04-network] [data-fr04-owner-converge] {
+      stroke: #e85d26;
+      stroke-width: 10;
+    }
+
+    [data-fr04-hub] {
+      position: absolute;
+      left: 810px;
+      top: 276px;
+      width: 300px;
+      height: 300px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #f0ece5;
+      color: #111111;
+      z-index: 5;
+      transform-origin: 50% 50%;
+      will-change: transform, opacity;
+    }
+
+    [data-fr04-hub]::after {
+      content: "";
+      position: absolute;
+      inset: 20px;
+      border: 1px solid rgba(17, 17, 17, 0.2);
+      border-radius: 50%;
+    }
+
+    [data-fr04-hub] strong {
+      position: relative;
+      z-index: 1;
+      font-size: 62px;
+      font-weight: 900;
+      line-height: 0.95;
+      letter-spacing: -0.055em;
+    }
+
+    [data-fr04-hub-index] {
+      position: absolute;
+      top: 49px;
+      font-family: monospace;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      color: rgba(17, 17, 17, 0.55);
+    }
+
+    [data-fr04-node] {
+      position: absolute;
+      box-sizing: border-box;
+      width: 316px;
+      height: 104px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 19px 20px 17px;
+      border-top: 1px solid #505048;
+      color: #f0ece5;
+      background: #111111;
+      z-index: 3;
+      transform-origin: 50% 50%;
+      will-change: transform, opacity;
+    }
+
+    [data-fr04-node] strong {
+      font-size: 44px;
+      font-weight: 900;
+      line-height: 0.95;
+      letter-spacing: -0.045em;
+    }
+
+    [data-fr04-node-index] {
+      color: #888880;
+      font-family: monospace;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+    }
+
+    [data-fr04-owner] {
+      border-top-color: #e85d26;
+    }
+
+    [data-fr04-owner] [data-fr04-node-index] {
+      color: #e85d26;
+    }
+
+    [data-fr04-question] {
+      position: absolute;
+      box-sizing: border-box;
+      width: 316px;
+      min-height: 58px;
+      padding-top: 12px;
+      border-top: 1px solid #282826;
+      color: #888880;
+      font-size: 26px;
+      font-weight: 400;
+      line-height: 1.2;
+      z-index: 3;
+      will-change: transform, opacity;
+    }
+
+    [data-fr04-owner-question] {
+      color: #e85d26;
+      font-size: 31px;
+      font-weight: 700;
+    }
+
+    [data-fr04-stamp] {
+      position: absolute;
+      left: 108px;
+      top: 700px;
+      width: 500px;
+      height: 150px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 21px 24px 22px;
+      border: 3px solid #e85d26;
+      color: #e85d26;
+      background: #111111;
+      z-index: 8;
+      transform-origin: 0% 100%;
+      will-change: transform, opacity;
+    }
+
+    [data-fr04-stamp] span {
+      font-family: monospace;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+    }
+
+    [data-fr04-stamp] strong {
+      font-size: 33px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.035em;
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (() => {
+      const hub = document.getElementById("04-four-roles-hub");
+      const stamp = document.getElementById("04-four-roles-stamp");
+
+      const moments = [
+        {
+          node: document.getElementById("04-four-roles-user"),
+          question: document.getElementById("04-four-roles-question-user"),
+          line: document.getElementById("04-four-roles-line-user"),
+          at: 0.55,
+          questionAt: 1.15,
+          fromX: -48,
+          fromY: 0
+        },
+        {
+          node: document.getElementById("04-four-roles-beneficiary"),
+          question: document.getElementById("04-four-roles-question-beneficiary"),
+          line: document.getElementById("04-four-roles-line-beneficiary"),
+          at: 2.05,
+          questionAt: 2.68,
+          fromX: 0,
+          fromY: -42
+        },
+        {
+          node: document.getElementById("04-four-roles-buyer"),
+          question: document.getElementById("04-four-roles-question-buyer"),
+          line: document.getElementById("04-four-roles-line-buyer"),
+          at: 3.38,
+          questionAt: 4.04,
+          fromX: 48,
+          fromY: 0
+        },
+        {
+          node: document.getElementById("04-four-roles-owner"),
+          question: document.getElementById("04-four-roles-question-owner"),
+          line: document.getElementById("04-four-roles-line-owner"),
+          at: 5.08,
+          questionAt: 5.83,
+          fromX: 0,
+          fromY: 48
+        }
+      ];
+
+      const convergeLines = Array.from(document.querySelectorAll("[data-fr04-converge]"));
+      [...moments.map((moment) => moment.line), ...convergeLines].forEach((path) => {
+        const length = path.getTotalLength();
+        path.style.strokeDasharray = String(length);
+        path.style.strokeDashoffset = String(length);
+      });
+
+      const tl = gsap.timeline({ paused: true });
+
+      tl.fromTo(
+        hub,
+        { scale: 0, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.48, ease: "power3.out" },
+        0
+      );
+
+      moments.forEach((moment) => {
+        tl.fromTo(
+          moment.node,
+          { scale: 0, opacity: 0, x: moment.fromX, y: moment.fromY },
+          { scale: 1, opacity: 1, x: 0, y: 0, duration: 0.58, ease: "power3.out" },
+          moment.at
+        );
+        tl.to(
+          moment.line,
+          { strokeDashoffset: 0, duration: 0.62, ease: "power2.out" },
+          moment.at + 0.18
+        );
+        tl.fromTo(
+          moment.question,
+          { opacity: 0, x: moment.fromX * 0.5, y: moment.fromY * 0.5 },
+          { opacity: 1, x: 0, y: 0, duration: 0.52, ease: "power4.out" },
+          moment.questionAt
+        );
+      });
+
+      convergeLines.forEach((line, index) => {
+        tl.set(line, { opacity: index === 3 ? 1 : 0.72 }, 7.28);
+        tl.to(
+          line,
+          { strokeDashoffset: 0, duration: 0.58, ease: "power2.out" },
+          7.28 + index * 0.06
+        );
+      });
+
+      tl.to(hub, { scale: 1.08, duration: 0.28, ease: "power3.out" }, 7.42);
+      tl.to(hub, { scale: 1, duration: 0.46, ease: "power3.out" }, 7.7);
+
+      tl.fromTo(
+        stamp,
+        { scale: 1.35, opacity: 0, rotation: -4, x: -18, y: -22 },
+        { scale: 1, opacity: 1, rotation: -2, x: 0, y: 0, duration: 0.5, ease: "expo.out" },
+        7.72
+      );
+
+      window.__timelines["04-four-roles"] = tl;
+    })();
+  </script>
+</template>

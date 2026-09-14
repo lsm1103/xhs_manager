@@ -1,0 +1,10 @@
+{"id":"bgm_001","type":"bgm","path":"assets/audio/01.m4a","source":"existing","description":"01","duration":7,"provenance":{"provider":"local","adopted":true}}
+{"id":"bgm_002","type":"bgm","path":"assets/audio/02.m4a","source":"existing","description":"02","duration":7.7,"provenance":{"provider":"local","adopted":true}}
+{"id":"bgm_003","type":"bgm","path":"assets/audio/03.m4a","source":"existing","description":"03","duration":10.8,"provenance":{"provider":"local","adopted":true}}
+{"id":"bgm_004","type":"bgm","path":"assets/audio/04.m4a","source":"existing","description":"04","duration":8.8,"provenance":{"provider":"local","adopted":true}}
+{"id":"bgm_005","type":"bgm","path":"assets/audio/05.m4a","source":"existing","description":"05","duration":10.3,"provenance":{"provider":"local","adopted":true}}
+{"id":"bgm_006","type":"bgm","path":"assets/audio/06.m4a","source":"existing","description":"06","duration":9.8,"provenance":{"provider":"local","adopted":true}}
+{"id":"bgm_007","type":"bgm","path":"assets/audio/07.m4a","source":"existing","description":"07","duration":9.9,"provenance":{"provider":"local","adopted":true}}
+{"id":"bgm_008","type":"bgm","path":"assets/audio/bgm.m4a","source":"existing","description":"bgm","duration":88.2,"provenance":{"provider":"local","adopted":true}}
+{"id":"voice_001","type":"voice","path":"assets/audio/narration.m4a","source":"existing","description":"narration","duration":66.4,"provenance":{"provider":"local","adopted":true}}
+{"id":"sfx_001","type":"sfx","path":"assets/audio/soundtrack.m4a","source":"existing","description":"soundtrack","duration":68,"provenance":{"provider":"local","adopted":true}}
