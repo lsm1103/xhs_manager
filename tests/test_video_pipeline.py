@@ -689,3 +689,92 @@ def test_stage2_prompt_forbids_person_as_subject():
     from xhs_manager.video_pipeline.stages.stage2_topics import SCRIPT_SYSTEM_PROMPT
     assert "人不能是画面主体" in SCRIPT_SYSTEM_PROMPT
     assert "office worker desk computer" in SCRIPT_SYSTEM_PROMPT
+
+
+# ── 采集后端链 ──────────────────────────────────────────────────
+
+
+class _FakeBackend:
+    """测试用后端：可控可用性与返回条数。"""
+
+    def __init__(self, name, ok, count):
+        self.name = name
+        self._ok = ok
+        self._count = count
+
+    def available(self):
+        return self._ok
+
+    def collect_search(self, keyword, limit=20):
+        from xhs_manager.video_pipeline.integrations.collectors import TrendItem
+        return [
+            TrendItem(platform="t", title=f"{self.name}-{keyword}-{i}", url="https://x/1")
+            for i in range(self._count)
+        ]
+
+
+def _patch_chain(monkeypatch, chain):
+    from xhs_manager.video_pipeline.integrations import collectors
+    monkeypatch.setitem(collectors.PLATFORM_BACKENDS, "t", [lambda b=b: b for b in chain])
+
+
+def test_chain_falls_back_when_first_backend_unavailable(monkeypatch):
+    """首选后端不可用时降级，而不是让整个平台归零。"""
+    from xhs_manager.video_pipeline.integrations.collectors import collect_platform
+
+    primary = _FakeBackend("primary", ok=False, count=5)
+    backup = _FakeBackend("backup", ok=True, count=3)
+    _patch_chain(monkeypatch, [primary, backup])
+
+    outcome = collect_platform("t", ["kw"], 10)
+    assert outcome.status == "degraded"
+    assert outcome.backend == "backup"
+    assert len(outcome.items) == 3
+    assert "primary 不可用" in outcome.notes
+
+
+def test_chain_reports_unavailable_when_every_backend_dry(monkeypatch):
+    """所有后端都没数据时，要说清楚每一级为什么没拿到。"""
+    from xhs_manager.video_pipeline.integrations.collectors import collect_platform
+
+    _patch_chain(monkeypatch, [
+        _FakeBackend("a", ok=True, count=0),
+        _FakeBackend("b", ok=False, count=9),
+    ])
+
+    outcome = collect_platform("t", ["kw"], 10)
+    assert outcome.status == "unavailable"
+    assert outcome.items == []
+    assert outcome.notes == ["a 无结果", "b 不可用"]
+
+
+def test_index_channel_rejects_cross_site_results():
+    """索引通道不能把「别的站在讨论小红书」的文章当成小红书样本。"""
+    from xhs_manager.video_pipeline.integrations.collectors import SearchIndexCollector
+
+    c = SearchIndexCollector("xiaohongshu")
+    assert c._matches_site("https://www.xiaohongshu.com/explore/abc")
+    assert c._matches_site("https://edith.xiaohongshu.com/x")
+    assert not c._matches_site("https://zhuanlan.zhihu.com/p/1")
+    assert not c._matches_site("https://xiaohongshu.com.evil.cn/p")
+
+
+def test_hot_board_can_be_disabled_for_topic_research(monkeypatch):
+    """定向调研时不取热榜：当日泛热榜会稀释话题信号。"""
+    from xhs_manager.video_pipeline.integrations.collectors import (
+        TrendItem, collect_platform,
+    )
+
+    class HotOnly:
+        name = "hot"
+
+        def available(self):
+            return True
+
+        def collect_hot(self, limit=20):
+            return [TrendItem(platform="t", title="今日热榜", url="https://x/h")]
+
+    _patch_chain(monkeypatch, [HotOnly()])
+
+    assert collect_platform("t", [], 10, include_hot=True).items
+    assert collect_platform("t", [], 10, include_hot=False).items == []

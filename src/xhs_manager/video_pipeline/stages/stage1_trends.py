@@ -1,15 +1,15 @@
 """Stage 1: 热点采集 — 多后端采集各平台当日热门话题。
 
-后端策略（见 integrations/collectors.py）:
-  - B站 / V2EX: 公开 HTTP API，无需登录
-  - 小红书 / 抖音 / X: opencli 浏览器通道，需 Chrome 扩展
+后端策略见 integrations/collectors.py：每个平台是一条后端链，
+站内 API → 登录态通道 → 站外索引，前一级打不通就降级而不是归零。
 
 单平台失败不阻塞其他平台；只要有一个平台采集到数据即视为成功。
+本阶段会把每个平台**实际用了哪个后端、为什么降级**写进返回值，
+这样「采集手段够不够」是可观测的，而不是只看到一句「未采集到数据」。
 """
 
 import hashlib
 import logging
-import math
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -31,30 +31,49 @@ def collect_trends(
     run: VideoPipelineRun,
     settings: VideoPipelineSettings,
 ) -> dict[str, Any]:
-    """采集各平台热点，返回采集统计。"""
+    """采集各平台热点，返回采集统计。
+
+    settings.trend_include_hot=False 时只按关键词搜索、不取平台热榜，
+    用于针对单一话题的定向调研。
+    """
     total_saved = 0
     total_duped = 0
     platform_stats: dict[str, dict] = {}
 
     for platform in settings.trend_platforms:
         try:
-            items = collect_platform(
+            outcome = collect_platform(
                 platform,
                 settings.trend_keywords,
                 settings.trends_per_platform,
+                include_hot=settings.trend_include_hot,
             )
-            saved, duped = _save_items(session, run.id, items)
+            saved, duped = _save_items(session, run.id, outcome.items)
             total_saved += saved
             total_duped += duped
             platform_stats[platform] = {
                 "collected": saved,
                 "deduplicated": duped,
-                "raw": len(items),
+                "raw": len(outcome.items),
+                "backend": outcome.backend,
+                "status": outcome.status,
+                "notes": outcome.notes,
             }
-            if saved:
-                logger.info("平台 %s: 入库 %d 条（去重 %d）", platform, saved, duped)
+            if saved and outcome.status == "degraded":
+                logger.info(
+                    "平台 %s: 入库 %d 条（降级到 %s；%s）",
+                    platform, saved, outcome.backend, "；".join(outcome.notes),
+                )
+            elif saved:
+                logger.info(
+                    "平台 %s: 入库 %d 条（去重 %d，后端 %s）",
+                    platform, saved, duped, outcome.backend,
+                )
             else:
-                logger.warning("平台 %s: 未采集到数据", platform)
+                logger.warning(
+                    "平台 %s: 未采集到数据（%s）",
+                    platform, "；".join(outcome.notes) or "全部后端无结果",
+                )
         except Exception as e:
             logger.warning("平台 %s 采集异常: %s", platform, e)
             platform_stats[platform] = {"collected": 0, "error": str(e)[:300]}
@@ -69,10 +88,15 @@ def collect_trends(
             f"若依赖 opencli 的平台不可用，请确认 Chrome 的 OpenCLI 扩展已启用。",
         )
 
+    degraded = [p for p, st in platform_stats.items() if st.get("status") == "degraded"]
+    empty = [p for p, st in platform_stats.items() if not st.get("collected")]
+
     return {
         "total_collected": total_saved,
         "total_deduplicated": total_duped,
         "platforms": platform_stats,
+        "degraded_platforms": degraded,
+        "empty_platforms": empty,
     }
 
 

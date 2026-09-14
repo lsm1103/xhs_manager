@@ -17,18 +17,23 @@ class VideoPipelineSettings(BaseSettings):
     # ── 调度 ──
     daily_trigger_hour: int = 0                 # UTC 小时（0 = 北京 08:00）
     topics_per_run: int = 3                     # 每次产出的视频数量
-    max_duration: int = 90                      # 单视频最大时长（秒）
+    max_duration: int = 180                     # 单视频最大时长（秒）
     min_duration: int = 30                      # 单视频最小时长（秒）
 
     # ── 热点采集 ──
-    # 采集平台。bilibili/v2ex 走公开 API（免登录）；
-    # xiaohongshu/douyin/twitter 走 opencli，需 Chrome 扩展已启用
+    # 采集平台。每个平台是一条后端链（见 integrations/collectors.py）：
+    # 站内 API → 登录态通道（opencli / cookie）→ 站外索引，逐级降级。
+    # 默认覆盖免登录就能跑通的全部平台；zhihu/weibo 没有 cookie 时走索引。
     trend_platforms: list[str] = Field(
         default_factory=lambda: [
-            "bilibili", "v2ex", "xiaohongshu", "douyin", "twitter",
+            "bilibili", "v2ex", "toutiao", "baidu", "wechat",
+            "zhihu", "weibo", "xiaohongshu", "douyin", "twitter",
         ]
     )
     trends_per_platform: int = 20               # 每个平台采集的热点数
+    # 是否连平台热榜一起取。做定向话题调研时置 False，
+    # 否则当日泛热榜（明星、体育、社会新闻）会稀释话题信号。
+    trend_include_hot: bool = True
     trend_keywords: list[str] = Field(
         default_factory=lambda: ["AI", "人工智能", "大模型", "AI工具", "效率", "自动化"]
     )

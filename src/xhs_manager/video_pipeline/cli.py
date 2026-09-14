@@ -6,6 +6,13 @@
 
     # 只运行某个阶段
     python -m xhs_manager.video_pipeline.cli stage collecting
+
+    # 针对一个话题做定向采集（临时覆盖平台与关键词）
+    python -m xhs_manager.video_pipeline.cli stage collecting \
+        --platforms zhihu,weibo,wechat --keywords "AI 落地,AI 商业化" --limit 15
+
+    # 查看各平台采集后端是否可用
+    python -m xhs_manager.video_pipeline.cli collect-doctor
     python -m xhs_manager.video_pipeline.cli stage selecting --run-id <id>
 
     # 查看最近的运行记录
@@ -58,9 +65,34 @@ def cmd_run(args) -> None:
     sys.exit(0 if result.get("status") == "completed" else 1)
 
 
+def _split_list(raw: str | None) -> list[str] | None:
+    """把 "a,b, c" 解析成 ["a","b","c"]。"""
+    if not raw:
+        return None
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+
 def cmd_stage(args) -> None:
     """只执行流水线的某个阶段。"""
     settings = get_video_settings()
+
+    # 采集阶段允许临时覆盖平台/关键词，方便针对单个话题做定向调研，
+    # 不必为一次调研去改 .env。
+    overrides: dict = {}
+    platforms = _split_list(getattr(args, "platforms", None))
+    keywords = _split_list(getattr(args, "keywords", None))
+    if platforms:
+        overrides["trend_platforms"] = platforms
+    if keywords:
+        overrides["trend_keywords"] = keywords
+    if getattr(args, "limit", None):
+        overrides["trends_per_platform"] = args.limit
+    # 指定了关键词就是在做定向调研，默认不要泛热榜；--with-hot 可强制带上
+    if keywords and not getattr(args, "with_hot", False):
+        overrides["trend_include_hot"] = False
+    if overrides:
+        settings = settings.model_copy(update=overrides)
+
     pipeline = VideoPipeline(build_session_factory(), settings)
 
     try:
@@ -183,7 +215,8 @@ def cmd_xhs_login(args) -> None:
     from pathlib import Path
 
     from xhs_manager.video_pipeline.integrations.xhs_publisher import (
-        DEFAULT_PROFILE_DIR, XhsPublisher,
+        DEFAULT_PROFILE_DIR,
+        XhsPublisher,
     )
 
     st = get_video_settings()
@@ -201,7 +234,8 @@ def cmd_xhs_check(args) -> None:
     from pathlib import Path
 
     from xhs_manager.video_pipeline.integrations.xhs_publisher import (
-        DEFAULT_PROFILE_DIR, XhsPublisher,
+        DEFAULT_PROFILE_DIR,
+        XhsPublisher,
     )
 
     st = get_video_settings()
@@ -214,6 +248,71 @@ def cmd_xhs_check(args) -> None:
     alive = pub.logged_in()
     print("✅ 登录态有效" if alive else "❌ 登录态已失效，请重新运行 xhs-login")
     sys.exit(0 if alive else 1)
+
+
+def cmd_site_login(args) -> None:
+    """一次性扫码登录某个平台，凭证落在该平台自己的 Chrome profile。
+
+    小红书/知乎/微博的站内搜索都要登录态。登录一次之后，
+    采集就不再依赖任何第三方浏览器扩展。
+    """
+    from xhs_manager.video_pipeline.integrations.browser_collector import (
+        SITE_SPECS,
+        BrowserSession,
+    )
+
+    spec = SITE_SPECS.get(args.platform)
+    if not spec:
+        print(f"不支持的平台: {args.platform}（可选: {', '.join(SITE_SPECS)}）")
+        sys.exit(1)
+
+    session = BrowserSession(spec, headless=False)
+    print(f"将打开浏览器窗口，请完成 {spec.name} 登录。profile: {spec.profile_dir}")
+    ok = session.interactive_login(timeout_s=args.timeout)
+    print(f"✅ {spec.name} 登录成功" if ok else f"❌ {spec.name} 登录未完成")
+    sys.exit(0 if ok else 1)
+
+
+def cmd_collect_doctor(args) -> None:
+    """逐平台探测采集后端链的可用性，说明每个平台当前能拿到什么。"""
+    from xhs_manager.video_pipeline.integrations.collectors import (
+        SUPPORTED_PLATFORMS,
+        probe_platform,
+    )
+
+    settings = get_video_settings()
+    platforms = _split_list(args.platforms) or list(SUPPORTED_PLATFORMS)
+
+    configured = set(settings.trend_platforms)
+    print(f"{'平台':<14}{'状态':<8}{'后端链（✓=可用）'}")
+    print("-" * 92)
+    for platform in platforms:
+        probes = probe_platform(platform)
+        if not probes:
+            print(f"{platform:<14}{'未知':<8}没有注册后端")
+            continue
+        first_ok = next((i for i, (_, ok) in enumerate(probes) if ok), None)
+        if first_ok is None:
+            status = "不可用"
+        elif first_ok == 0:
+            status = "正常"
+        else:
+            status = "降级"
+        chain = "  →  ".join(
+            f"{'✓' if ok else '✗'} {name}" for name, ok in probes
+        )
+        mark = "" if platform in configured else "（未列入 trend_platforms）"
+        print(f"{platform:<14}{status:<8}{chain} {mark}")
+
+    print()
+    print("提示：")
+    print("  • 站内数据（有互动量、是平台真实内容）> 站外索引（只有标题/链接/摘要）。")
+    print("    想把小红书/知乎/微博拉回站内通道，执行一次：")
+    print("      python -m xhs_manager.video_pipeline.cli site-login xiaohongshu")
+    print("    登录态存在各自的 Chrome profile 里，之后采集无人值守。")
+    print("  • 知乎/微博也可以直接配环境变量 ZHIHU_COOKIE / WEIBO_COOKIE 走站内 API。")
+    print("  • opencli 通道需要 Chrome 的 OpenCLI 扩展已连接（opencli doctor 可验证）；")
+    print("    不可用时会自动降级，不会让平台整体归零。")
 
 
 def cmd_config(args) -> None:
@@ -249,6 +348,19 @@ def main() -> None:
     stage_parser = subparsers.add_parser("stage", help="只执行某个阶段")
     stage_parser.add_argument("stage", help="阶段名称")
     stage_parser.add_argument("--run-id", help="流水线运行 ID")
+    stage_parser.add_argument(
+        "--platforms", help="仅采集这些平台（逗号分隔），临时覆盖配置",
+    )
+    stage_parser.add_argument(
+        "--keywords", help="采集关键词（逗号分隔），临时覆盖配置",
+    )
+    stage_parser.add_argument(
+        "--limit", type=int, help="每个平台/每个关键词的采集条数上限",
+    )
+    stage_parser.add_argument(
+        "--with-hot", action="store_true",
+        help="定向采集时仍然带上平台热榜（默认关键词模式下不取热榜）",
+    )
     stage_parser.set_defaults(func=cmd_stage)
 
     # status
@@ -287,6 +399,21 @@ def main() -> None:
     # xhs-check
     xc = subparsers.add_parser("xhs-check", help="检查小红书登录态")
     xc.set_defaults(func=cmd_xhs_check)
+
+    # site-login
+    sl = subparsers.add_parser(
+        "site-login", help="扫码登录小红书/知乎/微博，打开站内采集通道",
+    )
+    sl.add_argument("platform", help="平台名: xiaohongshu | zhihu | weibo")
+    sl.add_argument("--timeout", type=int, default=300, help="等待登录的秒数")
+    sl.set_defaults(func=cmd_site_login)
+
+    # collect-doctor
+    cd_parser = subparsers.add_parser(
+        "collect-doctor", help="探测各平台采集后端链的可用性",
+    )
+    cd_parser.add_argument("--platforms", help="只探测这些平台（逗号分隔）")
+    cd_parser.set_defaults(func=cmd_collect_doctor)
 
     # config
     config_parser = subparsers.add_parser("config", help="显示当前配置")
