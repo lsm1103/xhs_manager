@@ -779,3 +779,53 @@ def test_hot_board_can_be_disabled_for_topic_research(monkeypatch):
 
     assert collect_platform("t", [], 10, include_hot=True).items
     assert collect_platform("t", [], 10, include_hot=False).items == []
+
+
+# ── 版面健壮性 ──────────────────────────────────────────────────
+
+
+def _plan_one(scene):
+    from xhs_manager.video_pipeline.composition.timeline import plan_timeline
+    return plan_timeline([scene]).scenes[0]
+
+
+def test_compare_title_does_not_repeat_the_two_cards():
+    """「A 对比 B」写在 main 里时，标题不能把同一句再显示一遍。"""
+    ps = _plan_one({
+        "scene_id": "s1", "order": 1, "duration": 6, "layout": "compare",
+        "text_overlay": {"main": "入选百强榜 对比 90% 项目失败", "sub": "同一批公众号"},
+        "transition": "fade", "narration": "略", "visual_desc": "",
+    })
+    assert ps.compare == ("入选百强榜", "90% 项目失败")
+    assert ps.text_main == "同一批公众号"
+
+
+def test_compare_pair_from_sub_keeps_main_as_title():
+    ps = _plan_one({
+        "scene_id": "s1", "order": 1, "duration": 6, "layout": "compare",
+        "text_overlay": {"main": "两种叙事", "sub": "唱多 vs 唱衰"},
+        "transition": "fade", "narration": "略", "visual_desc": "",
+    })
+    assert ps.compare == ("唱多", "唱衰")
+    assert ps.text_main == "两种叙事"
+
+
+def test_stat_layout_downgrades_when_there_is_no_number():
+    """stat 的巨号字是给数字用的，塞一整句中文会撑破版心。"""
+    ps = _plan_one({
+        "scene_id": "s1", "order": 1, "duration": 6, "layout": "stat",
+        "text_overlay": {"main": "结果价值 − 成本项", "sub": "模型 审核 集成"},
+        "transition": "fade", "narration": "略", "visual_desc": "",
+    })
+    assert ps.layout == "statement"
+    assert ps.stat_value == ""
+
+
+def test_stat_layout_kept_when_main_starts_with_a_number():
+    ps = _plan_one({
+        "scene_id": "s1", "order": 1, "duration": 6, "layout": "stat",
+        "text_overlay": {"main": "90% 的项目", "sub": "失败了"},
+        "transition": "fade", "narration": "略", "visual_desc": "",
+    })
+    assert ps.layout == "stat"
+    assert ps.stat_value == "90%"

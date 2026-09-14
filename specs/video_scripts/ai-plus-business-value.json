@@ -264,18 +264,18 @@
       "scene_id": "s15",
       "order": 15,
       "duration": 12,
-      "layout": "stat",
+      "layout": "statement",
       "visual_desc": "an equation of light subtracting blocks one by one",
       "text_overlay": {
         "main": "结果价值 − 成本项",
         "sub": "模型 审核 集成 错误 运维",
-        "animation": "counter"
+        "animation": "slide_up"
       },
       "transition": "fade",
       "bgm_mood": "reveal",
       "narration": "计量单位也得换。算一次业务结果的价值，减去模型、审核、集成、错误和运维。这个数不能稳定为正，做得越大亏得越多。",
       "material_hints": [
-        "search:abstract equation light blocks"
+        "search:dark abstract geometric grid motion"
       ]
     },
     {

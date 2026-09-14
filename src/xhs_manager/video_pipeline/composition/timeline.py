@@ -218,11 +218,16 @@ def _split_bullets(sub: str) -> list[str]:
     return [p.strip() for p in _BULLET_SEP.split(sub or "") if p.strip()]
 
 
-def _split_compare(main: str, sub: str) -> tuple[str, str] | None:
-    for text in (main, sub):
+def _split_compare(main: str, sub: str) -> tuple[tuple[str, str], str] | None:
+    """拆出对比双方，并告诉调用方它是从 main 还是 sub 里拆出来的。
+
+    来源很重要：从 main 拆出来的话，main 就不能再当标题用了，
+    否则「A 对比 B」会同时出现在标题和两张卡片里，一屏三份同样的字。
+    """
+    for source, text in (("main", main), ("sub", sub)):
         parts = [p.strip() for p in _VS.split(text or "") if p.strip()]
         if len(parts) == 2:
-            return parts[0], parts[1]
+            return (parts[0], parts[1]), source
     return None
 
 
@@ -274,11 +279,20 @@ def plan_timeline(scenes: list[dict[str, Any]]) -> Timeline:
         if layout == "bullets":
             ps.bullets = _split_bullets(sub) or _split_bullets(main)
         elif layout == "compare":
-            ps.compare = _split_compare(main, sub)
-            if ps.compare is None:          # 推断失败就退回普通陈述
+            found = _split_compare(main, sub)
+            if found is None:               # 推断失败就退回普通陈述
                 ps.layout = "statement"
+            else:
+                ps.compare, source = found
+                # 标题取「没被拆成卡片」的那一半，避免同一句话出现三次
+                ps.text_main = sub if source == "main" else main
         elif layout == "stat":
             ps.stat_value, ps.stat_unit = _split_stat(main)
+            # stat 版面的巨号字是给数字用的。硬塞一整句中文进去会撑破版心，
+            # 所以拆不出数字就退回普通陈述。
+            if not any(c.isdigit() for c in ps.stat_value):
+                ps.layout = "statement"
+                ps.stat_value = ps.stat_unit = ""
 
         planned.append(ps)
         cursor += duration

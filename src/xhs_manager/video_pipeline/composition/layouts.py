@@ -143,7 +143,10 @@ def _bullets(s: PlannedScene) -> str:
 def _compare(s: PlannedScene) -> str:
     t0 = s.start
     left, right = s.compare or ("", "")
-    head = _text_node(s.text_main, s.animation, "title", t0 + 0.1, 0.6)
+    head = (
+        _text_node(s.text_main, s.animation, "title", t0 + 0.1, 0.6)
+        if s.text_main else ""
+    )
     grid = (
         f'<div class="compare-grid">'
         f'<div class="compare-card m m-slide-up" style="--s:{t0 + 0.5:.3f};--d:0.5">'
@@ -153,7 +156,7 @@ def _compare(s: PlannedScene) -> str:
         f"{escape(right)}</div>"
         f"</div>"
     )
-    return head + "\n" + grid
+    return (head + "\n" + grid) if head else grid
 
 
 def _outro(s: PlannedScene) -> str:
