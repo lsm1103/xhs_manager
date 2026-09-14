@@ -898,3 +898,49 @@ def test_calibrated_scene_durations_survive_a_commit(session_factory):
         script = s.get(VideoScript, script_id)
         assert [sc["duration"] for sc in script.scenes] == [6.88, 7.94]
         assert script.total_duration == 15
+
+
+# ── 字幕对齐 ────────────────────────────────────────────────────
+
+
+def test_captions_follow_real_speech_marks_not_char_ratio():
+    """有真实句级时间时，字幕必须钉在人声开口的那一刻。"""
+    from xhs_manager.video_pipeline.composition.timeline import build_captions
+
+    narration = "别把叙事当数据。一个吓人的比例，正在替代判断。"
+    marks = [
+        {"start": 0.10, "duration": 1.67, "text": "别把叙事当数据。"},
+        {"start": 1.72, "duration": 2.60, "text": "一个吓人的比例，正在替代判断。"},
+    ]
+    cues = build_captions(narration, 100.0, 5.0, marks)
+
+    assert cues[0].start == pytest.approx(100.10)
+    # 第二句按字数估算会在 ~101.8 开口，真实是 101.72——差值正是会累积的那部分
+    second = next(c for c in cues if c.start > 100.5)
+    assert second.start == pytest.approx(101.72)
+
+
+def test_captions_fall_back_to_estimate_without_marks():
+    """拿不到时间标记时仍要能出字幕，而不是整段空白。"""
+    from xhs_manager.video_pipeline.composition.timeline import build_captions
+
+    cues = build_captions("别把叙事当数据。一个吓人的比例，正在替代判断。", 0.0, 5.0, None)
+    assert cues
+    assert cues[0].start == pytest.approx(0.0)
+    assert cues[-1].end == pytest.approx(5.0)
+
+
+def test_long_sentence_is_split_inside_its_own_time_window():
+    """长句二次切分只能在这句自己的区间里，误差不许外溢到下一句。"""
+    from xhs_manager.video_pipeline.composition.timeline import build_captions
+
+    marks = [
+        {"start": 0.0, "duration": 6.0,
+         "text": "需求闸门要求问题高频，并且有明确的预算所有者，否则做出来没有人买单。"},
+        {"start": 6.0, "duration": 2.0, "text": "就这么简单。"},
+    ]
+    cues = build_captions("略", 0.0, 9.0, marks)
+
+    first_sentence = [c for c in cues if c.start < 6.0]
+    assert len(first_sentence) > 1              # 确实被切开了
+    assert first_sentence[-1].end == pytest.approx(6.0, abs=0.01)

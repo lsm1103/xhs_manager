@@ -29,6 +29,23 @@ class TtsRequest:
 
 
 @dataclass
+class SpeechMark:
+    """一段语音在音频里的真实位置（秒）。
+
+    字幕对齐的唯一可靠依据。没有它就只能按字数比例估算，
+    而估算误差会在一个场景内累积，听感上就是"字幕追不上人声"。
+    """
+
+    start: float
+    duration: float
+    text: str
+
+    @property
+    def end(self) -> float:
+        return self.start + self.duration
+
+
+@dataclass
 class TtsResult:
     success: bool
     path: Optional[Path] = None
@@ -36,6 +53,8 @@ class TtsResult:
     duration: Optional[float] = None
     elapsed: Optional[float] = None      # 生成耗时，用于算 RTF
     error: str = ""
+    #: 引擎回吐的句级时间标记（拿不到就是空列表，调用方需要能降级）
+    marks: list["SpeechMark"] = field(default_factory=list)
     meta: dict = field(default_factory=dict)
 
     @property

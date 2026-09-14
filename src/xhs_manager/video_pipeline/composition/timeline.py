@@ -150,13 +150,24 @@ def _merge_orphans(chunks: list[str], max_chars: int, min_chars: int = 4) -> lis
 
 
 def build_captions(
-    narration: str, start: float, duration: float
+    narration: str,
+    start: float,
+    duration: float,
+    marks: list[dict[str, Any]] | None = None,
 ) -> list[CaptionCue]:
-    """按字数比例把旁白摊到场景时长上。
+    """把旁白切成字幕条并排上时间。
 
-    没有词级时间戳，所以这是**估算**：假定语速匀速，按字符数分配时长。
-    对 5-10 秒的场景足够贴合；要精确对齐得等 TTS 回吐 word boundary。
+    有 marks（TTS 回吐的句级真实时间）时以它为准：每一句都钉在人声真正
+    开口的那一刻，误差不会跨句累积。没有 marks 才退回按字数比例估算。
+
+    这个区别在长片上是决定性的：估算法下每句几百毫秒的偏差会一路累加，
+    看起来就是"字幕追不上人声"。
     """
+    if marks:
+        cues = _captions_from_marks(narration, start, duration, marks)
+        if cues:
+            return cues
+
     pieces = split_caption_text(narration)
     if not pieces:
         return []
@@ -173,6 +184,47 @@ def build_captions(
     # 吸附末尾，避免浮点累积误差让最后一条字幕早退/超出场景
     if cues:
         cues[-1].end = start + duration
+    return cues
+
+
+def _captions_from_marks(
+    narration: str,
+    start: float,
+    duration: float,
+    marks: list[dict[str, Any]],
+) -> list[CaptionCue]:
+    """用引擎回吐的句级时间排字幕。
+
+    一句话仍然可能超过单行字数上限，此时在**这一句自己的时间区间内**
+    按字数二次切分——误差被关在一句之内（通常 2-4 秒），不会外溢。
+    """
+    cues: list[CaptionCue] = []
+    for mark in marks:
+        text = (mark.get("text") or "").strip()
+        if not text:
+            continue
+        m_start = start + float(mark.get("start") or 0.0)
+        m_dur = float(mark.get("duration") or 0.0)
+        if m_dur <= 0:
+            continue
+
+        pieces = split_caption_text(text)
+        if not pieces:
+            continue
+
+        weights = [max(1, len(p)) for p in pieces]
+        total_w = sum(weights)
+        cursor = m_start
+        for piece, w in zip(pieces, weights):
+            span = m_dur * (w / total_w)
+            cues.append(CaptionCue(start=cursor, end=cursor + span, text=piece))
+            cursor += span
+
+    if not cues:
+        return []
+
+    # 最后一条不要超出场景（尾部还有留白），也不要早退太多
+    cues[-1].end = min(max(cues[-1].end, cues[-1].start + 0.4), start + duration)
     return cues
 
 
@@ -272,7 +324,9 @@ def plan_timeline(scenes: list[dict[str, Any]]) -> Timeline:
             narration=narration,
             bgm_mood=(scene.get("bgm_mood") or "explain").strip(),
             visual_desc=(scene.get("visual_desc") or "").strip(),
-            captions=build_captions(narration, cursor, duration),
+            captions=build_captions(
+                narration, cursor, duration, scene.get("speech_marks"),
+            ),
             raw=scene,
         )
 

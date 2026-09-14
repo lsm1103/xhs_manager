@@ -16,7 +16,7 @@
 
 import logging
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
@@ -33,6 +33,8 @@ class SceneNarration:
     path: Path
     speech: float          # 纯语音时长
     total: float           # 含尾部留白，即该场景应有的时长
+    #: 引擎回吐的句级时间标记（相对本段音频起点，秒）。空列表表示拿不到。
+    marks: list = field(default_factory=list)
 
 
 def _probe(path: Path) -> float:
@@ -67,7 +69,9 @@ def synthesize_scenes(
             return []
 
         speech = res.duration or _probe(dst)
-        items.append(SceneNarration(sid, dst, speech, speech + tail_pause))
+        items.append(SceneNarration(
+            sid, dst, speech, speech + tail_pause, marks=list(res.marks),
+        ))
 
     return items
 
@@ -119,6 +123,14 @@ def calibrate_scene_durations(
         it = by_id.get(sc.get("scene_id"))
         if it:
             sc["duration"] = round(it.total, 2)
+            # 句级时间标记跟着场景走，供组合阶段精确排字幕。
+            # 拿不到标记时留空，下游会退回按字数估算。
+            sc["speech_marks"] = [
+                {"start": round(m.start, 3),
+                 "duration": round(m.duration, 3),
+                 "text": m.text}
+                for m in it.marks
+            ]
         total += float(sc.get("duration") or 0)
     return round(total, 2)
 
