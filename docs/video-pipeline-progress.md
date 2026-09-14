@@ -529,6 +529,12 @@ ducking 参数调校、按视频类型换整体曲风。
 - 三套主题：`tech_night` / `warm_paper` / `electric`，`XHS_VIDEO_COMPOSITION_THEME` 切换。
 - 渲染器的 Chrome/ffmpeg 路径改为探测（原来写死 macOS 路径，Linux/CI 上永远不可用）。
   同一个 bug 在 `xhs_publisher.py` 里也有，一并修掉——它让两个单测在非 macOS 上一直失败。
+- **ffmpeg 探测要查能力，不能只查文件在不在**。Playwright 自带一份 ffmpeg，
+  但那是裁剪版：只有 vp8/webm，没有 libx264 也没有 mp4 muxer。
+  只判断存在会让 `available()` 报 True，结果**截完 700 多帧才在最后一步报
+  Unknown encoder**。现在 `detect_ffmpeg()` 会跑一次 `-encoders` 确认有 libx264。
+  `XHS_FFMPEG_PATH` 显式指定时跳过检查（用户说了算）。
+  没有 ffprobe 时 `probe_duration()` 返回 None，回退到脚本时长，不阻塞出片。
 
 ### 还没做
 

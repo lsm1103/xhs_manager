@@ -10,6 +10,7 @@ import logging
 import os
 import shutil
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -43,21 +44,52 @@ def detect_chrome_path() -> str:
 CHROME_PATH = detect_chrome_path()
 
 
-# ffmpeg 同理：PATH 里没有不代表机器上没有。Playwright 自带一份，可以直接用。
-FFMPEG_CANDIDATES = ("/opt/pw-browsers/ffmpeg-1011/ffmpeg-linux",)
+# ffmpeg 同理：PATH 里没有不代表机器上没有。
+# 但「存在」不等于「能用」——Playwright 自带的那份是裁剪版，
+# 只有 vp8/webm，没有 libx264 也没有 mp4 muxer，拿它出片必然失败。
+# 所以候选必须过一遍能力检查。
+FFMPEG_CANDIDATES = (
+    "/opt/pw-browsers/ffmpeg-1011/ffmpeg-linux",
+)
+
+
+@lru_cache(maxsize=8)
+def ffmpeg_supports_h264(path: str) -> bool:
+    """检查这个 ffmpeg 能不能编 H.264。
+
+    只看文件在不在会误判：裁剪版 ffmpeg 照样存在、照样能 -version，
+    但一跑 libx264 就报 Unknown encoder，而那时已经白截了几百帧。
+    """
+    try:
+        r = subprocess.run(
+            [path, "-hide_banner", "-encoders"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0 and "libx264" in r.stdout
 
 
 def detect_ffmpeg() -> str:
-    """返回可用的 ffmpeg 路径，找不到返回空串。"""
+    """返回**能编 H.264** 的 ffmpeg 路径，找不到返回空串。
+
+    XHS_FFMPEG_PATH 显式指定时直接采信，不做能力检查——
+    用户明确指了就按用户说的来，出错也该在那里报。
+    """
     env = os.environ.get("XHS_FFMPEG_PATH", "").strip()
     if env:
         return env
+
+    candidates = []
     found = shutil.which("ffmpeg")
     if found:
-        return found
-    for candidate in FFMPEG_CANDIDATES:
-        if Path(candidate).exists():
+        candidates.append(found)
+    candidates.extend(c for c in FFMPEG_CANDIDATES if Path(c).exists())
+
+    for candidate in candidates:
+        if ffmpeg_supports_h264(candidate):
             return candidate
+        logger.debug("%s 不支持 libx264，跳过", candidate)
     return ""
 
 

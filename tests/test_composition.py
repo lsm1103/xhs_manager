@@ -460,3 +460,56 @@ def test_load_script_file_rejects_empty_scenes(tmp_path):
 
     with pytest.raises(ValueError, match="scenes"):
         load_script_file(_write(tmp_path, {"scenes": []}))
+
+
+# ── 渲染器工具探测 ────────────────────────────────────────────────
+
+
+def test_detect_ffmpeg_rejects_builds_without_libx264(monkeypatch, tmp_path):
+    """裁剪版 ffmpeg（比如 Playwright 自带那份）存在但编不了 H.264。
+
+    回归：只判断文件存在，导致 available() 报 True，
+    结果截了 700 多帧才在最后一步 ffmpeg 报 Unknown encoder。
+    """
+    import subprocess
+
+    from xhs_manager.video_pipeline.integrations import renderer
+
+    fake = tmp_path / "ffmpeg"
+    fake.write_text("#!/bin/sh\n")
+
+    monkeypatch.delenv("XHS_FFMPEG_PATH", raising=False)
+    monkeypatch.setattr(renderer.shutil, "which", lambda _: str(fake))
+    monkeypatch.setattr(renderer, "FFMPEG_CANDIDATES", ())
+    renderer.ffmpeg_supports_h264.cache_clear()
+
+    def fake_run(cmd, **kw):
+        # 模拟只有 vp8 的裁剪版
+        return subprocess.CompletedProcess(cmd, 0, stdout="V..... libvpx_vp8", stderr="")
+
+    monkeypatch.setattr(renderer.subprocess, "run", fake_run)
+    assert renderer.detect_ffmpeg() == ""
+
+    def full_run(cmd, **kw):
+        return subprocess.CompletedProcess(cmd, 0, stdout="V..... libx264", stderr="")
+
+    monkeypatch.setattr(renderer.subprocess, "run", full_run)
+    renderer.ffmpeg_supports_h264.cache_clear()
+    assert renderer.detect_ffmpeg() == str(fake)
+
+    renderer.ffmpeg_supports_h264.cache_clear()
+
+
+def test_explicit_ffmpeg_path_is_trusted_without_probing(monkeypatch):
+    """显式指定就按用户说的来，不做能力检查。"""
+    from xhs_manager.video_pipeline.integrations import renderer
+
+    monkeypatch.setenv("XHS_FFMPEG_PATH", "/custom/ffmpeg")
+    assert renderer.detect_ffmpeg() == "/custom/ffmpeg"
+
+
+def test_detect_chrome_prefers_env_override(monkeypatch):
+    from xhs_manager.video_pipeline.integrations import renderer
+
+    monkeypatch.setenv("XHS_CHROME_PATH", "/custom/chrome")
+    assert renderer.detect_chrome_path() == "/custom/chrome"
