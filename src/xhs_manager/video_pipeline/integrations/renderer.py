@@ -231,7 +231,9 @@ class HtmlVideoRenderer:
                 # 会导致整段画面停在第一帧或黑屏
                 page.evaluate("""
                   () => Promise.all(
-                    Array.from(document.querySelectorAll('video.bg-video, .scene-media video')).map(v =>
+                    Array.from(
+                      document.querySelectorAll('video.bg-video, .scene-media video')
+                    ).map(v =>
                       v.readyState >= 1
                         ? Promise.resolve()
                         : new Promise(res => {
