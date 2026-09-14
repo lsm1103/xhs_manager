@@ -1,5 +1,8 @@
 """视频 Pipeline 单元测试 —— 覆盖纯逻辑部分，外部调用不在此测试。"""
 
+from datetime import date
+from pathlib import Path
+
 import pytest
 
 from xhs_manager.video_pipeline.domain import (
@@ -829,3 +832,69 @@ def test_stat_layout_kept_when_main_starts_with_a_number():
     })
     assert ps.layout == "stat"
     assert ps.stat_value == "90%"
+
+
+# ── 时长校准要真的落库 ───────────────────────────────────────────
+
+
+def test_calibrated_scene_durations_survive_a_commit(session_factory):
+    """校准后的场景时长必须写进库。
+
+    这里曾经踩过坑：calibrate_scene_durations 是原地改 dict，
+    浅拷贝回写时 SQLAlchemy 认为 JSON 列没变化，于是 total_duration 更新了、
+    每个场景的 duration 还是脚本里手写的估算值。
+    后果是画面按 195 秒排版、音频只有 168 秒，越往后音画错位越大。
+    """
+    import copy
+
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from xhs_manager.domain import new_id
+    from xhs_manager.video_pipeline.audio.narration import (
+        SceneNarration, calibrate_scene_durations,
+    )
+    from xhs_manager.video_pipeline.models import (
+        VideoPipelineRun, VideoScript, VideoTopic,
+    )
+
+    raw = [
+        {"scene_id": "s01", "order": 1, "duration": 9, "narration": "一"},
+        {"scene_id": "s02", "order": 2, "duration": 11, "narration": "二"},
+    ]
+    script_id = new_id()
+
+    with session_factory() as s:
+        run = VideoPipelineRun(id=new_id(), run_date=date(2026, 9, 14),
+                               status="materializing", trigger_type="manual")
+        topic = VideoTopic(id=new_id(), pipeline_run_id=run.id, rank=1,
+                           title="t", angle="a", why_now="w",
+                           target_audience="x", video_type="explainer",
+                           estimated_duration=20, scores={}, total_score=1.0,
+                           source_signal_ids=[], status="selected")
+        s.add(run)
+        s.flush()
+        s.add(topic)
+        s.flush()
+        s.add(VideoScript(id=script_id, topic_id=topic.id, version=1,
+                          total_duration=20, scenes=raw, bgm_style="",
+                          platform_metadata={}, generation_model="test",
+                          generation_prompt_hash="h", status="ready"))
+        s.commit()
+
+    with session_factory() as s:
+        script = s.get(VideoScript, script_id)
+        scenes = copy.deepcopy(list(script.scenes))
+        items = [
+            SceneNarration("s01", Path("a.mp3"), 6.43, 6.88),
+            SceneNarration("s02", Path("b.mp3"), 7.49, 7.94),
+        ]
+        total = calibrate_scene_durations(scenes, items)
+        script.scenes = scenes
+        flag_modified(script, "scenes")
+        script.total_duration = int(round(total))
+        s.commit()
+
+    with session_factory() as s:
+        script = s.get(VideoScript, script_id)
+        assert [sc["duration"] for sc in script.scenes] == [6.88, 7.94]
+        assert script.total_duration == 15

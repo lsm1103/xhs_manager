@@ -8,6 +8,7 @@
 同时为每个场景生成 TTS 旁白音频。
 """
 
+import copy
 import logging
 import shutil
 from pathlib import Path
@@ -279,9 +280,16 @@ def _collect_via_moneyprinter(
     #
     # audio/narration.py 早就实现了「逐段合成 → 量出真实时长 → 回写场景时长」，
     # 但一直没有人调用它。这里把它接上：时间轴以语音为准，而不是以估算为准。
+    from sqlalchemy.orm.attributes import flag_modified
+
     from xhs_manager.video_pipeline.audio.narration import build_aligned_narration
 
-    scenes = list(script.scenes)   # 副本，校准后整体回写才能让 JSON 列生效
+    # 必须是深拷贝。calibrate_scene_durations 是**原地改 dict**，
+    # 浅拷贝的话新旧列表装着同一批 dict，赋回去时 SQLAlchemy 看到
+    # "值没变"就不写库——结果 total_duration 更新了、每个场景的 duration
+    # 还是脚本里手写的估算值。画面时间轴按 195 秒排，音频却是 168 秒，
+    # 越往后音画差得越多（实测到第 14 个场景差了 25 秒）。
+    scenes = copy.deepcopy(list(script.scenes))
     track, total = build_aligned_narration(scenes, output_dir, settings)
 
     if track is None:
@@ -301,8 +309,13 @@ def _collect_via_moneyprinter(
                     shutil.copy2(str(src), str(track))
     else:
         script.scenes = scenes
+        # JSON 列的变更检测靠不住，显式标脏，否则这次校准会被静默丢弃
+        flag_modified(script, "scenes")
         script.total_duration = int(round(total))
-        logger.info("场景时长已按真实语音校准：总时长 %.1fs", total)
+        logger.info(
+            "场景时长已按真实语音校准：总时长 %.1fs（%s）",
+            total, ", ".join(f"{sc['scene_id']}={sc['duration']}" for sc in scenes),
+        )
 
     if track and Path(track).exists():
         session.add(VideoMaterial(
