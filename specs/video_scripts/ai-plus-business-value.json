@@ -1,8 +1,8 @@
 {
   "topic": {
-    "title": "AI+ 到底是添头还是主菜",
-    "angle": "从 V2EX 一篇四轮浪潮复盘出发，用跨平台调研拆开「热点价值」与「产品价值」",
-    "why_now": "公众号同时在量产「入选榜单」的软文和「90% 项目失败」的檄文，两种叙事都在卖服务",
+    "title": "40 篇 AI 落地爆款，没有一篇在讲怎么跑通",
+    "angle": "不复述原帖，而是把流水线采到的 135 条讨论加工成四个可验证的数字，每个数字对应一个判断",
+    "why_now": "AI 落地的公开讨论已经分裂成「卖跟上」和「卖避坑」两种生意，失败率数字满天飞却没有一个写分母",
     "target_audience": "在判断 AI 项目要不要做、能不能赚钱的产品负责人、创业者和垂类软件从业者",
     "video_type": "explainer"
   },
@@ -11,233 +11,233 @@
     {
       "scene_id": "s01",
       "order": 1,
-      "duration": 9,
+      "duration": 8,
       "layout": "hook",
-      "visual_desc": "abstract network of glowing lines fading in and out, dark background",
+      "visual_desc": "abstract stacked documents dissolving into light, dark background",
       "text_overlay": {
-        "main": "互联网+ 物联网+ 区块链+",
-        "sub": "现在轮到 AI+",
+        "main": "40 篇爆款",
+        "sub": "没有一篇在讲怎么跑通",
         "animation": "pop_in"
       },
       "transition": "none",
       "bgm_mood": "hook",
-      "narration": "互联网加、物联网加、区块链加，现在轮到 AI 加。四轮浪潮，同一个句式。",
+      "narration": "关于企业 AI 落地，我扫了四十篇公众号爆款。没有一篇，是在复盘某个具体项目怎么跑通的。",
       "material_hints": [
-        "search:abstract network nodes dark background"
+        "search:abstract stacked paper dissolving dark"
       ]
     },
     {
       "scene_id": "s02",
       "order": 2,
-      "duration": 11,
-      "layout": "statement",
-      "visual_desc": "slow abstract data waves, cold blue",
+      "duration": 9,
+      "layout": "stat",
+      "visual_desc": "four columns of light with different heights",
       "text_overlay": {
-        "main": "追热点不是原罪",
-        "sub": "商业公司不是研究机构",
-        "animation": "slide_up"
+        "main": "9 / 10 / 12 / 9",
+        "sub": "榜单通稿 · 失败率避坑 · 概念行情 · 行业报告",
+        "animation": "counter"
       },
       "transition": "fade",
-      "bgm_mood": "explain",
-      "narration": "先说一句不讨喜的：追热点本身不是原罪。商业公司不是研究机构，没义务等技术成熟再下场。",
+      "bgm_mood": "reveal",
+      "narration": "九篇是我司入选百强榜，十篇是九成项目都失败，十二篇是概念还能炒多久，剩下九篇是行业报告。",
       "material_hints": [
-        "search:abstract blue data waves"
+        "search:abstract light columns dark chart"
       ]
     },
     {
       "scene_id": "s03",
       "order": 3,
-      "duration": 11,
-      "layout": "quote",
-      "visual_desc": "minimal dark surface with a single beam of light",
+      "duration": 9,
+      "layout": "statement",
+      "visual_desc": "two opposing light beams meeting",
       "text_overlay": {
-        "main": "「同样一套软件，讲业务流程优化没人听，加个热门概念，至少能多换一次介绍机会」",
-        "sub": "V2EX @LDa",
+        "main": "唱多和唱衰",
+        "sub": "是同一门生意的两面",
         "animation": "highlight"
       },
-      "transition": "slide_left",
-      "bgm_mood": "explain",
-      "narration": "原帖作者做了十几年垂类软件。他说，同一套软件讲流程优化没人听，加个热门概念，至少能多换一次介绍机会。",
+      "transition": "flip",
+      "bgm_mood": "tension",
+      "narration": "唱多卖的是跟上，唱衰卖的是别踩坑。落款常常是同一类人：服务商、培训机构、咨询顾问。",
       "material_hints": [
-        "search:minimal dark light beam"
+        "search:two opposing light beams dark"
       ]
     },
     {
       "scene_id": "s04",
       "order": 4,
-      "duration": 11,
-      "layout": "statement",
-      "visual_desc": "two separate glowing paths diverging in the dark",
-      "text_overlay": {
-        "main": "但热点价值",
-        "sub": "不等于产品价值",
-        "animation": "slide_up"
-      },
-      "transition": "fade",
-      "bgm_mood": "tension",
-      "narration": "问题在下一步。靠概念拿到项目，只说明这个概念当时有用。它是不是一门生意，得另外算账。",
-      "material_hints": [
-        "search:diverging light paths dark"
-      ]
-    },
-    {
-      "scene_id": "s05",
-      "order": 5,
-      "duration": 12,
-      "layout": "bullets",
-      "visual_desc": "three stacked translucent panels floating",
-      "text_overlay": {
-        "main": "项目做完之后",
-        "sub": "客户还用不用；愿不愿继续付钱；第二家能不能复用",
-        "animation": "slide_up"
-      },
-      "transition": "slide_left",
-      "bgm_mood": "explain",
-      "narration": "项目做完之后：客户还用不用，愿不愿继续付钱，下一家能不能复用。三笔账，不能合并成一笔。",
-      "material_hints": [
-        "search:floating translucent panels"
-      ]
-    },
-    {
-      "scene_id": "s06",
-      "order": 6,
-      "duration": 12,
-      "layout": "statement",
-      "visual_desc": "a dish on a table shot from above, minimal food photography",
-      "text_overlay": {
-        "main": "这个「+」",
-        "sub": "是添头，还是主菜？",
-        "animation": "pop_in"
-      },
-      "transition": "zoom_in",
-      "bgm_mood": "tension",
-      "narration": "垂类公司最容易在这里误判。项目因为政策、预算或者客户关系做成了，复盘却全归功于新技术。该问的是：这个加号，是添头还是主菜。",
-      "material_hints": [
-        "search:minimal plate table top view"
-      ]
-    },
-    {
-      "scene_id": "s07",
-      "order": 7,
-      "duration": 12,
-      "layout": "compare",
-      "visual_desc": "split screen of two opposing light fields",
-      "text_overlay": {
-        "main": "入选 AI 落地百强榜 对比 90% 的 AI 项目都失败了",
-        "sub": "同一批公众号，两种爆款",
-        "animation": "slide_up"
-      },
-      "transition": "flip",
-      "bgm_mood": "reveal",
-      "narration": "我用项目的采集流水线扫了一遍公众号。同一批关键词捞出两种爆款：我司入选 AI 落地百强榜，和九成企业 AI 项目都失败了。",
-      "material_hints": [
-        "search:split screen abstract contrast light"
-      ]
-    },
-    {
-      "scene_id": "s08",
-      "order": 8,
-      "duration": 11,
-      "layout": "statement",
-      "visual_desc": "coins and paper stacking abstractly, cold tone",
-      "text_overlay": {
-        "main": "唱多和唱衰",
-        "sub": "落款经常是同一类人",
-        "animation": "highlight"
-      },
-      "transition": "fade",
-      "bgm_mood": "tension",
-      "narration": "有意思的是，两类文章的落款常常是同一类人：服务商、培训机构、咨询顾问。唱多卖跟上，唱衰卖别踩坑。都是生意。",
-      "material_hints": [
-        "search:abstract stacked paper cold light"
-      ]
-    },
-    {
-      "scene_id": "s09",
-      "order": 9,
-      "duration": 11,
+      "duration": 9,
       "layout": "stat",
-      "visual_desc": "large numbers flickering on a dark grid",
+      "visual_desc": "numbers flickering on a dark grid",
       "text_overlay": {
-        "main": "95 90 80 43 40",
-        "sub": "五个失败率，互相打架",
+        "main": "5 个口径",
+        "sub": "95 · 90 · 80 · 43 · 40",
         "animation": "counter"
       },
       "transition": "glitch",
       "bgm_mood": "reveal",
-      "narration": "失败率更乱。这轮采到的口径至少五种：九十五、九十、八十、四十三、四十。来源各不相同，统计口径大多没写。",
+      "narration": "光是失败率，标题里就出现了十一次，五个互相打架的口径：九十五、九十、八十、四十三、四十。",
       "material_hints": [
         "search:glowing numbers dark grid"
       ]
     },
     {
-      "scene_id": "s10",
-      "order": 10,
-      "duration": 11,
+      "scene_id": "s05",
+      "order": 5,
+      "duration": 10,
       "layout": "statement",
-      "visual_desc": "a magnifying lens over abstract text blocks",
+      "visual_desc": "an empty frame where a label should be",
       "text_overlay": {
-        "main": "别把叙事当数据",
-        "sub": "一个吓人的比例，正在替代判断",
+        "main": "没有一条写分母",
+        "sub": "试点没转生产？还是上线后被弃用？",
         "animation": "slide_up"
       },
       "transition": "fade",
-      "bgm_mood": "explain",
-      "narration": "分母是项目还是企业？算的是试点没转生产，还是上线后被弃用？都没说。一个吓人的比例，正在替代判断。",
+      "bgm_mood": "tension",
+      "narration": "但没有一条写清楚分母。统计的是项目还是企业，是试点没转生产，还是上线后被弃用，全都没说。",
       "material_hints": [
-        "search:magnifier abstract document blocks"
+        "search:empty frame dark minimal abstract"
       ]
     },
     {
-      "scene_id": "s11",
-      "order": 11,
-      "duration": 12,
-      "layout": "compare",
-      "visual_desc": "two towers of light, one tall one crumbling",
+      "scene_id": "s06",
+      "order": 6,
+      "duration": 8,
+      "layout": "statement",
+      "visual_desc": "a single sharp line cutting through noise",
       "text_overlay": {
-        "main": "去做垂类 Agent 对比 垂类模型都死了",
-        "sub": "B站上的正面对撞",
+        "main": "别把叙事当数据",
+        "sub": "一个吓人的比例，正在替代判断",
+        "animation": "highlight"
+      },
+      "transition": "zoom_in",
+      "bgm_mood": "explain",
+      "narration": "所以这五个数字，我一个都没当成事实。一个吓人的比例，正在替代本该自己做的判断。",
+      "material_hints": [
+        "search:sharp light line through noise dark"
+      ]
+    },
+    {
+      "scene_id": "s07",
+      "order": 7,
+      "duration": 10,
+      "layout": "compare",
+      "visual_desc": "two groups of lights, one sparse one dense",
+      "text_overlay": {
+        "main": "喊泡沫的 3 条 对比 靠 AI 赚钱的 15 条",
+        "sub": "同一个社区，同一段时间",
         "animation": "slide_up"
       },
       "transition": "slide_left",
-      "bgm_mood": "tension",
-      "narration": "B站的分歧更直接。一边喊去做垂类智能体，一边说垂类模型都死了，通用模型顺手就把垂类打掉了。",
+      "bgm_mood": "reveal",
+      "narration": "V2EX 更有意思。同期四十六个帖子里，喊泡沫的三条，靠 AI 找工作、接单、把开源项目做成付费产品的十五条。",
       "material_hints": [
-        "search:two abstract light towers"
+        "search:sparse and dense light clusters dark"
       ]
     },
     {
-      "scene_id": "s12",
-      "order": 12,
-      "duration": 12,
-      "layout": "statement",
-      "visual_desc": "layered rock strata lit from the side, abstract",
+      "scene_id": "s08",
+      "order": 8,
+      "duration": 10,
+      "layout": "compare",
+      "visual_desc": "two ledgers under cold light",
       "text_overlay": {
-        "main": "垂类本身不是护城河",
-        "sub": "流程、数据、责任才是",
+        "main": "机会账 对比 经营账",
+        "sub": "曝光融资投标 / 采用率成本续费",
+        "animation": "slide_up"
+      },
+      "transition": "flip",
+      "bgm_mood": "explain",
+      "narration": "这两件事不矛盾，它就是两本账。机会账记曝光、融资和投标资格，经营账记采用率、单位成本和续费。",
+      "material_hints": [
+        "search:two ledgers cold light abstract"
+      ]
+    },
+    {
+      "scene_id": "s09",
+      "order": 9,
+      "duration": 9,
+      "layout": "stat",
+      "visual_desc": "unequal pair of glowing bars",
+      "text_overlay": {
+        "main": "6 : 2",
+        "sub": "B站谈垂类：看空 6 条，看多 2 条",
+        "animation": "counter"
+      },
+      "transition": "slide_left",
+      "bgm_mood": "tension",
+      "narration": "再看 B站。谈垂类的十二条里，看空六条，看多两条。看空的理由高度一致。",
+      "material_hints": [
+        "search:two unequal glowing bars dark"
+      ]
+    },
+    {
+      "scene_id": "s10",
+      "order": 10,
+      "duration": 10,
+      "layout": "statement",
+      "visual_desc": "layered rock strata lit from the side",
+      "text_overlay": {
+        "main": "垂类不是护城河",
+        "sub": "流程 · 数据 · 责任 · 交付",
         "animation": "highlight"
       },
       "transition": "zoom_in",
       "bgm_mood": "reveal",
-      "narration": "我认为答案已经出来了：垂类本身不是护城河。护城河是垂类里通用模型拿不到的东西——流程、数据、责任和交付。",
+      "narration": "通用模型顺手就能把垂类专程打掉。所以护城河不是垂类本身，是垂类里通用模型拿不到的东西：流程、数据、责任和交付。",
       "material_hints": [
         "search:layered rock strata abstract light"
       ]
     },
     {
+      "scene_id": "s11",
+      "order": 11,
+      "duration": 9,
+      "layout": "quote",
+      "visual_desc": "minimal dark surface with a single beam of light",
+      "text_overlay": {
+        "main": "「这个加号，到底是添头还是主菜？」",
+        "sub": "V2EX @LDa",
+        "animation": "highlight"
+      },
+      "transition": "fade",
+      "bgm_mood": "explain",
+      "narration": "这就回到了原帖那句话。一个做了十几年垂类软件的人问：这个加号，到底是添头还是主菜。",
+      "material_hints": [
+        "search:minimal dark light beam"
+      ]
+    },
+    {
+      "scene_id": "s12",
+      "order": 12,
+      "duration": 10,
+      "layout": "statement",
+      "visual_desc": "a rising tide of light lifting small shapes",
+      "text_overlay": {
+        "main": "追热点不是原罪",
+        "sub": "同一套软件，讲流程优化没人听",
+        "animation": "slide_up"
+      },
+      "transition": "fade",
+      "bgm_mood": "explain",
+      "narration": "说清楚一件事：追热点本身不是原罪。同一套软件，讲流程优化半天没人听，加个热词至少能多换一次介绍机会。这也是商业价值。",
+      "material_hints": [
+        "search:rising light tide abstract dark"
+      ]
+    },
+    {
       "scene_id": "s13",
       "order": 13,
-      "duration": 12,
+      "duration": 10,
       "layout": "bullets",
       "visual_desc": "four separate glowing markers on a dark plane",
       "text_overlay": {
-        "main": "一个项目里有四个人",
+        "main": "先问四个人",
         "sub": "谁使用；谁受益；谁采购；谁担责",
         "animation": "slide_up"
       },
       "transition": "wipe",
       "bgm_mood": "explain",
-      "narration": "所以别问要不要上 AI。先问：谁使用，谁受益，谁采购，谁担责。四个人常常不是同一个，只问一个必然失真。",
+      "narration": "想答对这个问题，先问四个人：谁使用，谁受益，谁采购，谁担责。这四个常常不是同一个人。",
       "material_hints": [
         "search:four glowing markers dark plane"
       ]
@@ -245,17 +245,17 @@
     {
       "scene_id": "s14",
       "order": 14,
-      "duration": 13,
+      "duration": 12,
       "layout": "bullets",
-      "visual_desc": "a series of gates opening in sequence, abstract architecture",
+      "visual_desc": "a series of gates opening in sequence",
       "text_overlay": {
-        "main": "四道商业闸门",
+        "main": "再过四道闸门",
         "sub": "需求；流程；责任；复用",
         "animation": "slide_up"
       },
       "transition": "slide_left",
       "bgm_mood": "explain",
-      "narration": "然后过四道闸门。需求：问题高频，有明确预算所有者。流程：嵌进已有动作。责任：审核、拒绝、回滚边界清楚。复用：第二个客户复用产品，不是再派一支团队。",
+      "narration": "再过四道闸门。需求要高频且有预算所有者，流程要能嵌进已有动作，责任边界要清楚，第二个客户要能复用产品，而不是重派一支团队。",
       "material_hints": [
         "search:abstract gates opening architecture"
       ]
@@ -263,17 +263,17 @@
     {
       "scene_id": "s15",
       "order": 15,
-      "duration": 12,
+      "duration": 10,
       "layout": "statement",
-      "visual_desc": "an equation of light subtracting blocks one by one",
+      "visual_desc": "dark abstract geometric grid in motion",
       "text_overlay": {
-        "main": "结果价值 − 成本项",
-        "sub": "模型 审核 集成 错误 运维",
+        "main": "算结果，不算调用量",
+        "sub": "价值 − 模型 − 审核 − 集成 − 错误 − 运维",
         "animation": "slide_up"
       },
       "transition": "fade",
       "bgm_mood": "reveal",
-      "narration": "计量单位也得换。算一次业务结果的价值，减去模型、审核、集成、错误和运维。这个数不能稳定为正，做得越大亏得越多。",
+      "narration": "然后算账。算一次业务结果的价值，减去模型、审核、集成、错误和运维。这个数不能稳定为正，做得越大亏得越多。",
       "material_hints": [
         "search:dark abstract geometric grid motion"
       ]
@@ -282,26 +282,26 @@
       "scene_id": "s16",
       "order": 16,
       "duration": 12,
-      "layout": "compare",
-      "visual_desc": "two ledgers side by side under cold light",
+      "layout": "bullets",
+      "visual_desc": "three separate paths diverging from one point",
       "text_overlay": {
-        "main": "机会账 对比 经营账",
-        "sub": "曝光融资投标 / 采用率续费复用",
+        "main": "先分清这是哪种项目",
+        "sub": "宣传的看传播；探索的认亏；长期业务看客户交付复用利润",
         "animation": "slide_up"
       },
-      "transition": "flip",
+      "transition": "wipe",
       "bgm_mood": "explain",
-      "narration": "最实用的一条：记两本账。机会账记曝光、融资、投标；经营账记采用率、接管率、单位成本和续费。混成一本，就是四轮浪潮里那个误判。",
+      "narration": "还有一步很多人跳过了：先分清这是哪种项目。为宣传做的，就只看传播效果；为探索做的，就接受短期没有回报；要当长期业务做的，才认真看客户、交付、复用和利润。",
       "material_hints": [
-        "search:two ledgers cold light abstract"
+        "search:three diverging paths abstract dark"
       ]
     },
     {
       "scene_id": "s17",
       "order": 17,
-      "duration": 11,
+      "duration": 9,
       "layout": "outro",
-      "visual_desc": "a single small light steadily glowing, expanding slowly",
+      "visual_desc": "a single small light steadily expanding",
       "text_overlay": {
         "main": "先跑通一个结果",
         "sub": "高频 · 可计量 · 能回滚",
@@ -317,8 +317,8 @@
   ],
   "platform_metadata": {
     "xiaohongshu": {
-      "title": "AI+ 是添头还是主菜",
-      "desc": "从互联网+、物联网+、区块链+到 AI+，同一个句式已经走了四轮。\n\n扫了一遍公众号、B站和 V2EX 之后我发现：唱多和唱衰是同一门生意，失败率数字互相打架，而真正的分歧在「垂类到底是不是护城河」。\n\n给每个 AI 项目记两本账：机会账记曝光融资投标，经营账记采用率续费复用。混成一本，就是四轮浪潮反复出现的那个误判。",
+      "title": "40 篇 AI 落地爆款，没一篇讲怎么跑通",
+      "desc": "我用采集流水线扫了 135 条公开讨论，把它们变成了四个数字：\n\n① 公众号 40 篇：9 篇榜单通稿、10 篇失败率避坑、12 篇概念行情、9 篇行业报告——没有一篇复盘具体项目。\n② 失败率出现 11 次、5 个口径（95/90/80/43/40），没有一条写分母。\n③ V2EX 同期：喊泡沫 3 条，靠 AI 接单赚钱 15 条。\n④ B站谈垂类：看空 6 条，看多 2 条。\n\n结论：垂类不是护城河，流程、数据、责任和交付才是。给每个 AI 项目记两本账。",
       "tags": [
         "AI落地",
         "AI商业化",
@@ -328,8 +328,8 @@
       ]
     },
     "bilibili": {
-      "title": "AI+ 到底是添头还是主菜｜跨平台扒了一遍之后我的判断",
-      "desc": "从 V2EX 一篇四轮浪潮复盘出发，用采集流水线扫了公众号、B站和 V2EX：\n唱多与唱衰是同一门生意，失败率数字互相打架，真正的分歧在垂类是不是护城河。",
+      "title": "扫了 135 条讨论之后：AI+ 是添头还是主菜",
+      "desc": "不复述观点，只讲从采集数据里算出来的四个数字，以及每个数字对应的判断。",
       "tags": [
         "AI",
         "人工智能",
@@ -339,8 +339,8 @@
       ]
     },
     "douyin": {
-      "title": "AI+ 是添头还是主菜：四道闸门和两本账",
-      "desc": "热点价值不等于产品价值",
+      "title": "40 篇 AI 落地爆款，没一篇讲怎么跑通",
+      "desc": "四个数字，四个判断",
       "tags": [
         "AI",
         "商业",
