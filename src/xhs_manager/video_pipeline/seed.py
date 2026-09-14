@@ -6,7 +6,9 @@
   3. 提供脚本 schema 的标准范例
 """
 
+import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -108,29 +110,73 @@ SAMPLE_PLATFORM_METADATA: dict[str, Any] = {
 }
 
 
+REQUIRED_SCENE_KEYS = (
+    "scene_id", "order", "duration", "visual_desc",
+    "text_overlay", "transition", "narration",
+)
+
+
+def load_script_file(path: str | Path) -> dict[str, Any]:
+    """读入一份手写的脚本 JSON 并做基本校验。
+
+    接受两种形态：完整脚本对象（含 scenes/topic 等），或裸的 scenes 数组。
+    校验在这里做而不是等 Stage3 崩——流水线跑到一半才发现少字段最难查。
+    """
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if isinstance(data, list):
+        data = {"scenes": data}
+
+    scenes = data.get("scenes")
+    if not isinstance(scenes, list) or not scenes:
+        raise ValueError("脚本里没有 scenes，或 scenes 不是数组")
+
+    for i, scene in enumerate(scenes):
+        missing = [k for k in REQUIRED_SCENE_KEYS if k not in scene]
+        if missing:
+            raise ValueError(f"scenes[{i}] 缺字段: {', '.join(missing)}")
+        if not isinstance(scene.get("duration"), (int, float)) or scene["duration"] <= 0:
+            raise ValueError(f"scenes[{i}] 的 duration 必须是正数")
+        scene.setdefault("bgm_mood", "explain")
+        scene.setdefault("material_hints", [])
+
+    return data
+
+
 def seed_topic_and_script(
     session: Session,
     run: VideoPipelineRun,
     *,
     rank: int = 1,
+    script_data: dict[str, Any] | None = None,
 ) -> tuple[VideoTopic, VideoScript]:
-    """为指定运行插入一份示例选题 + 脚本。"""
+    """为指定运行插入一份选题 + 脚本。
+
+    script_data 为空时用内置示例；传入时用它（load_script_file 的返回值），
+    这样「手写脚本 → 直接出片」不必绕过 LLM 阶段去改代码。
+    """
     signal_ids = [
         s.id for s in session.query(VideoTrendSignal.id)
         .filter(VideoTrendSignal.pipeline_run_id == run.id)
         .limit(3).all()
     ]
 
+    data = script_data or {}
+    scenes = data.get("scenes", SAMPLE_SCENES)
+    meta = data.get("topic", {})
+    total = data.get("total_duration") or sum(s["duration"] for s in scenes)
+
     topic = VideoTopic(
         id=new_id(),
         pipeline_run_id=run.id,
         rank=rank,
-        title="别把聊天记录当工作流",
-        angle="从「每次重新描述需求」这个具体痛点切入，给出四问框架",
-        why_now="AI 工具普及后，多数人停留在对话阶段，没有沉淀成可复用流程",
-        target_audience="已经在用 AI 但效率没有质变的知识工作者",
-        video_type=VideoType.EXPLAINER.value,
-        estimated_duration=36,
+        title=meta.get("title", "别把聊天记录当工作流"),
+        angle=meta.get("angle", "从「每次重新描述需求」这个具体痛点切入，给出四问框架"),
+        why_now=meta.get(
+            "why_now", "AI 工具普及后，多数人停留在对话阶段，没有沉淀成可复用流程",
+        ),
+        target_audience=meta.get("target_audience", "已经在用 AI 但效率没有质变的知识工作者"),
+        video_type=meta.get("video_type", VideoType.EXPLAINER.value),
+        estimated_duration=total,
         scores={"heat": 8, "uniqueness": 9, "visual": 8, "timeliness": 7, "platform_fit": 9},
         total_score=8.3,
         source_signal_ids=signal_ids,
@@ -139,15 +185,14 @@ def seed_topic_and_script(
     session.add(topic)
     session.flush()
 
-    total = sum(s["duration"] for s in SAMPLE_SCENES)
     script = VideoScript(
         id=new_id(),
         topic_id=topic.id,
         version=1,
         total_duration=total,
-        scenes=SAMPLE_SCENES,
-        bgm_style="轻快科技感，BPM 110-120",
-        platform_metadata=SAMPLE_PLATFORM_METADATA,
+        scenes=scenes,
+        bgm_style=data.get("bgm_style", "轻快科技感，BPM 110-120"),
+        platform_metadata=data.get("platform_metadata", SAMPLE_PLATFORM_METADATA),
         generation_model="seed",
         generation_prompt_hash="seed",
         status="ready",
@@ -157,6 +202,6 @@ def seed_topic_and_script(
 
     logger.info(
         "种子数据已插入: 选题「%s」, %d 场景, %d 秒",
-        topic.title, len(SAMPLE_SCENES), total,
+        topic.title, len(scenes), total,
     )
     return topic, script

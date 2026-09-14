@@ -406,3 +406,57 @@ def test_stage4_honours_resolution_setting():
     settings.render_resolution = "720x1280"
     html = _build_composition_html(_FakeScript([_scene()]), {}, settings)
     assert "720px" in html and "1280px" in html
+
+
+# ── 手写脚本入口 ──────────────────────────────────────────────────
+
+
+def _write(tmp_path, obj):
+    import json
+
+    f = tmp_path / "script.json"
+    f.write_text(json.dumps(obj, ensure_ascii=False), encoding="utf-8")
+    return f
+
+
+def test_load_script_file_accepts_bare_scene_array(tmp_path):
+    from xhs_manager.video_pipeline.seed import load_script_file
+
+    data = load_script_file(_write(tmp_path, [_scene()]))
+    assert len(data["scenes"]) == 1
+
+
+def test_load_script_file_fills_optional_defaults(tmp_path):
+    """bgm_mood / material_hints 可以不写，但后续阶段一定要读得到。"""
+    from xhs_manager.video_pipeline.seed import load_script_file
+
+    scene = _scene()
+    scene.pop("bgm_mood")
+    scene.pop("material_hints")
+    data = load_script_file(_write(tmp_path, {"scenes": [scene]}))
+    assert data["scenes"][0]["bgm_mood"] == "explain"
+    assert data["scenes"][0]["material_hints"] == []
+
+
+def test_load_script_file_rejects_missing_fields_early(tmp_path):
+    """缺字段要在入口就报，而不是等流水线跑到一半才崩。"""
+    from xhs_manager.video_pipeline.seed import load_script_file
+
+    scene = _scene()
+    del scene["narration"]
+    with pytest.raises(ValueError, match="narration"):
+        load_script_file(_write(tmp_path, {"scenes": [scene]}))
+
+
+def test_load_script_file_rejects_bad_duration(tmp_path):
+    from xhs_manager.video_pipeline.seed import load_script_file
+
+    with pytest.raises(ValueError, match="duration"):
+        load_script_file(_write(tmp_path, {"scenes": [_scene(duration=0)]}))
+
+
+def test_load_script_file_rejects_empty_scenes(tmp_path):
+    from xhs_manager.video_pipeline.seed import load_script_file
+
+    with pytest.raises(ValueError, match="scenes"):
+        load_script_file(_write(tmp_path, {"scenes": []}))

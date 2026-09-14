@@ -104,7 +104,15 @@ def cmd_status(args) -> None:
 
 def cmd_seed(args) -> None:
     """插入示例选题+脚本，用于在不调用 LLM 的情况下测试下游阶段。"""
-    from xhs_manager.video_pipeline.seed import seed_topic_and_script
+    from xhs_manager.video_pipeline.seed import load_script_file, seed_topic_and_script
+
+    script_data = None
+    if args.script:
+        try:
+            script_data = load_script_file(args.script)
+        except (OSError, ValueError) as e:
+            print(f"脚本文件有问题: {e}")
+            sys.exit(1)
 
     factory = build_session_factory()
     with factory() as session:
@@ -117,7 +125,7 @@ def cmd_seed(args) -> None:
             print("没有可用的流水线运行，请先执行 stage collecting")
             sys.exit(1)
 
-        topic, script = seed_topic_and_script(session, run)
+        topic, script = seed_topic_and_script(session, run, script_data=script_data)
         run.topic_count = session.query(VideoTopic).filter_by(
             pipeline_run_id=run.id).count()
         session.commit()
@@ -249,7 +257,14 @@ def main() -> None:
     status_parser.set_defaults(func=cmd_status)
 
     # seed
-    seed_parser = subparsers.add_parser("seed", help="插入示例选题+脚本（跳过 LLM）")
+    seed_parser = subparsers.add_parser(
+        "seed", help="插入选题+脚本（跳过 LLM）；--script 可用手写脚本 JSON",
+    )
+    seed_parser.add_argument(
+        "--script",
+        help="脚本 JSON 文件；可以是完整脚本对象，也可以是裸 scenes 数组。"
+             "不给则用内置示例。",
+    )
     seed_parser.add_argument("--run-id", help="流水线运行 ID，默认最近一次")
     seed_parser.set_defaults(func=cmd_seed)
 
