@@ -29,6 +29,7 @@ import subprocess
 import time
 import urllib.parse
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import httpx
@@ -48,6 +49,9 @@ class TrendItem:
     url: str
     summary: str = ""
     author: Optional[str] = None
+    #: 原文发布时间。判断时效性要靠它——采集时间只能说明「我什么时候看到的」，
+    #: 说明不了这条内容是昨天的还是三年前的。
+    published_at: Optional[datetime] = None
     likes: int = 0
     comments: int = 0
     shares: int = 0
@@ -125,6 +129,7 @@ class BilibiliCollector:
                         shares=stat.get("share", 0),
                         views=stat.get("view", 0),
                         tags=[v.get("tname", "")] if v.get("tname") else [],
+                        published_at=_as_datetime(v.get("pubdate")),
                         raw=v,
                     ))
         except Exception as e:
@@ -197,6 +202,7 @@ class V2exCollector:
                         author=(t.get("member") or {}).get("username"),
                         comments=t.get("replies", 0),
                         tags=[(t.get("node") or {}).get("title", "")],
+                        published_at=_as_datetime(t.get("created")),
                         raw=t,
                     ))
         except Exception as e:
@@ -227,6 +233,7 @@ class V2exCollector:
                     author=src.get("member"),
                     comments=_as_int(src.get("replies")),
                     tags=["sov2ex", src.get("created", "")[:10]],
+                    published_at=_as_datetime(src.get("created")),
                     raw=src,
                 ))
         except Exception as e:
@@ -324,6 +331,10 @@ class OpenCliCollector:
                 comments=_as_int(row.get("comments") or row.get("comment_count")),
                 shares=_as_int(row.get("shares") or row.get("retweets")),
                 views=_as_int(row.get("views") or row.get("play_count")),
+                published_at=_as_datetime(
+                    row.get("published_at") or row.get("create_time")
+                    or row.get("time") or row.get("date")
+                ),
                 raw=row,
             ))
         return items
@@ -344,6 +355,37 @@ def _parse_leading_json(text: str):
         return obj
     except json.JSONDecodeError:
         return None
+
+def _as_datetime(v: Any) -> Optional[datetime]:
+    """把各家五花八门的时间表示统一成带时区的 datetime。
+
+    支持 Unix 秒（B站 pubdate）、ISO 8601（sov2ex created）、
+    以及 "2026-08-11" 这种纯日期（opencli published_at）。
+    认不出来就返回 None——宁可留空，也不要塞一个编出来的时间。
+    """
+    if v is None or v == "":
+        return None
+    if isinstance(v, datetime):
+        return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+    if isinstance(v, (int, float)) or (isinstance(v, str) and v.isdigit()):
+        try:
+            return datetime.fromtimestamp(int(v), tz=timezone.utc)
+        except (ValueError, OSError, OverflowError):
+            return None
+    if isinstance(v, str):
+        text = v.strip().replace("/", "-").replace("Z", "+00:00")
+        for parse in (
+            lambda t: datetime.fromisoformat(t),
+            lambda t: datetime.strptime(t, "%Y-%m-%d"),
+            lambda t: datetime.strptime(t, "%Y-%m-%d %H:%M:%S"),
+        ):
+            try:
+                dt = parse(text)
+            except ValueError:
+                continue
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return None
+
 
 def _as_int(v: Any) -> int:
     """把 '1.2万' / '1234' / 1234 统一转成 int。"""

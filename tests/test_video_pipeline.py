@@ -944,3 +944,46 @@ def test_long_sentence_is_split_inside_its_own_time_window():
     first_sentence = [c for c in cues if c.start < 6.0]
     assert len(first_sentence) > 1              # 确实被切开了
     assert first_sentence[-1].end == pytest.approx(6.0, abs=0.01)
+
+
+# ── 发布时间 ────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("raw,expected", [
+    (1789376400, "2026-09-14"),          # B站 pubdate：Unix 秒（UTC）
+    ("1789376400", "2026-09-14"),        # 字符串形式的 Unix 秒
+    ("2026-08-11", "2026-08-11"),        # opencli published_at：纯日期
+    ("2026-09-09T09:54:02", "2026-09-09"),   # sov2ex created：ISO 8601
+])
+def test_published_at_parses_every_upstream_format(raw, expected):
+    from xhs_manager.video_pipeline.integrations.collectors import _as_datetime
+    dt = _as_datetime(raw)
+    assert dt is not None
+    assert dt.strftime("%Y-%m-%d") == expected
+    assert dt.tzinfo is not None
+
+
+@pytest.mark.parametrize("raw", [None, "", "昨天", "not-a-date", {}])
+def test_published_at_returns_none_rather_than_inventing_one(raw):
+    """认不出来就留空。编一个时间比没有时间更糟。"""
+    from xhs_manager.video_pipeline.integrations.collectors import _as_datetime
+    assert _as_datetime(raw) is None
+
+
+def test_opencli_parse_keeps_published_at():
+    """opencli 明确返回了发布日期，不能在 _parse 里丢掉。"""
+    import json as _json
+
+    from xhs_manager.video_pipeline.integrations.collectors import OpenCliCollector
+
+    payload = _json.dumps([{
+        "rank": 3, "author": "Puploop", "likes": "3713",
+        "title": "用ai 把想法落地", "url": "https://www.xiaohongshu.com/x",
+        "published_at": "2026-08-11",
+    }])
+    items = OpenCliCollector("xiaohongshu")._parse(payload)
+
+    assert len(items) == 1
+    assert items[0].likes == 3713
+    assert items[0].published_at is not None
+    assert items[0].published_at.strftime("%Y-%m-%d") == "2026-08-11"

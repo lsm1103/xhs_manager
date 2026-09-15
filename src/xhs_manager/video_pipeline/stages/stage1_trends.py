@@ -142,6 +142,7 @@ def _save_items(
             heat_score=heat,
             engagement=item.engagement,
             author=item.author,
+            published_at=item.published_at,
             tags=[t for t in item.tags if t][:20],
             content_digest=digest,
             collected_at=utcnow(),
