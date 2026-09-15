@@ -1,0 +1,315 @@
+{
+  "topic": {
+    "title": "在小红书搜「AI 落地」，返回的是 26 个赚钱故事",
+    "angle": "用同一批关键词在小红书采到的 26 条笔记，看平台如何把同一个议题换掉主语，以及点赞量如何系统性偏向机会账",
+    "why_now": "AI 创业内容在小红书已经形成固定叙事：赚到了的千赞起步，踩了坑的百赞以下",
+    "target_audience": "在小红书上看 AI 创业内容、并且真的在考虑下场的人",
+    "video_type": "explainer"
+  },
+  "bgm_style": "冷静科技感，克制不煽情",
+  "scenes": [
+    {
+      "scene_id": "s01",
+      "order": 1,
+      "duration": 8,
+      "layout": "hook",
+      "visual_desc": "abstract coins and light fragments floating in dark space",
+      "text_overlay": {
+        "main": "26 条笔记",
+        "sub": "10 条标题直接写着钱",
+        "animation": "pop_in"
+      },
+      "transition": "none",
+      "bgm_mood": "hook",
+      "narration": "我在小红书搜「AI 落地」，采回来二十六条笔记。其中十条，标题里直接写着钱。",
+      "material_hints": [
+        "search:abstract coins light fragments dark"
+      ]
+    },
+    {
+      "scene_id": "s02",
+      "order": 2,
+      "duration": 10,
+      "layout": "bullets",
+      "visual_desc": "numbers made of light stacking up",
+      "text_overlay": {
+        "main": "标题原文",
+        "sub": "月入10w；收入12w；一个 Skill 卖了 40 万；两天赚了十万刀",
+        "animation": "slide_up"
+      },
+      "transition": "fade",
+      "bgm_mood": "reveal",
+      "narration": "月入十万、收入十二万、一个技能包卖了四十万、两天赚了十万刀、剩一天饭钱的时候收到二十八万。",
+      "material_hints": [
+        "search:glowing numbers stacking dark"
+      ]
+    },
+    {
+      "scene_id": "s03",
+      "order": 3,
+      "duration": 11,
+      "layout": "statement",
+      "visual_desc": "the same object viewed from four different angles",
+      "text_overlay": {
+        "main": "同一个议题",
+        "sub": "每个平台都换了主语",
+        "animation": "highlight"
+      },
+      "transition": "flip",
+      "bgm_mood": "explain",
+      "narration": "有意思的是，同样三个关键词，公众号谈的是企业项目为什么失败，V2EX 吵的是这是不是泡沫，小红书讲的是一个人怎么用 AI 换到钱。",
+      "material_hints": [
+        "search:same object four angles abstract dark"
+      ]
+    },
+    {
+      "scene_id": "s04",
+      "order": 4,
+      "duration": 9,
+      "layout": "statement",
+      "visual_desc": "a spotlight leaving most of the frame dark",
+      "text_overlay": {
+        "main": "这不是样本偏差",
+        "sub": "是平台分工",
+        "animation": "slide_up"
+      },
+      "transition": "fade",
+      "bgm_mood": "tension",
+      "narration": "这不是我采样采歪了，是平台分工。同一件事，在不同平台被翻译给了不同的人听。",
+      "material_hints": [
+        "search:single spotlight dark stage abstract"
+      ]
+    },
+    {
+      "scene_id": "s05",
+      "order": 5,
+      "duration": 10,
+      "layout": "statement",
+      "visual_desc": "a crack appearing in a smooth glowing surface",
+      "text_overlay": {
+        "main": "但样本里有反面证据",
+        "sub": "而且它们就在同一页搜索结果里",
+        "animation": "slide_up"
+      },
+      "transition": "glitch",
+      "bgm_mood": "tension",
+      "narration": "不过这批笔记里，反面证据也在。而且它们就躺在同一页搜索结果里，没有被藏起来。",
+      "material_hints": [
+        "search:crack in glowing surface dark abstract"
+      ]
+    },
+    {
+      "scene_id": "s06",
+      "order": 6,
+      "duration": 12,
+      "layout": "compare",
+      "visual_desc": "two stacks of light, one tall one very short",
+      "text_overlay": {
+        "main": "卖了 40 万：1870 赞 对比 失败案例复盘：36 赞",
+        "sub": "同一批关键词，同一个平台",
+        "animation": "slide_up"
+      },
+      "transition": "slide_left",
+      "bgm_mood": "reveal",
+      "narration": "《一个技能包卖了四十万》，一千八百七十个赞。《复盘小红书上几种 AI 创业失败的案例》，三十六个赞。",
+      "material_hints": [
+        "search:two light stacks very different heights"
+      ]
+    },
+    {
+      "scene_id": "s07",
+      "order": 7,
+      "duration": 11,
+      "layout": "statement",
+      "visual_desc": "a scale tilted heavily to one side",
+      "text_overlay": {
+        "main": "粗看规律很稳定",
+        "sub": "没赚到：普遍百赞以下",
+        "animation": "highlight"
+      },
+      "transition": "fade",
+      "bgm_mood": "tension",
+      "narration": "粗看这个规律很稳定：讲赚到了的，千赞起步；讲没赚到、踩了坑的，普遍在一百赞以下。",
+      "material_hints": [
+        "search:tilted scale abstract dark"
+      ]
+    },
+    {
+      "scene_id": "s08",
+      "order": 8,
+      "duration": 12,
+      "layout": "compare",
+      "visual_desc": "two bright points standing out from a dim field",
+      "text_overlay": {
+        "main": "受害者已经出现：2402 赞 对比 落地踩的坑：1441 赞",
+        "sub": "两个高赞的例外",
+        "animation": "slide_up"
+      },
+      "transition": "slide_left",
+      "bgm_mood": "reveal",
+      "narration": "但有两个例外。《第一批 Vibe Coding 创业的受害者已经出现》两千四百赞，《帮中型公司落地智能体，分享下踩的坑》一千四百赞。都是负面内容，都过了千赞。",
+      "material_hints": [
+        "search:two bright points dim field abstract"
+      ]
+    },
+    {
+      "scene_id": "s09",
+      "order": 9,
+      "duration": 12,
+      "layout": "statement",
+      "visual_desc": "a blurry shape resolving into a sharp one",
+      "text_overlay": {
+        "main": "不是负面没流量",
+        "sub": "是「只有情绪、没有方法」的负面没流量",
+        "animation": "highlight"
+      },
+      "transition": "zoom_in",
+      "bgm_mood": "explain",
+      "narration": "所以更准确的说法是：不是负面内容没流量，是只有情绪、没有方法的负面内容没流量。那条三十六赞的失败复盘，输的不是立场，是信息密度。",
+      "material_hints": [
+        "search:blurry shape resolving sharp abstract dark"
+      ]
+    },
+    {
+      "scene_id": "s10",
+      "order": 10,
+      "duration": 11,
+      "layout": "compare",
+      "visual_desc": "two ledgers under cold light",
+      "text_overlay": {
+        "main": "机会账 对比 经营账",
+        "sub": "一个有流量，一个没有",
+        "animation": "slide_up"
+      },
+      "transition": "flip",
+      "bgm_mood": "explain",
+      "narration": "所以你刷到的不是 AI 创业的真实分布，是机会账的分布。机会账有流量，经营账没有。",
+      "material_hints": [
+        "search:two ledgers cold light abstract"
+      ]
+    },
+    {
+      "scene_id": "s11",
+      "order": 11,
+      "duration": 11,
+      "layout": "statement",
+      "visual_desc": "one object selling a picture of itself",
+      "text_overlay": {
+        "main": "还有一层要分清",
+        "sub": "赚产品的钱，还是赚「教人赚钱」的钱",
+        "animation": "slide_up"
+      },
+      "transition": "fade",
+      "bgm_mood": "tension",
+      "narration": "还有一层要分清。这批笔记里，有人花五千九百八十块报 AI 产品课，也有账号名字里直接写着 AI 培训。教人赚钱本身就是一门生意，它和产品赚钱不是一回事。",
+      "material_hints": [
+        "search:object selling its own image abstract dark"
+      ]
+    },
+    {
+      "scene_id": "s12",
+      "order": 12,
+      "duration": 11,
+      "layout": "stat",
+      "visual_desc": "a calendar dissolving into dust",
+      "text_overlay": {
+        "main": "434 天",
+        "sub": "点赞第二高的那条，发布于 434 天前",
+        "animation": "counter"
+      },
+      "transition": "zoom_in",
+      "bgm_mood": "reveal",
+      "narration": "还有一层更隐蔽的失真。这二十六条的中位年龄是五十一天，而点赞第二高的那条，发布于四百三十四天前。",
+      "material_hints": [
+        "search:calendar pages dissolving dark abstract"
+      ]
+    },
+    {
+      "scene_id": "s13",
+      "order": 13,
+      "duration": 11,
+      "layout": "statement",
+      "visual_desc": "an old signal being amplified through a modern speaker",
+      "text_overlay": {
+        "main": "热度不看时效",
+        "sub": "去年的话题，正排在今天的榜首",
+        "animation": "slide_up"
+      },
+      "transition": "fade",
+      "bgm_mood": "tension",
+      "narration": "点赞是会累积的，时间不会倒扣。按互动量排序，等于让去年的话题排在今天的榜首。",
+      "material_hints": [
+        "search:sound waves amplified dark abstract"
+      ]
+    },
+    {
+      "scene_id": "s14",
+      "order": 14,
+      "duration": 13,
+      "layout": "bullets",
+      "visual_desc": "three checkpoints along a path of light",
+      "text_overlay": {
+        "main": "下次刷到，先问三个问题",
+        "sub": "这条多久了；他卖的是产品还是课；有没有第二个客户",
+        "animation": "slide_up"
+      },
+      "transition": "wipe",
+      "bgm_mood": "explain",
+      "narration": "所以下次刷到 AI 创业帖，先问三个问题：这条是什么时候发的，他赚的是产品的钱还是卖课的钱，以及有没有第二个客户。",
+      "material_hints": [
+        "search:three checkpoints light path abstract"
+      ]
+    },
+    {
+      "scene_id": "s15",
+      "order": 15,
+      "duration": 10,
+      "layout": "outro",
+      "visual_desc": "a single small light steadily expanding",
+      "text_overlay": {
+        "main": "三个都答得上",
+        "sub": "才轮得到谈复制",
+        "animation": "pop_in"
+      },
+      "transition": "blur",
+      "bgm_mood": "closing",
+      "narration": "三个问题都答得上来，这条经验才轮得到谈复制。答不上来，它就只是一个好故事。",
+      "material_hints": [
+        "search:single steady glowing light expanding"
+      ]
+    }
+  ],
+  "platform_metadata": {
+    "xiaohongshu": {
+      "title": "搜「AI 落地」，返回的是 26 个赚钱故事",
+      "desc": "我用采集工具在小红书搜了「AI 落地 / AI 创业复盘 / AI 商业化」，采回 26 条笔记。\n\n① 10 条标题里直接写着钱：月入10w、收入12w、一个 Skill 卖了 40 万、两天赚了十万刀。\n② 反面证据也在同一页：《一个 Skill 卖了 40 万》1870 赞，《复盘几种 AI 创业失败案例》36 赞。\n③ 赚到了的千赞起步，没赚到的普遍百赞以下。你刷到的不是真实分布，是机会账的分布。\n④ 中位年龄 51 天，但点赞第二高的那条发布于 434 天前——点赞会累积，时间不会倒扣。\n\n下次刷到先问三个问题：这条多久了；他赚的是产品的钱还是卖课的钱；有没有第二个客户。",
+      "tags": [
+        "AI创业",
+        "小红书运营",
+        "避坑指南",
+        "副业",
+        "数据分析"
+      ]
+    },
+    "bilibili": {
+      "title": "在小红书搜「AI 落地」，返回的是 26 个赚钱故事",
+      "desc": "采集 26 条真实笔记之后：点赞量如何系统性偏向机会账，以及为什么去年的帖子还排在榜首。",
+      "tags": [
+        "AI",
+        "创业",
+        "数据分析",
+        "小红书",
+        "科技"
+      ]
+    },
+    "douyin": {
+      "title": "搜「AI 落地」，返回的是 26 个赚钱故事",
+      "desc": "刷到 AI 创业帖先问三个问题",
+      "tags": [
+        "AI",
+        "创业",
+        "避坑"
+      ]
+    }
+  }
+}
