@@ -7,11 +7,14 @@ from typing import Any, Optional
 
 from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from xhs_manager.config import Settings, get_settings
+from xhs_manager.console.app import STATIC_DIR as CONSOLE_STATIC
+from xhs_manager.console.app import create_console_router
 from xhs_manager.db import create_db_engine, create_session_factory
 from xhs_manager.domain import (
     ApprovalDecision,
@@ -126,6 +129,16 @@ def create_app(
         expected = app_settings.internal_api_token
         if expected and x_internal_token != expected:
             raise UnauthorizedError("内部接口令牌无效")
+
+    # 控制台：本机运维视图，挂在同一个进程下。
+    # 它只读，且不走 require_internal_token——鉴权靠「只绑回环地址」。
+    app.include_router(create_console_router(get_session))
+    if CONSOLE_STATIC.is_dir():
+        app.mount(
+            "/console/static",
+            StaticFiles(directory=str(CONSOLE_STATIC)),
+            name="console-static",
+        )
 
     @app.get("/health/live")
     def live() -> dict[str, str]:

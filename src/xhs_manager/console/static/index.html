@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XHS Studio 控制台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/console/static/style.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="nav" id="nav">
+    <div class="brand"><span class="sq"></span>XHS STUDIO</div>
+    <button data-view="tasks">任务台 <span class="badge act" id="badge-act" hidden></span></button>
+    <button data-view="runs">运行</button>
+    <div class="sep"></div>
+    <span class="nav-note" id="nav-note">P0 · 只读</span>
+    <div class="nav-foot" id="nav-foot"></div>
+  </nav>
+  <main class="main" id="main"><div class="loading">加载中…</div></main>
+</div>
+<script src="/console/static/app.js"></script>
+</body>
+</html>
