@@ -5,8 +5,8 @@
 
 <style>
 /* ════════════════════════════════════════════════════════════════
-   XHS Studio 控制台 · UI 原型（纯静态，数据写死在文件里）
-   调色板 = 项目自己的 tech_night 主题：#05060a 底 / #3ddc97 主色 / #4d8cff 次色
+   XHS Studio 控制台 · UI 原型 v2（纯静态，数据写死）
+   调色板 = 项目自己的 tech_night：#05060a 底 / #3ddc97 主色 / #4d8cff 次色
    单一深色主题是刻意的：控制台就该看起来像它管理的那台机器。
    ════════════════════════════════════════════════════════════════ */
 :root {
@@ -28,17 +28,19 @@
   --body: "IBM Plex Sans", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", system-ui, sans-serif;
   --mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --nav-w: 208px;
+  --nav-w: 196px;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
+html, body { height: 100%; }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--body);
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
@@ -48,62 +50,66 @@ a { color: var(--acc-2); text-underline-offset: 2px; }
 :focus-visible { outline: 2px solid var(--acc-2); outline-offset: 2px; border-radius: 3px; }
 code { font-family: var(--mono); font-size: .88em; }
 
-/* ── 布局骨架 ── */
-.shell { display: grid; grid-template-columns: var(--nav-w) 1fr; min-height: 100vh; }
+/* 深色界面里的滚动条 —— 默认亮白滚动条在这套配色里非常刺眼 */
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+*::-webkit-scrollbar { height: 9px; width: 9px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
+*::-webkit-scrollbar-thumb:hover { background: #2b3648; }
 
-/* ── 左侧导航 ── */
+/* ── 骨架 ── */
+.shell { display: grid; grid-template-columns: var(--nav-w) 1fr; min-height: 100%; }
+
+/* ── 导航 ── */
 .nav {
   background: var(--panel);
   border-right: 1px solid var(--line);
-  padding: 20px 0 24px;
-  display: flex; flex-direction: column; gap: 2px;
+  padding: 18px 0 20px;
+  display: flex; flex-direction: column; gap: 1px;
   position: sticky; top: 0; align-self: start; height: 100vh;
 }
 .brand {
   font-family: var(--display);
-  font-size: 13px; font-weight: 700; letter-spacing: .1em;
-  color: var(--acc);
-  padding: 0 18px 18px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .1em;
+  color: var(--acc); padding: 0 16px 16px;
   display: flex; align-items: center; gap: 8px;
 }
-.brand .sq { width: 14px; height: 14px; border-radius: 3px; background: linear-gradient(135deg, var(--acc), var(--acc-2)); flex: none; }
+.brand .sq { width: 13px; height: 13px; border-radius: 3px; background: linear-gradient(135deg, var(--acc), var(--acc-2)); flex: none; }
 .nav button {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  width: 100%; text-align: left;
-  padding: 8px 18px;
-  color: var(--dim);
-  border-left: 2px solid transparent;
-  font-size: 13.5px;
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 7px 16px; color: var(--dim);
+  border-left: 2px solid transparent; font-size: 13px;
 }
 .nav button:hover { color: var(--ink-2); background: rgba(255,255,255,.025); }
 .nav button[aria-current="page"] { color: var(--ink); background: rgba(61,220,151,.07); border-left-color: var(--acc); }
-.nav .cnt { font-family: var(--mono); font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
-.nav .cnt.alert { color: var(--bad); }
-.nav-foot { margin-top: auto; padding: 0 18px; font-family: var(--mono); font-size: 10.5px; color: var(--dim); line-height: 1.7; }
+/* 导航上的数字只有一个含义：需要你处理的条数。总数不上导航。 */
+.nav .badge {
+  margin-left: auto; font-family: var(--mono); font-size: 10.5px; font-weight: 500;
+  padding: 0 6px; border-radius: 9px; font-variant-numeric: tabular-nums;
+}
+.nav .badge.act { background: rgba(229,173,85,.18); color: var(--warn); }
+.nav .badge.bad { background: rgba(244,121,106,.18); color: var(--bad); }
+.nav .sep { height: 1px; background: var(--line); margin: 10px 16px; }
+.nav-foot { margin-top: auto; padding: 0 16px; font-family: var(--mono); font-size: 10px; color: var(--dim); line-height: 1.7; }
 
 /* ── 主区 ── */
-.main { min-width: 0; padding: 26px 30px 72px; }
-.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 22px; }
-.head h1 { font-size: 21px; font-weight: 600; margin: 0 0 4px; letter-spacing: -.01em; text-wrap: balance; }
-.head .sub { font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
-.back { font-family: var(--mono); font-size: 11.5px; color: var(--dim); padding: 0 0 8px; display: inline-flex; gap: 6px; align-items: center; }
+.main { min-width: 0; padding: 22px 26px 64px; }
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.head h1 { font-size: 20px; font-weight: 600; margin: 0 0 3px; letter-spacing: -.01em; text-wrap: balance; }
+.head .sub { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.head .acts { display: flex; gap: 8px; }
+.back { font-family: var(--mono); font-size: 11px; color: var(--dim); padding: 0 0 6px; display: inline-flex; gap: 6px; align-items: center; }
 .back:hover { color: var(--acc-2); }
 
-.btn {
-  font-size: 12.5px; padding: 6px 13px;
-  border: 1px solid var(--line); border-radius: 3px;
-  color: var(--ink-2); background: var(--panel-2);
-}
+.btn { font-size: 12px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 3px; color: var(--ink-2); background: var(--panel-2); white-space: nowrap; }
 .btn:hover { border-color: var(--dim); color: var(--ink); }
 .btn.primary { background: var(--acc); border-color: var(--acc); color: #04120c; font-weight: 600; }
 .btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { border-color: rgba(244,121,106,.5); color: var(--bad); }
 .btn[disabled] { opacity: .45; cursor: default; }
 
 /* ── 标签 ── */
-.tag {
-  display: inline-block; font-family: var(--mono); font-size: 10.5px;
-  padding: 2px 7px; border-radius: 2px; white-space: nowrap; letter-spacing: .02em;
-}
+.tag { display: inline-block; font-family: var(--mono); font-size: 10.5px; padding: 1px 7px; border-radius: 2px; white-space: nowrap; }
 .tag.ok   { background: rgba(61,220,151,.14); color: var(--ok); }
 .tag.run  { background: rgba(77,140,255,.16); color: var(--acc-2); }
 .tag.wait { background: rgba(229,173,85,.16); color: var(--warn); }
@@ -112,133 +118,203 @@ code { font-family: var(--mono); font-size: .88em; }
 .tag.vid  { background: rgba(77,140,255,.13); color: var(--acc-2); }
 .tag.art  { background: rgba(255,255,255,.07); color: var(--dim); }
 
-/* ── 筛选条 ── */
-.filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
-.filters button {
-  font-family: var(--mono); font-size: 11.5px;
-  padding: 4px 11px; border-radius: 2px;
-  border: 1px solid var(--line); color: var(--dim);
-}
-.filters button:hover { color: var(--ink-2); border-color: var(--dim); }
-.filters button[aria-pressed="true"] { background: rgba(61,220,151,.1); border-color: var(--acc); color: var(--acc); }
-.filters .spacer { flex: 1 1 auto; }
+/* ── 筛选 / 排序 ── */
+.bar { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 12px; }
+.seg { display: flex; align-items: center; gap: 6px; }
+.seg > .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.seg .opts { display: flex; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.seg .opts button { font-family: var(--mono); font-size: 11.5px; padding: 3px 10px; color: var(--dim); border-right: 1px solid var(--line); }
+.seg .opts button:last-child { border-right: none; }
+.seg .opts button:hover { color: var(--ink-2); background: rgba(255,255,255,.03); }
+.seg .opts button[aria-pressed="true"] { background: rgba(255,255,255,.07); color: var(--ink); }
+.bar .spacer { flex: 1 1 auto; }
+.bar .count { font-family: var(--mono); font-size: 11px; color: var(--dim); }
 
 /* ── 表格 ── */
 .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); }
-table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 640px; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; min-width: 700px; }
 th {
-  font-family: var(--display); font-size: 10.5px; font-weight: 600;
+  font-family: var(--display); font-size: 10px; font-weight: 600;
   letter-spacing: .09em; text-transform: uppercase; color: var(--dim);
-  text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--line);
-  white-space: nowrap; background: var(--panel-2);
+  text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line);
+  white-space: nowrap; background: var(--panel-2); position: sticky; top: 0; z-index: 2;
 }
-td { padding: 12px 16px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
+td { padding: 9px 14px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr.clickable { cursor: pointer; }
 tbody tr.clickable:hover td { background: rgba(77,140,255,.05); }
-td.mono, th.mono { font-family: var(--mono); font-size: 11.5px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 行首色条：需要你动手的任务，扫一眼就分得出来 */
+tbody tr td:first-child { border-left: 2px solid transparent; }
+tbody tr.act td:first-child { border-left-color: var(--warn); }
+tbody tr.err td:first-child { border-left-color: var(--bad); }
+td.mono, th.mono { font-family: var(--mono); font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 td .ttl { font-weight: 500; }
-td .meta { font-family: var(--mono); font-size: 10.5px; color: var(--dim); display: block; margin-top: 2px; }
+td .meta { font-family: var(--mono); font-size: 10px; color: var(--dim); display: block; margin-top: 1px; }
+.groupdiv td {
+  background: var(--panel-2); font-family: var(--mono); font-size: 10px;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--dim);
+  padding: 6px 14px; border-bottom: 1px solid var(--line);
+}
+
+/* ── 错误横幅：失败任务顶部第一眼看到的东西 ── */
+.banner {
+  border: 1px solid rgba(244,121,106,.4); border-left: 3px solid var(--bad);
+  background: rgba(244,121,106,.06); border-radius: 4px;
+  padding: 13px 16px; margin-bottom: 16px;
+  display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;
+}
+.banner .t { font-weight: 600; font-size: 13.5px; color: var(--ink); }
+.banner .d { font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); margin-top: 3px; line-height: 1.6; }
+.banner .fix { font-size: 12px; color: var(--warn); margin-top: 6px; }
+.banner .acts { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ── 一致性校验条 ── */
-.check { display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin-bottom: 20px; background: var(--panel); }
-.check > div { flex: 1 1 130px; padding: 11px 16px; border-right: 1px solid var(--line); min-width: 0; }
+.check { display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin-bottom: 16px; background: var(--panel); }
+.check > div { flex: 1 1 120px; padding: 9px 14px; border-right: 1px solid var(--line); min-width: 0; }
 .check > div:last-child { border-right: none; }
-.check .k { font-family: var(--mono); font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); display: block; }
-.check .v { font-family: var(--mono); font-size: 17px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.check .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); display: block; }
+.check .v { font-family: var(--mono); font-size: 16px; font-variant-numeric: tabular-nums; color: var(--ink); }
 .check .v.good { color: var(--acc); }
 .check .v.bad { color: var(--bad); }
+.check .v.na { color: var(--dim); }
 
 /* ── 任务主干 ── */
 .trunk { list-style: none; margin: 0; padding: 0; }
-.trunk > li { display: grid; grid-template-columns: 18px 1fr; gap: 14px; }
+.trunk > li { display: grid; grid-template-columns: 16px 1fr; gap: 13px; }
 .rail { position: relative; }
-.rail::before { content: ""; position: absolute; left: 8px; top: 18px; bottom: -2px; width: 1px; background: var(--line); }
+.rail::before { content: ""; position: absolute; left: 7px; top: 17px; bottom: -2px; width: 1px; background: var(--line); }
 .trunk > li:last-child .rail::before { display: none; }
-.node { width: 10px; height: 10px; border-radius: 50%; background: var(--bg); border: 2px solid var(--acc); margin: 7px 0 0 3px; position: relative; z-index: 1; }
+.node { width: 9px; height: 9px; border-radius: 50%; background: var(--bg); border: 2px solid var(--acc); margin: 7px 0 0 3px; position: relative; z-index: 1; }
 .node.wait { border-color: var(--warn); }
 .node.todo { border-color: var(--line); }
 .node.bad  { border-color: var(--bad); }
-.step { padding-bottom: 18px; min-width: 0; }
-.step-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.step-h b { font-size: 14px; font-weight: 600; }
-.step-h .when { font-family: var(--mono); font-size: 10.5px; color: var(--dim); margin-left: auto; }
-.step-d { color: var(--dim); font-size: 12.5px; margin-top: 4px; }
+.step { padding-bottom: 16px; min-width: 0; }
+.step-h { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.step-h b { font-size: 13.5px; font-weight: 600; }
+.step-h .when { font-family: var(--mono); font-size: 10px; color: var(--dim); margin-left: auto; }
+.step-d { color: var(--dim); font-size: 12px; margin-top: 3px; }
 .step-d .hl { color: var(--ink-2); }
-.step-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.step-actions { display: flex; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
 
 /* ── 子流水线 ── */
-.sub { margin-top: 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); overflow: hidden; }
+.sub { margin-top: 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); overflow: hidden; }
 .sub-h {
-  font-family: var(--mono); font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
-  color: var(--dim); padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--panel-2);
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--dim); padding: 7px 13px; border-bottom: 1px solid var(--line); background: var(--panel-2);
   display: flex; justify-content: space-between; gap: 10px;
 }
-.sub-row { display: grid; grid-template-columns: 116px 1fr auto; gap: 12px; padding: 9px 14px; border-bottom: 1px solid var(--line-2); align-items: center; font-size: 12.5px; }
+.sub-row { display: grid; grid-template-columns: 112px 1fr auto; gap: 12px; padding: 8px 13px; border-bottom: 1px solid var(--line-2); align-items: center; font-size: 12px; }
 .sub-row:last-child { border-bottom: none; }
-.sub-row .en { font-family: var(--mono); font-size: 11px; color: var(--acc-2); }
+.sub-row.failed { background: rgba(244,121,106,.06); }
+.sub-row .en { font-family: var(--mono); font-size: 10.5px; color: var(--acc-2); }
+.sub-row.failed .en { color: var(--bad); }
 .sub-row .d { color: var(--dim); min-width: 0; }
 .sub-row .d .hl { color: var(--ink-2); }
 .sub-row .d .warnx { color: var(--warn); }
-.sub-row .t { font-family: var(--mono); font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.sub-row .d .badx { color: var(--bad); }
+.sub-row .t { font-family: var(--mono); font-size: 10px; color: var(--dim); font-variant-numeric: tabular-nums; }
 
-/* ── 卡片网格（工具 / 资产 / 设置）── */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
-.cell { background: var(--panel); padding: 13px 15px; }
-.cell .n { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.cell .n b { font-size: 13px; font-weight: 600; }
-.cell .x { font-family: var(--mono); font-size: 10.5px; color: var(--dim); margin-top: 5px; display: block; line-height: 1.6; }
-.cell .fix { font-size: 11.5px; color: var(--warn); margin-top: 6px; display: block; line-height: 1.5; }
+/* ── 工具体检：列表而非网格，避免末行空洞；按严重度排序 ── */
+.tools { border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--panel); }
+.tool { display: grid; grid-template-columns: 172px 1fr auto; gap: 14px; padding: 11px 15px; border-bottom: 1px solid var(--line-2); align-items: center; }
+.tool:last-child { border-bottom: none; }
+.tool.bad { background: rgba(244,121,106,.05); }
+.tool.wait { background: rgba(229,173,85,.04); }
+.tool .n { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 9px; }
+.tool .body { min-width: 0; }
+.tool .x { font-family: var(--mono); font-size: 11px; color: var(--dim); display: block; line-height: 1.55; }
+.tool .fix { font-size: 12px; color: var(--warn); margin-top: 3px; display: block; }
+.tool .fix code { color: var(--ink-2); background: rgba(255,255,255,.05); padding: 1px 5px; border-radius: 2px; }
+.tool .go { display: flex; gap: 8px; }
 
-/* ── 资产 ── */
-.assets { display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: 14px; }
-.asset { border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--panel); }
-.asset .thumb {
-  aspect-ratio: 9 / 16; max-width: 100%;
-  background: linear-gradient(150deg, #0d1424, #05060a 62%);
-  position: relative; display: flex; align-items: flex-end; padding: 12px;
-  border-bottom: 1px solid var(--line);
+/* ── 资产：按任务分组，统一比例，带操作 ── */
+.agroup { margin-bottom: 22px; }
+.agroup > h3 {
+  font-size: 13px; font-weight: 600; margin: 0 0 3px;
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
 }
-.asset .thumb.wide { aspect-ratio: 16 / 9; }
-.asset .thumb::after {
+.agroup > .p { font-family: var(--mono); font-size: 10.5px; color: var(--dim); margin: 0 0 10px; }
+.assets { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 12px; }
+.asset { border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--panel); display: flex; flex-direction: column; }
+/* 统一 4:3 取景框，内部再按真实比例摆放 —— 卡片高度一致，不再参差 */
+.asset .frame {
+  aspect-ratio: 4 / 3; max-width: 100%;
+  background: #04050a; border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center; padding: 10px;
+}
+.asset .shot {
+  position: relative; height: 100%; border-radius: 2px; overflow: hidden;
+  display: flex; align-items: flex-end; padding: 7px;
+  background: linear-gradient(155deg, #0e1729, #05060a 70%);
+  border: 1px solid var(--line);
+}
+.asset .shot.r916 { aspect-ratio: 9 / 16; }
+.asset .shot.r169 { aspect-ratio: 16 / 9; }
+.asset .shot.r34  { aspect-ratio: 3 / 4; }
+.asset .shot::after {
   content: ""; position: absolute; inset: 0;
-  background: radial-gradient(circle at 34% 30%, rgba(61,220,151,.16), transparent 58%),
-              radial-gradient(circle at 76% 72%, rgba(77,140,255,.14), transparent 54%);
+  background: radial-gradient(circle at 32% 28%, rgba(61,220,151,.18), transparent 60%),
+              radial-gradient(circle at 74% 74%, rgba(77,140,255,.16), transparent 56%);
 }
-.asset .thumb span { position: relative; z-index: 1; font-size: 12.5px; font-weight: 600; line-height: 1.4; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
-.asset .info { padding: 10px 13px 12px; }
-.asset .info b { font-size: 12.5px; font-weight: 500; display: block; }
-.asset .info span { font-family: var(--mono); font-size: 10.5px; color: var(--dim); display: block; margin-top: 3px; }
+.asset .kind {
+  position: absolute; top: 6px; left: 6px; z-index: 2;
+  font-family: var(--mono); font-size: 9px; letter-spacing: .04em;
+  background: rgba(0,0,0,.66); border: 1px solid rgba(255,255,255,.14);
+  padding: 1px 5px; border-radius: 2px; color: var(--ink-2);
+}
+.asset .info { padding: 9px 11px 10px; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.asset .info b { font-size: 12px; font-weight: 500; }
+.asset .info span { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+.asset .row { display: flex; gap: 6px; margin-top: auto; padding-top: 7px; }
+.asset .row button { font-family: var(--mono); font-size: 10px; color: var(--dim); border: 1px solid var(--line); border-radius: 2px; padding: 2px 7px; }
+.asset .row button:hover { color: var(--ink); border-color: var(--dim); }
 
-/* ── 空态与提示 ── */
-.note {
-  border: 1px solid var(--line); border-left: 2px solid var(--acc);
-  background: var(--panel); border-radius: 3px;
-  padding: 13px 16px; font-size: 12.5px; color: var(--ink-2); margin-bottom: 20px;
+/* ── 配置（只读）── */
+.cfg { border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--panel); }
+.cfg-row { display: grid; grid-template-columns: 148px 1fr; gap: 14px; padding: 10px 15px; border-bottom: 1px solid var(--line-2); align-items: baseline; }
+.cfg-row:last-child { border-bottom: none; }
+.cfg-row .k { font-size: 12.5px; font-weight: 500; }
+.cfg-row .v { font-family: var(--mono); font-size: 12px; color: var(--ink-2); min-width: 0; }
+.cfg-row .v em { font-style: normal; color: var(--dim); font-size: 11px; display: block; margin-top: 2px; line-height: 1.6; }
+
+/* ── 设计注记：明确标成注记，可关闭，不占黄金位置 ── */
+.memo {
+  border: 1px dashed var(--line); border-radius: 3px;
+  background: rgba(255,255,255,.015);
+  padding: 9px 13px; font-size: 12px; color: var(--dim);
+  margin-bottom: 14px; display: flex; gap: 10px; align-items: flex-start;
 }
-.note b { color: var(--ink); }
+.memo b { color: var(--ink-2); font-weight: 600; }
+.memo .lab { font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--acc); flex: none; padding-top: 2px; }
+.memo .close { margin-left: auto; color: var(--dim); font-family: var(--mono); font-size: 13px; line-height: 1; padding: 0 2px; flex: none; }
+.memo .close:hover { color: var(--ink); }
 
 .protobar {
-  position: fixed; right: 14px; bottom: 14px; z-index: 50;
-  font-family: var(--mono); font-size: 10.5px; color: var(--dim);
+  position: fixed; right: 12px; bottom: 12px; z-index: 50;
+  font-family: var(--mono); font-size: 10px; color: var(--dim);
   background: var(--panel-2); border: 1px solid var(--line);
-  border-radius: 3px; padding: 5px 10px;
+  border-radius: 3px; padding: 4px 9px;
 }
 
-/* ── 响应式 ── */
-@media (max-width: 860px) {
+/* ── 响应式：720 才折叠，导航横向滚动不换行 ── */
+@media (max-width: 720px) {
   .shell { grid-template-columns: 1fr; }
   .nav {
-    position: static; height: auto; flex-direction: row; flex-wrap: wrap;
-    align-items: center; padding: 12px 16px; gap: 4px;
+    position: sticky; top: 0; z-index: 20; height: auto;
+    flex-direction: row; align-items: center; gap: 2px;
+    padding: 9px 12px; overflow-x: auto;
     border-right: none; border-bottom: 1px solid var(--line);
   }
-  .brand { padding: 0 14px 0 0; }
-  .nav button { width: auto; padding: 5px 11px; border-left: none; border-radius: 3px; }
-  .nav button[aria-current="page"] { border-left: none; }
-  .nav-foot { display: none; }
-  .main { padding: 20px 16px 64px; }
+  .nav .brand { padding: 0 12px 0 0; flex: none; }
+  .nav button { width: auto; flex: none; padding: 5px 10px; border-left: none; border-radius: 3px; }
+  .nav .badge { margin-left: 6px; }
+  .nav .sep, .nav-foot { display: none; }
+  .main { padding: 16px 14px 56px; }
   .step-h .when { margin-left: 0; width: 100%; }
+  .tool { grid-template-columns: 1fr; gap: 6px; }
+  .tool .go { justify-content: flex-start; }
+  .cfg-row { grid-template-columns: 1fr; gap: 2px; }
+  .banner .acts { margin-left: 0; width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
@@ -246,14 +322,13 @@ td .meta { font-family: var(--mono); font-size: 10.5px; color: var(--dim); displ
 <div class="shell">
   <nav class="nav" id="nav">
     <div class="brand"><span class="sq"></span>XHS STUDIO</div>
-    <button data-view="tasks">任务台 <span class="cnt">7</span></button>
-    <button data-view="signals">采集 <span class="cnt">161</span></button>
-    <button data-view="assets">资产 <span class="cnt">12</span></button>
-    <button data-view="tools">工具 <span class="cnt alert">2</span></button>
-    <button data-view="settings">设置</button>
-    <div class="nav-foot">
-      原型 · 数据写死<br>127.0.0.1:8000/console
-    </div>
+    <button data-view="tasks">任务台 <span class="badge act">2</span></button>
+    <button data-view="signals">采集</button>
+    <button data-view="assets">资产</button>
+    <button data-view="tools">工具 <span class="badge bad">3</span></button>
+    <div class="sep"></div>
+    <button data-view="config">配置</button>
+    <div class="nav-foot">原型 · 数据写死<br>127.0.0.1:8000/console</div>
   </nav>
   <main class="main" id="main"></main>
 </div>
@@ -265,7 +340,7 @@ td .meta { font-family: var(--mono); font-size: 10.5px; color: var(--dim); displ
 const TASKS = [
   {
     id: "t_9f2c", title: "搜「AI 落地」，返回的是 26 个赚钱故事",
-    format: "video", state: "pending_publish_approval", stateLabel: "待发布审批", tone: "wait",
+    format: "video", stateLabel: "待发布审批", tone: "wait", bucket: "act",
     out: "2:12 · 15 场景", updated: "12 分钟前", account: "AI 工作流实验员",
     check: { script: "156.0s", speech: "155.7s", comp: "156.0s", final: "155.7s", drift: "0.02s", pass: true },
     steps: [
@@ -285,14 +360,87 @@ const TASKS = [
         desc: '一致性 ✓ · 肖像权拦截 1 条已记录 · 版权风险 低' },
       { name: "发布审批", tag: "待处理", tone: "wait", node: "wait", when: "",
         desc: '标题 / 正文 / 5 个标签 / 封面 3 比例已就绪',
-        actions: [["批准并排期", true], ["打回", false]] },
+        actions: [["批准并排期", "primary"], ["打回", ""]] },
       { name: "排期 → 发布", tag: "未开始", tone: "off", node: "todo", when: "",
         desc: '小红书 · 幂等键已生成' },
     ],
   },
   {
+    id: "t_5c10", title: "垂类到底是不是护城河",
+    format: "article", stateLabel: "待选题审批", tone: "wait", bucket: "act",
+    out: "—", updated: "1 小时前", account: "AI 工作流实验员", check: null,
+    steps: [
+      { name: "调研", tag: "完成", tone: "ok", when: "09-15 12:40", desc: 'B站 12 条谈垂类 · 看空 6 / 看多 2' },
+      { name: "选题", tag: "待审批", tone: "wait", node: "wait", when: "",
+        desc: '核心主张：垂类不是护城河，流程 / 数据 / 责任才是 · 评分 8.1',
+        actions: [["批准", "primary"], ["打回重写", ""]] },
+      { name: "制作", tag: "未开始", tone: "off", node: "todo", when: "", desc: '' },
+    ],
+  },
+  {
+    id: "t_2e77", title: "AI 项目的四道商业闸门",
+    format: "video", stateLabel: "渲染失败", tone: "bad", bucket: "err",
+    out: "中断于 rendering", updated: "2 小时前", account: "AI 工作流实验员",
+    check: { script: "142.0s", speech: "141.6s", comp: "142.0s", final: "—", drift: "—", pass: false },
+    error: {
+      title: "渲染失败：磁盘空间不足",
+      detail: "截帧 3120 / 4260 后 ffmpeg 退出码 1 · 中间帧目录已占 8.2 GB · 卷剩余 340 MB",
+      fix: "清理 data/video_pipeline/ 下已完成运行的中间帧，然后从 rendering 重跑——前四个阶段的产物都还在，不用从头跑。",
+      actions: [["从 rendering 重跑", "primary"], ["清理中间帧", ""], ["完整日志", ""]],
+    },
+    steps: [
+      { name: "调研", tag: "完成", tone: "ok", when: "09-15 09:10", desc: '复用 t_7a41 的信号集' },
+      { name: "选题", tag: "已批准", tone: "ok", when: "09-15 09:30", desc: '' },
+      { name: "制作", tag: "失败", tone: "bad", node: "bad", when: "中断于 rendering", desc: "", sub: [
+        ["collecting",    '复用信号 161 条', "—"],
+        ["selecting",     '13 场景脚本', "—"],
+        ["materializing", '13 素材 · TTS 对齐完成', "7m41s"],
+        ["composing",     '组合完成 · 142.0s', "4s"],
+        ["rendering",     '<span class="badx">截帧 3120/4260 后 ffmpeg 退出码 1：磁盘空间不足</span>', "2m50s", true],
+        ["publishing",    '未开始', "—"],
+      ]},
+    ],
+  },
+  {
+    id: "t_3b88", title: "失败率的五个口径：90% 到底从哪来",
+    format: "article", stateLabel: "制作中", tone: "run", bucket: "run",
+    out: "6 屏卡片 · 4/6", updated: "3 分钟前", account: "AI 工作流实验员", check: null,
+    steps: [
+      { name: "调研", tag: "完成", tone: "ok", when: "09-15 14:02", desc: '公众号 40 条 · 标题里失败率出现 11 次、5 个口径' },
+      { name: "选题", tag: "已批准", tone: "ok", when: "09-15 14:20", desc: '核心主张：没有一条写分母' },
+      { name: "制作", tag: "进行中", tone: "run", node: "wait", when: "已跑 3m",
+        desc: '正在生成第 4 / 6 屏 · 封面脚本已就绪' },
+      { name: "质检", tag: "未开始", tone: "off", node: "todo", when: "", desc: '' },
+      { name: "发布审批", tag: "未开始", tone: "off", node: "todo", when: "", desc: '' },
+    ],
+  },
+  {
+    id: "t_1f93", title: "AI 短剧是机会，还是又一个幸存者偏差",
+    format: "video", stateLabel: "调研中", tone: "run", bucket: "run",
+    out: "—", updated: "刚刚", account: "AI 工作流实验员", check: null,
+    steps: [
+      { name: "调研", tag: "进行中", tone: "run", node: "wait", when: "已跑 40s",
+        desc: 'V2EX ✓ · B站 ✓ · 小红书 ✓ · <span class="warnx">知乎 索引通道冷却中</span>' },
+      { name: "选题", tag: "未开始", tone: "off", node: "todo", when: "", desc: '' },
+    ],
+  },
+  {
+    id: "t_8d05", title: "两本账：机会账与经营账",
+    format: "article", stateLabel: "已排期", tone: "run", bucket: "run",
+    out: "5 屏卡片 · 09-16 19:30", updated: "4 小时前", account: "AI 工作流实验员", check: null,
+    steps: [
+      { name: "调研", tag: "完成", tone: "ok", when: "09-14 16:00", desc: '' },
+      { name: "选题", tag: "已批准", tone: "ok", when: "09-14 16:30", desc: '' },
+      { name: "制作", tag: "完成", tone: "ok", when: "", desc: '5 屏卡片 + 封面' },
+      { name: "质检", tag: "通过", tone: "ok", when: "", desc: '' },
+      { name: "发布审批", tag: "已批准", tone: "ok", when: "09-15 08:00", desc: '' },
+      { name: "排期", tag: "已排期", tone: "run", node: "wait", when: "",
+        desc: '小红书 · <span class="hl">09-16 19:30</span> 发布 · 允许窗口 19:00–21:00' },
+    ],
+  },
+  {
     id: "t_7a41", title: "AI+ 到底是添头还是主菜",
-    format: "video", state: "published", stateLabel: "已发布", tone: "ok",
+    format: "video", stateLabel: "已发布", tone: "ok", bucket: "done",
     out: "2:36 · 17 场景", updated: "昨天", account: "AI 工作流实验员",
     check: { script: "168.0s", speech: "167.7s", comp: "168.0s", final: "167.7s", drift: "0.01s", pass: true },
     steps: [
@@ -312,109 +460,47 @@ const TASKS = [
       { name: "发布", tag: "已发布", tone: "ok", when: "09-14 10:00", desc: '小红书 · 草稿模式' },
     ],
   },
-  {
-    id: "t_3b88", title: "失败率的五个口径：90% 到底从哪来",
-    format: "article", state: "producing", stateLabel: "制作中", tone: "run",
-    out: "6 屏卡片", updated: "3 分钟前", account: "AI 工作流实验员",
-    check: null,
-    steps: [
-      { name: "调研", tag: "完成", tone: "ok", when: "09-15 14:02", desc: '公众号 40 条 · 标题里失败率出现 11 次、5 个口径' },
-      { name: "选题", tag: "已批准", tone: "ok", when: "09-15 14:20", desc: '核心主张：没有一条写分母' },
-      { name: "制作", tag: "进行中", tone: "run", node: "wait", when: "已跑 3m",
-        desc: '正在生成第 4 / 6 屏 · 封面脚本已就绪' },
-      { name: "质检", tag: "未开始", tone: "off", node: "todo", when: "", desc: '' },
-      { name: "发布审批", tag: "未开始", tone: "off", node: "todo", when: "", desc: '' },
-    ],
-  },
-  {
-    id: "t_5c10", title: "垂类到底是不是护城河",
-    format: "article", state: "pending_topic_approval", stateLabel: "待选题审批", tone: "wait",
-    out: "—", updated: "1 小时前", account: "AI 工作流实验员",
-    check: null,
-    steps: [
-      { name: "调研", tag: "完成", tone: "ok", when: "09-15 12:40", desc: 'B站 12 条谈垂类 · 看空 6 / 看多 2' },
-      { name: "选题", tag: "待审批", tone: "wait", node: "wait", when: "",
-        desc: '核心主张：垂类不是护城河，流程 / 数据 / 责任才是 · 评分 8.1',
-        actions: [["批准", true], ["打回重写", false]] },
-      { name: "制作", tag: "未开始", tone: "off", node: "todo", when: "", desc: '' },
-    ],
-  },
-  {
-    id: "t_2e77", title: "AI 项目的四道商业闸门",
-    format: "video", state: "failed", stateLabel: "渲染失败", tone: "bad",
-    out: "ffmpeg 退出码 1", updated: "2 小时前", account: "AI 工作流实验员",
-    check: { script: "142.0s", speech: "141.6s", comp: "142.0s", final: "—", drift: "—", pass: false },
-    steps: [
-      { name: "调研", tag: "完成", tone: "ok", when: "09-15 09:10", desc: '复用 t_7a41 的信号集' },
-      { name: "选题", tag: "已批准", tone: "ok", when: "09-15 09:30", desc: '' },
-      { name: "制作", tag: "失败", tone: "bad", node: "bad", when: "中断于 rendering", desc: "", sub: [
-        ["collecting",    '复用信号 161 条', "—"],
-        ["selecting",     '13 场景脚本', "—"],
-        ["materializing", '13 素材 · TTS 对齐完成', "7m41s"],
-        ["composing",     '组合完成 · 142.0s', "4s"],
-        ["rendering",     '<span class="warnx">截帧 3120/4260 后 ffmpeg 退出码 1：磁盘空间不足</span>', "2m50s"],
-        ["publishing",    '未开始', "—"],
-      ],
-        actions: [["从 rendering 重跑", true], ["查看完整日志", false]] },
-    ],
-  },
-  {
-    id: "t_8d05", title: "两本账：机会账与经营账",
-    format: "article", state: "scheduled", stateLabel: "已排期", tone: "run",
-    out: "5 屏卡片", updated: "4 小时前", account: "AI 工作流实验员",
-    check: null,
-    steps: [
-      { name: "调研", tag: "完成", tone: "ok", when: "09-14 16:00", desc: '' },
-      { name: "选题", tag: "已批准", tone: "ok", when: "09-14 16:30", desc: '' },
-      { name: "制作", tag: "完成", tone: "ok", when: "", desc: '5 屏卡片 + 封面' },
-      { name: "质检", tag: "通过", tone: "ok", when: "", desc: '' },
-      { name: "发布审批", tag: "已批准", tone: "ok", when: "09-15 08:00", desc: '' },
-      { name: "排期", tag: "已排期", tone: "run", node: "wait", when: "",
-        desc: '小红书 · <span class="hl">09-16 19:30</span> 发布 · 允许窗口 19:00–21:00' },
-    ],
-  },
-  {
-    id: "t_1f93", title: "AI 短剧是机会，还是又一个幸存者偏差",
-    format: "video", state: "researching", stateLabel: "调研中", tone: "run",
-    out: "—", updated: "刚刚", account: "AI 工作流实验员",
-    check: null,
-    steps: [
-      { name: "调研", tag: "进行中", tone: "run", node: "wait", when: "已跑 40s",
-        desc: 'V2EX ✓ · B站 ✓ · 小红书 ✓ · <span class="warnx">知乎 索引通道冷却中</span>' },
-      { name: "选题", tag: "未开始", tone: "off", node: "todo", when: "", desc: '' },
-    ],
-  },
 ];
 
+const BUCKETS = [
+  ["act",  "待我处理"],
+  ["err",  "出错"],
+  ["run",  "进行中"],
+  ["done", "已完成"],
+];
+
+/* 互动量按平台各自的指标显示 —— 不同平台的"热度"本来就不是同一个东西 */
 const SIGNALS = [
-  { p: "xiaohongshu", t: "他靠“抄袭”app从0到月入8万刀", a: "Alpha AI", like: 8192, date: "2026-06-02", age: 105, via: "站内" },
-  { p: "xiaohongshu", t: "斯坦福在读phd回山东给传统企业做了2个月AI", a: "Zaniel", like: 4810, date: "2026-06-19", age: 88, via: "站内" },
-  { p: "xiaohongshu", t: "AI时代创业门槛真的大大的降低了", a: "大厂观察", like: 4614, date: "2025-07-08", age: 434, via: "站内" },
-  { p: "xiaohongshu", t: "第一批 Vibe Coding 创业的受害者，已经出现", a: "程序员八阿哥", like: 2402, date: "2026-06-16", age: 91, via: "站内" },
-  { p: "xiaohongshu", t: "一个Skill卖了40万", a: "养一个AI帮我", like: 1870, date: "2026-07-29", age: 48, via: "站内" },
-  { p: "xiaohongshu", t: "复盘了一下小红书上几种AI创业失败的案例", a: "X+Y", like: 36, date: "2026-05-17", age: 121, via: "站内" },
-  { p: "bilibili", t: "深度拆解：AI+垂直行业，到底是黄金赛道还是价值陷阱？", a: "—", like: 0, date: "2026-08-30", age: 16, via: "站内" },
-  { p: "bilibili", t: "做了半天“垂类模型”都死了？业内真相", a: "—", like: 0, date: "2026-09-02", age: 13, via: "站内" },
-  { p: "bilibili", t: "EP145 | 垂类模型的流量阻断窘境：通用顺手打败垂类专程", a: "—", like: 0, date: "2026-09-09", age: 6, via: "站内" },
-  { p: "v2ex", t: "从互联网+，物联网+，区块链+到 AI+", a: "LDa", like: 0, date: "2026-09-13", age: 2, via: "站内" },
-  { p: "v2ex", t: "AI 像 21 年的房价，泡沫已经吹到顶峰了。", a: "—", like: 0, date: "2026-08-20", age: 26, via: "站内" },
-  { p: "v2ex", t: "一个独立开发者的开源项目如何走向商业化", a: "—", like: 0, date: "2026-08-28", age: 18, via: "站内" },
-  { p: "wechat", t: "MIT调研300家企业：90% AI 项目失败，To B赛道要凉？", a: "—", like: 0, date: "—", age: null, via: "搜狗" },
-  { p: "wechat", t: "80%的企业 AI 项目失败了？RAND和Gartner的数据告诉你", a: "—", like: 0, date: "—", age: null, via: "搜狗" },
-  { p: "wechat", t: "医准智能上榜“2020中国人工智能商业落地价值潜力百强”", a: "—", like: 0, date: "—", age: null, via: "搜狗" },
-  { p: "weibo", t: "HCLTech报告警示：43% 企业AI项目 或将失败", a: "美通社资讯", like: 0, date: "—", age: null, via: "索引" },
+  { p: "xiaohongshu", t: "他靠“抄袭”app从0到月入8万刀", a: "Alpha AI", m: "8,192 赞", mv: 8192, date: "2026-06-02", age: 105, via: "站内" },
+  { p: "xiaohongshu", t: "斯坦福在读phd回山东给传统企业做了2个月AI", a: "Zaniel", m: "4,810 赞", mv: 4810, date: "2026-06-19", age: 88, via: "站内" },
+  { p: "xiaohongshu", t: "AI时代创业门槛真的大大的降低了", a: "大厂观察", m: "4,614 赞", mv: 4614, date: "2025-07-08", age: 434, via: "站内" },
+  { p: "xiaohongshu", t: "第一批 Vibe Coding 创业的受害者，已经出现", a: "程序员八阿哥", m: "2,402 赞", mv: 2402, date: "2026-06-16", age: 91, via: "站内" },
+  { p: "xiaohongshu", t: "一个Skill卖了40万", a: "养一个AI帮我", m: "1,870 赞", mv: 1870, date: "2026-07-29", age: 48, via: "站内" },
+  { p: "xiaohongshu", t: "复盘了一下小红书上几种AI创业失败的案例", a: "X+Y", m: "36 赞", mv: 36, date: "2026-05-17", age: 121, via: "站内" },
+  { p: "bilibili", t: "深度拆解：AI+垂直行业，到底是黄金赛道还是价值陷阱？", a: "—", m: "12.4万 播放", mv: 124000, date: "2026-08-30", age: 16, via: "站内" },
+  { p: "bilibili", t: "做了半天“垂类模型”都死了？业内真相", a: "—", m: "8.1万 播放", mv: 81000, date: "2026-09-02", age: 13, via: "站内" },
+  { p: "bilibili", t: "EP145 | 垂类模型的流量阻断窘境：通用顺手打败垂类专程", a: "—", m: "2.6万 播放", mv: 26000, date: "2026-09-09", age: 6, via: "站内" },
+  { p: "v2ex", t: "从互联网+，物联网+，区块链+到 AI+", a: "LDa", m: "6 回复", mv: 6, date: "2026-09-13", age: 2, via: "站内" },
+  { p: "v2ex", t: "AI 像 21 年的房价，泡沫已经吹到顶峰了。", a: "—", m: "41 回复", mv: 41, date: "2026-08-20", age: 26, via: "站内" },
+  { p: "v2ex", t: "一个独立开发者的开源项目如何走向商业化", a: "—", m: "23 回复", mv: 23, date: "2026-08-28", age: 18, via: "站内" },
+  { p: "wechat", t: "MIT调研300家企业：90% AI 项目失败，To B赛道要凉？", a: "—", m: "—", mv: 0, date: null, age: null, via: "搜狗" },
+  { p: "wechat", t: "80%的企业 AI 项目失败了？RAND和Gartner的数据告诉你", a: "—", m: "—", mv: 0, date: null, age: null, via: "搜狗" },
+  { p: "wechat", t: "医准智能上榜“2020中国人工智能商业落地价值潜力百强”", a: "—", m: "—", mv: 0, date: null, age: null, via: "搜狗" },
+  { p: "weibo", t: "HCLTech报告警示：43% 企业AI项目 或将失败", a: "美通社资讯", m: "—", mv: 0, date: null, age: null, via: "索引" },
 ];
-
 const PLATFORM_CN = { xiaohongshu: "小红书", bilibili: "B站", v2ex: "V2EX", wechat: "公众号", weibo: "微博" };
 
+/* 严重度决定顺序：要你动手的排最上面 */
 const TOOLS = [
-  { n: "OpenCLI 扩展", s: "已连接", tone: "ok", x: "v1.0.24 · profile v589qump · 握手 0.1s" },
-  { n: "采集后端链", s: "部分降级", tone: "wait", x: "13 平台 · 站内 6 / 降级 4 / 不可用 3",
-    fix: "配置 ZHIHU_COOKIE 或 site-login zhihu 可拉回站内" },
   { n: "搜索索引", s: "被风控", tone: "bad", x: "DuckDuckGo 冷却中 · 360 返回验证码",
-    fix: "等待冷却，或改用站内通道" },
+    fix: "等待冷却，或对该平台改走站内通道", go: "查看后端链" },
   { n: "TTS Studio", s: "未运行", tone: "bad", x: ":8420 连接被拒 · 已回落 edge-tts",
-    fix: "python -m xhs_manager.tts_studio.app" },
+    fix: "启动服务：<code>python -m xhs_manager.tts_studio.app</code>", go: "启动" },
+  { n: "磁盘空间", s: "不足", tone: "bad", x: "卷剩余 340 MB · 中间帧占用 8.2 GB",
+    fix: "清理已完成运行的中间帧目录", go: "清理" },
+  { n: "采集后端链", s: "部分降级", tone: "wait", x: "13 平台 · 站内 6 / 降级 4 / 不可用 3",
+    fix: "配置 <code>ZHIHU_COOKIE</code> 或 <code>site-login zhihu</code> 可拉回站内", go: "逐平台查看" },
+  { n: "OpenCLI 扩展", s: "已连接", tone: "ok", x: "v1.0.24 · profile v589qump · 握手 0.1s" },
   { n: "TTS 提供方", s: "可用", tone: "ok", x: "edge · 句级时间标记 ✓ · 语速 +25%" },
   { n: "MoneyPrinterTurbo", s: "可用", tone: "ok", x: "Pexels key 已配置 · 逐场景搜索" },
   { n: "ffmpeg / ffprobe", s: "可用", tone: "ok", x: "libx264 · aac · 能力已探测" },
@@ -424,87 +510,137 @@ const TOOLS = [
   { n: "Worker", s: "运行中", tone: "ok", x: "队列 0 待处理 · 0 重试中" },
 ];
 
-const ASSETS = [
-  { t: "AI+ 到底是添头还是主菜", k: "成片", x: "2:36 · 1080×1920 · 52.6 MB", cover: "互联网+ 物联网+ 区块链+" },
-  { t: "搜「AI 落地」返回 26 个赚钱故事", k: "成片", x: "2:12 · 1080×1920 · 35.1 MB", cover: "26 条笔记，10 条写着钱" },
-  { t: "AI+ · 小红书封面", k: "封面 3:4", x: "1080×1440 · PNG", cover: "添头还是主菜", wide: false },
-  { t: "AI+ · B站封面", k: "封面 16:9", x: "1920×1080 · PNG", cover: "AI+ 的商业价值", wide: true },
-  { t: "两本账：机会账与经营账", k: "卡片 5 屏", x: "1080×1440 · PNG ×5", cover: "机会账 / 经营账" },
-  { t: "失败率的五个口径", k: "卡片 6 屏", x: "生成中 4/6", cover: "95 90 80 43 40" },
+/* 资产按任务分组 —— 一个任务的成片、封面、音轨本来就该在一起 */
+const ASSET_GROUPS = [
+  { task: "AI+ 到底是添头还是主菜", id: "t_7a41", tone: "ok", label: "已发布",
+    path: "data/video_pipeline/0369ffa0/f8ae0eb0/", items: [
+      { k: "成片", r: "r916", t: "video.mp4", x: "2:36 · 52.6 MB", cover: "互联网+ 物联网+ 区块链+" },
+      { k: "封面 3:4", r: "r34", t: "cover_xhs.png", x: "1080×1440", cover: "添头还是主菜" },
+      { k: "封面 16:9", r: "r169", t: "cover_bili.png", x: "1920×1080", cover: "AI+ 的商业价值" },
+      { k: "旁白", r: "r169", t: "full_narration.mp3", x: "17 段 · 167.7s", cover: "17 段逐场景对齐" },
+    ]},
+  { task: "搜「AI 落地」，返回的是 26 个赚钱故事", id: "t_9f2c", tone: "wait", label: "待发布审批",
+    path: "data/video_pipeline/110d6c96/a28a23d7/", items: [
+      { k: "成片", r: "r916", t: "video.mp4", x: "2:12 · 35.1 MB", cover: "26 条笔记，10 条写着钱" },
+      { k: "封面 3:4", r: "r34", t: "cover_xhs.png", x: "1080×1440", cover: "26 个赚钱故事" },
+      { k: "旁白", r: "r169", t: "full_narration.mp3", x: "15 段 · 155.7s", cover: "15 段逐场景对齐" },
+    ]},
+  { task: "两本账：机会账与经营账", id: "t_8d05", tone: "run", label: "已排期",
+    path: "data/content/t_8d05/", items: [
+      { k: "卡片 5 屏", r: "r34", t: "slides/", x: "1080×1440 ×5", cover: "机会账 / 经营账" },
+      { k: "封面 3:4", r: "r34", t: "cover.png", x: "1080×1440", cover: "两本账" },
+    ]},
 ];
 
-const SETTINGS = [
-  { n: "账号", v: "AI 工作流实验员", x: "@ai-workflow-lab · 策略版本 v3" },
-  { n: "采集平台", v: "10 个", x: "bilibili · v2ex · toutiao · baidu · wechat · zhihu · weibo · xiaohongshu · douyin · twitter" },
-  { n: "视频时长", v: "30–180s", x: "min_duration / max_duration" },
-  { n: "TTS", v: "edge · +25%", x: "zh-CN-XiaoxiaoNeural · 逐场景对齐" },
-  { n: "主题", v: "tech_night", x: "另有 warm_paper · electric" },
-  { n: "渲染", v: "1080×1920 @30fps", x: "Playwright 逐帧 + ffmpeg" },
-  { n: "发布", v: "小红书 · 草稿模式", x: "xhs_publish_mode = draft" },
-  { n: "调度", v: "每日 08:00", x: "UTC 00:00 · DailyScheduler" },
+const CONFIG = [
+  { k: "账号", v: "AI 工作流实验员 <span style='color:var(--dim)'>@ai-workflow-lab</span>", e: "策略版本 v3 · 2026-08-20 生效" },
+  { k: "采集平台", v: "10 个", e: "bilibili · v2ex · toutiao · baidu · wechat · zhihu · weibo · xiaohongshu · douyin · twitter" },
+  { k: "视频时长", v: "30 – 180s", e: "min_duration / max_duration" },
+  { k: "TTS", v: "edge · zh-CN-XiaoxiaoNeural · +25%", e: "逐场景合成，按句级时间标记对齐字幕" },
+  { k: "视觉主题", v: "tech_night", e: "另有 warm_paper · electric · 7 版面 × 10 转场" },
+  { k: "渲染", v: "1080×1920 @ 30fps", e: "Playwright 逐帧截图 + ffmpeg" },
+  { k: "发布", v: "小红书 · 草稿模式", e: "xhs_publish_mode = draft" },
+  { k: "调度", v: "每日 08:00", e: "UTC 00:00 · DailyScheduler" },
 ];
 
 /* ════════ 渲染 ════════ */
 
 const main = document.getElementById("main");
 const nav = document.getElementById("nav");
-let view = "tasks";
-let taskId = null;
-let sigPlatform = "all";
-let sigSort = "heat";
+let view = "tasks", taskId = null;
+let taskFilter = "all", sigPlatform = "all", sigSort = "heat";
+const memoClosed = new Set();
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-function head(title, sub, right = "") {
-  return `<div class="head"><div><h1>${title}</h1><div class="sub">${sub}</div></div>${right}</div>`;
+function head(title, sub, acts = "") {
+  return `<div class="head"><div><h1>${title}</h1><div class="sub">${sub}</div></div>
+    ${acts ? `<div class="acts">${acts}</div>` : ""}</div>`;
+}
+function memo(id, html) {
+  if (memoClosed.has(id)) return "";
+  return `<div class="memo"><span class="lab">设计注记</span><div>${html}</div>
+    <button class="close" data-memo="${id}" aria-label="收起注记">×</button></div>`;
+}
+function seg(label, name, opts, cur) {
+  return `<div class="seg"><span class="lbl">${label}</span><div class="opts">${opts
+    .map(([k, l]) => `<button data-${name}="${k}" aria-pressed="${cur === k}">${l}</button>`).join("")}</div></div>`;
 }
 
 /* ── 任务台 ── */
 function viewTasks() {
-  const rows = TASKS.map((t) => `
-    <tr class="clickable" data-task="${t.id}" tabindex="0" role="link">
+  const counts = {};
+  BUCKETS.forEach(([k]) => counts[k] = TASKS.filter((t) => t.bucket === k).length);
+  const opts = [["all", `全部 ${TASKS.length}`], ...BUCKETS.map(([k, l]) => [k, `${l} ${counts[k]}`])];
+
+  const list = TASKS.filter((t) => taskFilter === "all" || t.bucket === taskFilter);
+  let html = "", lastBucket = null;
+  const order = ["act", "err", "run", "done"];
+  list.sort((a, b) => order.indexOf(a.bucket) - order.indexOf(b.bucket));
+
+  list.forEach((t) => {
+    if (taskFilter === "all" && t.bucket !== lastBucket) {
+      lastBucket = t.bucket;
+      const label = BUCKETS.find(([k]) => k === t.bucket)[1];
+      html += `<tr class="groupdiv"><td colspan="5">${label} · ${counts[t.bucket]}</td></tr>`;
+    }
+    html += `<tr class="clickable ${t.bucket === "act" ? "act" : t.bucket === "err" ? "err" : ""}"
+      data-task="${t.id}" tabindex="0" role="link">
       <td><span class="ttl">${esc(t.title)}</span><span class="meta">${t.id}</span></td>
       <td><span class="tag ${t.format === "video" ? "vid" : "art"}">${t.format === "video" ? "视频" : "图文"}</span></td>
       <td><span class="tag ${t.tone}">${t.stateLabel}</span></td>
       <td class="mono">${esc(t.out)}</td>
       <td class="mono">${esc(t.updated)}</td>
-    </tr>`).join("");
+    </tr>`;
+  });
 
-  const pending = TASKS.filter((t) => t.tone === "wait").length;
-  return head("任务台", `全部 ${TASKS.length} · 待我处理 ${pending}`,
-      `<button class="btn primary">新建任务</button>`) +
-    `<div class="note">图文和视频在同一张表里，用形态标签区分——<b>不给视频单独的顶级入口</b>，
-     这是防止做成「三个系统拼在一起」的第一道防线。</div>
+  return head("任务台", `待我处理 ${counts.act} · 出错 ${counts.err} · 进行中 ${counts.run}`,
+      `<button class="btn">新建任务</button>`) +
+    memo("tasks", `图文和视频在同一张表里，用形态标签区分——<b>不给视频单独的顶级入口</b>。
+      行首色条标出需要你动手的任务：琥珀＝等你审批，红＝出错。`) +
+    `<div class="bar">${seg("筛选", "tf", opts, taskFilter)}<span class="spacer"></span>
+      <span class="count">${list.length} 条</span></div>
      <div class="tablewrap"><table>
-       <thead><tr><th style="width:40%">任务</th><th>形态</th><th>状态</th><th>产出</th><th>更新</th></tr></thead>
-       <tbody>${rows}</tbody></table></div>`;
+       <thead><tr><th style="width:42%">任务</th><th>形态</th><th>状态</th><th>产出</th><th>更新</th></tr></thead>
+       <tbody>${html}</tbody></table></div>`;
 }
 
 /* ── 任务详情 ── */
 function viewTask(id) {
-  const t = TASKS.find((x) => x.id === id);
+  const idx = TASKS.findIndex((x) => x.id === id);
+  const t = TASKS[idx];
   if (!t) return viewTasks();
+  const prev = TASKS[idx - 1], next = TASKS[idx + 1];
+
+  const banner = t.error ? `<div class="banner">
+      <div><div class="t">${esc(t.error.title)}</div>
+        <div class="d">${esc(t.error.detail)}</div>
+        <div class="fix">${esc(t.error.fix)}</div></div>
+      <div class="acts">${t.error.actions
+        .map(([l, c]) => `<button class="btn ${c}">${l}</button>`).join("")}</div>
+    </div>` : "";
 
   let checkHtml = "";
   if (t.check) {
     const c = t.check;
-    const driftCls = c.pass ? "good" : "bad";
     checkHtml = `<div class="check">
       <div><span class="k">脚本声明</span><span class="v">${c.script}</span></div>
       <div><span class="k">语音实际</span><span class="v">${c.speech}</span></div>
       <div><span class="k">组合时间轴</span><span class="v">${c.comp}</span></div>
-      <div><span class="k">成片</span><span class="v">${c.final}</span></div>
-      <div><span class="k">最大漂移</span><span class="v ${driftCls}">${c.drift}${c.pass ? " ✓" : ""}</span></div>
+      <div><span class="k">成片</span><span class="v${c.final === "—" ? " na" : ""}">${c.final}</span></div>
+      <div><span class="k">最大漂移</span><span class="v ${c.pass ? "good" : "na"}">${c.drift}${c.pass ? " ✓" : ""}</span></div>
     </div>`;
   }
 
   const steps = t.steps.map((s) => {
     const sub = s.sub ? `<div class="sub">
         <div class="sub-h"><span>视频子流水线 · 6 阶段</span><span>run ${t.id.replace("t_", "r_")}</span></div>
-        ${s.sub.map(([en, d, time]) => `<div class="sub-row"><span class="en">${en}</span><span class="d">${d}</span><span class="t">${time}</span></div>`).join("")}
+        ${s.sub.map(([en, d, time, failed]) =>
+          `<div class="sub-row${failed ? " failed" : ""}"><span class="en">${en}</span>
+           <span class="d">${d}</span><span class="t">${time}</span></div>`).join("")}
       </div>` : "";
     const acts = s.actions ? `<div class="step-actions">${s.actions
-      .map(([label, primary]) => `<button class="btn${primary ? " primary" : ""}">${label}</button>`).join("")}</div>` : "";
+      .map(([l, c]) => `<button class="btn ${c}">${l}</button>`).join("")}</div>` : "";
     return `<li>
       <div class="rail"><div class="node ${s.node || ""}"></div></div>
       <div class="step">
@@ -515,86 +651,107 @@ function viewTask(id) {
       </div></li>`;
   }).join("");
 
+  const pager = `<div class="acts">
+      <button class="btn" data-task-nav="${prev ? prev.id : ""}" ${prev ? "" : "disabled"}>← 上一条</button>
+      <button class="btn" data-task-nav="${next ? next.id : ""}" ${next ? "" : "disabled"}>下一条 →</button>
+    </div>`;
+
   return `<button class="back" data-view="tasks">← 任务台</button>` +
     head(esc(t.title),
-      `${t.id} · ${t.format === "video" ? "视频" : "图文"} · ${t.stateLabel} · ${esc(t.account)}`) +
-    checkHtml + `<ol class="trunk">${steps}</ol>`;
+      `${t.id} · ${t.format === "video" ? "视频" : "图文"} · ${t.stateLabel} · ${esc(t.account)}`, pager) +
+    banner + checkHtml + `<ol class="trunk">${steps}</ol>`;
 }
 
 /* ── 采集 ── */
 function viewSignals() {
-  const plats = ["all", ...Object.keys(PLATFORM_CN)];
-  const chips = plats.map((p) => `<button data-plat="${p}" aria-pressed="${sigPlatform === p}">${p === "all" ? "全部" : PLATFORM_CN[p]}</button>`).join("");
-  const sorts = [["heat", "按热度"], ["date", "按发布时间"]]
-    .map(([k, l]) => `<button data-sort="${k}" aria-pressed="${sigSort === k}">${l}</button>`).join("");
-
+  const plats = [["all", "全部"], ...Object.entries(PLATFORM_CN).map(([k, v]) => [k, v])];
   let list = SIGNALS.filter((s) => sigPlatform === "all" || s.p === sigPlatform);
   list = [...list].sort((a, b) => sigSort === "heat"
-    ? b.like - a.like
+    ? b.mv - a.mv
     : (a.age === null ? 1 : b.age === null ? -1 : a.age - b.age));
 
   const rows = list.map((s) => {
     const stale = s.age !== null && s.age >= 90;
+    const when = s.date
+      ? `${s.date} <span style="color:${stale ? "var(--warn)" : "var(--dim)"}">· ${s.age} 天前</span>`
+      : `<span style="color:var(--dim)">未提供</span>`;
     return `<tr>
       <td><span class="ttl">${esc(s.t)}</span><span class="meta">${esc(s.a)}</span></td>
       <td><span class="tag ${s.via === "站内" ? "vid" : "off"}">${PLATFORM_CN[s.p]}</span></td>
-      <td class="mono">${s.like ? s.like.toLocaleString() : "—"}</td>
-      <td class="mono">${s.date}</td>
-      <td class="mono">${s.age === null ? "—" : `<span style="color:${stale ? "var(--warn)" : "var(--dim)"}">${s.age} 天前</span>`}</td>
+      <td class="mono">${s.m}</td>
+      <td class="mono">${when}</td>
       <td class="mono">${s.via}</td>
     </tr>`;
   }).join("");
 
-  return head("采集信号", `run r_9f2c · ${list.length} / ${SIGNALS.length} 条`) +
-    `<div class="note">按<b>发布时间</b>排一次就能看出问题：点赞第二高的那条发布于
-     <b>434 天前</b>。热度分只看互动量、不看时效，去年的话题会稳稳排在榜首。</div>
-     <div class="filters">${chips}<span class="spacer"></span>${sorts}</div>
+  return head("采集信号", `run r_9f2c · 5 平台 · 共 ${SIGNALS.length} 条`) +
+    memo("signals", `切到<b>按发布时间</b>排一次就能看出问题：点赞第二高的那条发布于
+      <b>434 天前</b>。热度分只看互动量、不看时效，去年的话题会稳稳排在榜首。<br>
+      「互动」列按平台各自的指标显示——B站是播放、V2EX 是回复，压成同一个"点赞"列会让多数行变成空值。`) +
+    `<div class="bar">${seg("平台", "plat", plats, sigPlatform)}
+      ${seg("排序", "sort", [["heat", "热度"], ["date", "发布时间"]], sigSort)}
+      <span class="spacer"></span><span class="count">${list.length} / ${SIGNALS.length} 条</span></div>
      <div class="tablewrap"><table>
-       <thead><tr><th style="width:44%">标题</th><th>平台</th><th>点赞</th><th>发布</th><th>时效</th><th>通道</th></tr></thead>
+       <thead><tr><th style="width:44%">标题</th><th>平台</th><th>互动</th><th>发布</th><th>通道</th></tr></thead>
        <tbody>${rows}</tbody></table></div>`;
 }
 
 /* ── 资产 ── */
 function viewAssets() {
-  const cards = ASSETS.map((a) => `
-    <article class="asset">
-      <div class="thumb${a.wide ? " wide" : ""}"><span>${esc(a.cover)}</span></div>
-      <div class="info"><b>${esc(a.t)}</b><span>${esc(a.k)} · ${esc(a.x)}</span></div>
-    </article>`).join("");
-  return head("资产", "按任务归档 · 12 个文件") +
-    `<div class="note">存在意义就是不用再 <b>cd 到两层 uuid 目录</b>去找成片。</div>
-     <div class="assets">${cards}</div>`;
+  const n = ASSET_GROUPS.reduce((a, g) => a + g.items.length, 0);
+  const groups = ASSET_GROUPS.map((g) => `
+    <section class="agroup">
+      <h3>${esc(g.task)} <span class="tag ${g.tone}">${g.label}</span></h3>
+      <p class="p">${g.id} · ${g.path}</p>
+      <div class="assets">${g.items.map((a) => `
+        <article class="asset">
+          <div class="frame"><div class="shot ${a.r}">
+            <span class="kind">${esc(a.k)}</span>
+          </div></div>
+          <div class="info"><b>${esc(a.t)}</b><span>${esc(a.x)}</span>
+            <div class="row"><button>打开</button><button>Finder</button><button>复制路径</button></div>
+          </div>
+        </article>`).join("")}</div>
+    </section>`).join("");
+
+  return head("资产", `${ASSET_GROUPS.length} 个任务 · ${n} 个产物`) +
+    memo("assets", `按任务分组，一个任务的成片、封面、旁白在一起——
+      存在意义就是<b>不用再 cd 到两层 uuid 目录</b>去找文件。
+      所有卡片共用同一个取景框，内部按真实比例摆放，所以竖版和横版排在一起也不会参差。`) +
+    groups;
 }
 
 /* ── 工具 ── */
 function viewTools() {
   const n = { ok: 0, wait: 0, bad: 0 };
   TOOLS.forEach((t) => n[t.tone]++);
-  const cells = TOOLS.map((t) => `
-    <div class="cell">
-      <div class="n"><b>${esc(t.n)}</b><span class="tag ${t.tone}">${t.s}</span></div>
-      <span class="x">${esc(t.x)}</span>
-      ${t.fix ? `<span class="fix">→ ${esc(t.fix)}</span>` : ""}
+  const rows = TOOLS.map((t) => `
+    <div class="tool ${t.tone}">
+      <div class="n">${esc(t.n)} <span class="tag ${t.tone}">${t.s}</span></div>
+      <div class="body"><span class="x">${t.x}</span>${t.fix ? `<span class="fix">${t.fix}</span>` : ""}</div>
+      <div class="go">${t.go ? `<button class="btn">${t.go}</button>` : ""}</div>
     </div>`).join("");
-  return head("工具体检", `${TOOLS.length} 项 · 正常 ${n.ok} · 降级 ${n.wait} · 不可用 ${n.bad}`,
+
+  return head("工具体检", `${TOOLS.length} 项 · 不可用 ${n.bad} · 降级 ${n.wait} · 正常 ${n.ok}`,
       `<button class="btn" id="recheck">重新体检</button>`) +
-    `<div class="note">这一页几乎不写新逻辑——全是把已有的探测函数并联起来。
-     状态色（正常 / 降级 / 不可用）与品牌绿是<b>两套色</b>。</div>
-     <div class="grid">${cells}</div>`;
+    memo("tools", `按<b>严重度</b>排序，不可用的排最上面——这一页存在的唯一意义，
+      就是让需要你动手的东西第一眼被看到。状态色（正常 / 降级 / 不可用）与品牌绿是两套色。`) +
+    `<div class="tools">${rows}</div>`;
 }
 
-/* ── 设置 ── */
-function viewSettings() {
-  const cells = SETTINGS.map((s) => `
-    <div class="cell">
-      <div class="n"><b>${esc(s.n)}</b><span class="tag off">${esc(s.v)}</span></div>
-      <span class="x">${esc(s.x)}</span>
-    </div>`).join("");
-  return head("设置", "配置快照 · 每次运行会存档一份") + `<div class="grid">${cells}</div>`;
+/* ── 配置（只读）── */
+function viewConfig() {
+  const rows = CONFIG.map((c) => `
+    <div class="cfg-row"><div class="k">${esc(c.k)}</div>
+      <div class="v">${c.v}<em>${esc(c.e)}</em></div></div>`).join("");
+  return head("配置", "只读快照 · 来自 .env 与 video_pipeline/config.py") +
+    memo("config", `这一页<b>只读</b>。改配置仍然走 <code>.env</code> 和 CLI——
+      控制台不做配置编辑器，避免出现"界面改了一套、文件里还是另一套"。`) +
+    `<div class="cfg">${rows}</div>`;
 }
 
 /* ── 路由 ── */
-const VIEWS = { tasks: viewTasks, signals: viewSignals, assets: viewAssets, tools: viewTools, settings: viewSettings };
+const VIEWS = { tasks: viewTasks, signals: viewSignals, assets: viewAssets, tools: viewTools, config: viewConfig };
 
 function render() {
   main.innerHTML = view === "task" ? viewTask(taskId) : VIEWS[view]();
@@ -602,9 +759,8 @@ function render() {
     const on = b.dataset.view === view || (view === "task" && b.dataset.view === "tasks");
     b.setAttribute("aria-current", on ? "page" : "false");
   });
-  main.scrollIntoView({ block: "start" });
+  window.scrollTo(0, 0);
 }
-
 function go(next, id) { view = next; taskId = id ?? null; render(); }
 
 nav.addEventListener("click", (e) => {
@@ -613,11 +769,20 @@ nav.addEventListener("click", (e) => {
 });
 
 main.addEventListener("click", (e) => {
+  const m = e.target.closest("[data-memo]");
+  if (m) { memoClosed.add(m.dataset.memo); return render(); }
+
+  const tn = e.target.closest("[data-task-nav]");
+  if (tn && tn.dataset.taskNav) return go("task", tn.dataset.taskNav);
+
   const back = e.target.closest("[data-view]");
   if (back) return go(back.dataset.view);
 
   const row = e.target.closest("[data-task]");
   if (row) return go("task", row.dataset.task);
+
+  const tf = e.target.closest("[data-tf]");
+  if (tf) { taskFilter = tf.dataset.tf; return render(); }
 
   const plat = e.target.closest("[data-plat]");
   if (plat) { sigPlatform = plat.dataset.plat; return render(); }
@@ -626,8 +791,7 @@ main.addEventListener("click", (e) => {
   if (sort) { sigSort = sort.dataset.sort; return render(); }
 
   if (e.target.id === "recheck") {
-    e.target.textContent = "体检中…";
-    e.target.disabled = true;
+    e.target.textContent = "体检中…"; e.target.disabled = true;
     setTimeout(render, 700);
   }
 });
@@ -636,6 +800,16 @@ main.addEventListener("keydown", (e) => {
   if (e.key !== "Enter" && e.key !== " ") return;
   const row = e.target.closest("[data-task]");
   if (row) { e.preventDefault(); go("task", row.dataset.task); }
+});
+
+/* j / k 在任务详情之间跳，处理待办时不用回列表 */
+document.addEventListener("keydown", (e) => {
+  if (view !== "task" || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+  const i = TASKS.findIndex((x) => x.id === taskId);
+  if (e.key === "j" && TASKS[i + 1]) go("task", TASKS[i + 1].id);
+  if (e.key === "k" && TASKS[i - 1]) go("task", TASKS[i - 1].id);
+  if (e.key === "Escape") go("tasks");
 });
 
 render();
