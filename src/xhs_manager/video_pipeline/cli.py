@@ -250,6 +250,65 @@ def cmd_xhs_check(args) -> None:
     sys.exit(0 if alive else 1)
 
 
+def cmd_adopt(args) -> None:
+    """把视频选题认领进内容任务模型。
+
+    认领只是「承认这支片子已经走到哪儿了」，不会推进任何流程、
+    不会入队工作项——被认领的往往是早就渲染完甚至发布完的片子。
+    """
+    from xhs_manager.video_pipeline import linking
+
+    settings = get_video_settings()
+    factory = build_session_factory()
+    with factory() as session:
+        if args.list:
+            orphans = linking.orphan_topics(session)
+            if not orphans:
+                print("没有游离的视频选题")
+                return
+            print(f"{'选题 ID':<38}{'状态':<28}标题")
+            print("-" * 104)
+            for t in orphans:
+                state = linking.task_state_for(session, t)
+                print(f"{t.id}  {state:<26}{t.title[:38]}")
+            print(f"\n共 {len(orphans)} 条。认领：--all 或 --topic <id>")
+            return
+
+        account_id = args.account
+        if not account_id:
+            account_id, _ = linking.ensure_default_account(
+                session, name=settings.brand_name,
+            )
+            print(f"使用账号 {account_id}（{settings.brand_name}）")
+
+        if args.all:
+            results = linking.adopt_all_orphans(session, account_id=account_id)
+        elif args.topic:
+            results = [linking.adopt_topic(
+                session, args.topic,
+                account_id=account_id, task_id=args.task,
+            )]
+        else:
+            print("要么 --all，要么 --topic <id>；先看清单用 --list")
+            sys.exit(1)
+
+        session.commit()
+        for r in results:
+            mark = "新建任务" if r.created_task else "挂到已有任务"
+            print(f"  {r.topic_id[:8]} → {r.task_id[:8]}  {r.state:<24}{mark}")
+        print(f"\n认领 {len(results)} 条")
+
+
+def cmd_unlink(args) -> None:
+    """撤销认领。任务本身留着。"""
+    from xhs_manager.video_pipeline import linking
+
+    with build_session_factory()() as session:
+        linking.unlink_topic(session, args.topic)
+        session.commit()
+    print(f"已撤销 {args.topic} 的任务归属")
+
+
 def cmd_site_login(args) -> None:
     """一次性扫码登录某个平台，凭证落在该平台自己的 Chrome profile。
 
@@ -407,6 +466,22 @@ def main() -> None:
     sl.add_argument("platform", help="平台名: xiaohongshu | zhihu | weibo")
     sl.add_argument("--timeout", type=int, default=300, help="等待登录的秒数")
     sl.set_defaults(func=cmd_site_login)
+
+    # adopt
+    ad = subparsers.add_parser(
+        "adopt", help="把视频选题认领进内容任务（打通图文线与视频线）",
+    )
+    ad.add_argument("--list", action="store_true", help="列出还没归属任务的视频选题")
+    ad.add_argument("--all", action="store_true", help="认领全部游离选题")
+    ad.add_argument("--topic", help="只认领这一个选题")
+    ad.add_argument("--task", help="挂到这个已有任务，不新建")
+    ad.add_argument("--account", help="归属账号，不给则复用/新建默认账号")
+    ad.set_defaults(func=cmd_adopt)
+
+    # unlink
+    ul = subparsers.add_parser("unlink", help="撤销视频选题的任务归属")
+    ul.add_argument("topic", help="视频选题 ID")
+    ul.set_defaults(func=cmd_unlink)
 
     # collect-doctor
     cd_parser = subparsers.add_parser(

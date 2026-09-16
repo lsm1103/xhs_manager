@@ -99,6 +99,7 @@ class VideoTrendSignal(Base):
 
 class VideoTopic(Base):
     __tablename__ = "video_topics"
+    __table_args__ = (Index("ix_video_topic_task", "task_id"),)
     __table_args__ = (
         Index("ix_video_topic_run_rank", "pipeline_run_id", "rank"),
     )
@@ -106,6 +107,12 @@ class VideoTopic(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     pipeline_run_id: Mapped[str] = mapped_column(
         ForeignKey("video_pipeline_runs.id"), nullable=False
+    )
+    # 所属内容任务。可空是刻意的：视频线目前可以脱离任务独立跑，
+    # 存量运行也没有对应任务——界面上如实标成「游离任务」，
+    # 比硬造一个占位任务诚实。
+    task_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("content_tasks.id"), nullable=True
     )
     rank: Mapped[int] = mapped_column(Integer, nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)

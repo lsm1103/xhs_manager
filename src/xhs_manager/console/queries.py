@@ -18,7 +18,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from xhs_manager.models import ContentTask
+from xhs_manager.models import Account, ContentTask
 from xhs_manager.video_pipeline.domain import PIPELINE_STAGE_ORDER, PipelineStatus
 from xhs_manager.video_pipeline.models import (
     VideoComposition,
@@ -187,7 +187,11 @@ def _task_from_video(b: _VideoBundle) -> dict[str, Any]:
         "output": _video_output(b),
         "updated_at": _iso(_video_updated(b)),
         "run_id": b.topic.pipeline_run_id,
-        "orphan": True,          # 还没挂到 content_tasks，P2 之后才有归属
+        "task_id": b.topic.task_id,
+        # 没认领进任务的片子标成「游离」。这不是缺陷，是如实表示：
+        # 视频线可以脱离任务独立跑，硬造占位任务只会让数据更难解释。
+        "orphan": b.topic.task_id is None,
+        "account": None,
         "score": b.topic.total_score,
     }
 
@@ -209,10 +213,27 @@ def _task_from_content(task: ContentTask) -> dict[str, Any]:
     }
 
 
+def _account_names(session: Session) -> dict[str, str]:
+    return {a.id: a.name for a in session.query(Account).all()}
+
+
 def list_tasks(session: Session) -> dict[str, Any]:
     """统一的任务列表。图文与视频在同一张表里，用 format 区分。"""
     tasks = [_task_from_video(b) for b in _load_video_bundles(session)]
-    tasks += [_task_from_content(t) for t in session.query(ContentTask).all()]
+
+    # 已认领的视频要显示归属账号——这是 P2 打通之后才有的信息
+    content_tasks = {t.id: t for t in session.query(ContentTask).all()}
+    names = _account_names(session)
+    linked_ids = set()
+    for t in tasks:
+        owner = content_tasks.get(t["task_id"]) if t["task_id"] else None
+        if owner is not None:
+            linked_ids.add(owner.id)
+            t["account"] = names.get(owner.account_id)
+
+    # 只列出没有视频挂靠的图文任务，避免同一个任务出现两行
+    tasks += [_task_from_content(t) for t in content_tasks.values()
+              if t.id not in linked_ids]
 
     # 先按桶（要你动手的在前），桶内按更新时间倒序
     tasks.sort(key=lambda t: (

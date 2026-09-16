@@ -413,3 +413,151 @@ def test_tools_endpoint_returns_sorted_probes(client, monkeypatch):
     body = client.get("/console/api/tools").json()
     assert body["counts"]["ok"] >= 1
     assert all("elapsed_ms" in p for p in body["probes"])
+
+
+# ── P2：把视频选题认领进内容任务 ───────────────────────────
+
+
+@pytest.fixture
+def account(session_factory):
+    from xhs_manager.video_pipeline import linking
+    with session_factory() as s:
+        account_id, _ = linking.ensure_default_account(s, name="测试账号")
+        s.commit()
+    return account_id
+
+
+def test_adopting_does_not_enqueue_work_for_an_already_finished_video(
+    session_factory, video_task, account
+):
+    """认领的是早就渲染完的片子，绝不能入队让 worker 重做一遍。
+
+    这正是不能直接复用 services.create_content_task 的原因——它会顺手
+    入队一个 collect_research。
+    """
+    from xhs_manager.models import WorkflowInstance, WorkItem
+    from xhs_manager.video_pipeline import linking
+
+    with session_factory() as s:
+        result = linking.adopt_topic(s, video_task["topic"], account_id=account)
+        s.commit()
+
+    assert result.created_task is True
+    with session_factory() as s:
+        assert s.query(WorkItem).count() == 0
+        assert s.query(WorkflowInstance).count() == 0
+
+
+def test_adopted_task_state_matches_what_the_video_actually_did(
+    session_factory, video_task, account
+):
+    """渲染完成还没发布 → pending_publish_approval，不是 pending_research。"""
+    from xhs_manager.domain import TaskState
+    from xhs_manager.models import ContentTask
+    from xhs_manager.video_pipeline import linking
+
+    with session_factory() as s:
+        result = linking.adopt_topic(s, video_task["topic"], account_id=account)
+        s.commit()
+
+    assert result.state == TaskState.PENDING_PUBLISH_APPROVAL.value
+    with session_factory() as s:
+        assert s.get(ContentTask, result.task_id).state == result.state
+
+
+def test_published_video_adopts_as_published(session_factory, video_task, account):
+    from xhs_manager.domain import TaskState
+    from xhs_manager.video_pipeline import linking
+
+    with session_factory() as s:
+        s.add(VideoPublication(
+            id=new_id(), render_id=video_task["render"], topic_id=video_task["topic"],
+            platform="xiaohongshu", title="标题", description="", tags=[],
+            publish_method="playwright", status="published",
+        ))
+        s.commit()
+    with session_factory() as s:
+        result = linking.adopt_topic(s, video_task["topic"], account_id=account)
+        s.commit()
+    assert result.state == TaskState.PUBLISHED.value
+
+
+def test_adopting_twice_is_idempotent(session_factory, video_task, account):
+    from xhs_manager.models import ContentTask
+    from xhs_manager.video_pipeline import linking
+
+    with session_factory() as s:
+        first = linking.adopt_topic(s, video_task["topic"], account_id=account)
+        s.commit()
+    with session_factory() as s:
+        second = linking.adopt_topic(s, video_task["topic"], account_id=account)
+        s.commit()
+
+    assert second.task_id == first.task_id
+    assert second.created_task is False
+    with session_factory() as s:
+        assert s.query(ContentTask).count() == 1
+
+
+def test_unlink_keeps_the_task_but_frees_the_topic(session_factory, video_task, account):
+    from xhs_manager.models import ContentTask
+    from xhs_manager.video_pipeline import linking
+
+    with session_factory() as s:
+        linking.adopt_topic(s, video_task["topic"], account_id=account)
+        s.commit()
+    with session_factory() as s:
+        linking.unlink_topic(s, video_task["topic"])
+        s.commit()
+
+    with session_factory() as s:
+        assert s.query(ContentTask).count() == 1          # 任务留着
+        assert len(linking.orphan_topics(s)) == 1         # 选题重新游离
+
+
+def test_console_shows_owner_after_adoption_without_duplicating_the_row(
+    session_factory, video_task, account
+):
+    """认领后不能一个任务在列表里出现两行（视频一行 + 图文一行）。"""
+    from xhs_manager.video_pipeline import linking
+
+    with session_factory() as s:
+        before = queries.list_tasks(s)
+        assert before["total"] == 1
+        assert before["tasks"][0]["orphan"] is True
+
+        linking.adopt_topic(s, video_task["topic"], account_id=account)
+        s.commit()
+
+    with session_factory() as s:
+        after = queries.list_tasks(s)
+
+    assert after["total"] == 1                            # 没有重复行
+    row = after["tasks"][0]
+    assert row["orphan"] is False
+    assert row["account"] == "测试账号"
+    assert row["format"] == "video"
+
+
+def test_adopt_refuses_an_unknown_task(session_factory, video_task, account):
+    from xhs_manager.video_pipeline import linking
+
+    with session_factory() as s:
+        with pytest.raises(linking.LinkError):
+            linking.adopt_topic(s, video_task["topic"], account_id=account, task_id="nope")
+
+
+def test_ensure_default_account_reuses_the_existing_one(session_factory):
+    from xhs_manager.models import Account
+    from xhs_manager.video_pipeline import linking
+
+    with session_factory() as s:
+        first, _ = linking.ensure_default_account(s, name="甲")
+        s.commit()
+    with session_factory() as s:
+        second, _ = linking.ensure_default_account(s, name="乙")
+        s.commit()
+
+    assert first == second
+    with session_factory() as s:
+        assert s.query(Account).count() == 1
