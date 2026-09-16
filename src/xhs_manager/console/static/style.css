@@ -191,6 +191,24 @@ td.empty { color: var(--dim); text-align: center; padding: 28px 14px; }
 .sub-row .d .hl { color: var(--ink-2); font-weight: 600; }
 .sub-row .t { font-family: var(--mono); font-size: 10px; }
 
+/* ── 工具体检：列表而非网格，避免末行空洞与高度参差 ── */
+.tools { border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--panel); }
+.tool { display: grid; grid-template-columns: 170px minmax(0, 1fr) 76px; gap: 14px; padding: 11px 15px; border-bottom: 1px solid var(--line-2); align-items: center; }
+.tool:last-child { border-bottom: none; }
+.tool.down { background: rgba(244,121,106,.05); }
+.tool.degraded { background: rgba(229,173,85,.04); }
+.tool .n { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.tool .x { font-family: var(--mono); font-size: 11px; color: var(--dim); display: block; line-height: 1.55; word-break: break-word; }
+.tool .fix { font-size: 12px; color: var(--warn); margin-top: 3px; display: block; line-height: 1.55; }
+.tool .fix code { color: var(--ink-2); background: rgba(255,255,255,.05); padding: 1px 5px; border-radius: 2px; }
+.tool .ms { font-family: var(--mono); font-size: 10px; color: var(--dim); text-align: right; font-variant-numeric: tabular-nums; }
+.tool .chainlist { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.tool .chainlist span { font-family: var(--mono); font-size: 10px; padding: 1px 6px; border-radius: 2px; }
+.tool .chainlist .ok { background: rgba(61,220,151,.12); color: var(--ok); }
+.tool .chainlist .degraded { background: rgba(229,173,85,.14); color: var(--warn); }
+.tool .chainlist .down { background: rgba(244,121,106,.14); color: var(--bad); }
+.tool .chainlist .unknown { background: rgba(255,255,255,.06); color: var(--dim); }
+
 /* ── 成片内嵌播放 ── */
 .player { border: 1px solid var(--line); border-radius: 4px; background: var(--panel); padding: 12px; display: inline-block; max-width: 100%; }
 .player video { display: block; max-width: 100%; width: 270px; border-radius: 3px; background: #000; }
@@ -211,5 +229,9 @@ td.empty { color: var(--dim); text-align: center; padding: 28px 14px; }
   .nav .sep, .nav-foot, .nav-note { display: none; }
   .main { padding: 16px 14px 56px; }
   .sub-row { grid-template-columns: 1fr; gap: 4px; }
+  .tool { grid-template-columns: 1fr; gap: 6px; }
+  .tool .ms { text-align: left; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+.ok-note { font-size: 12.5px; color: var(--acc); margin-bottom: 12px; }

@@ -281,3 +281,135 @@ def test_file_endpoint_accepts_paths_stored_relative_to_the_project_root(
     res = client.get("/console/api/file",
                      params={"path": "data/video_pipeline/run/video.mp4"})
     assert res.status_code == 200
+
+
+# ── 工具体检（P1）──────────────────────────────────────────
+
+
+def test_a_probe_that_explodes_still_names_itself(monkeypatch):
+    """探测器自己炸掉时，页面上要看到是哪一项炸了，不能显示成「未知检查」。"""
+    from xhs_manager.console import probes
+
+    def boom():
+        raise RuntimeError("网线被拔了")
+
+    p = probes._timed(("ffmpeg", "ffmpeg", boom))
+    assert p.key == "ffmpeg"
+    assert p.name == "ffmpeg"
+    assert p.status == "unknown"
+    assert "网线被拔了" in p.detail
+    assert p.fix                       # 要说清这是控制台的 bug，不是工具坏了
+
+
+def test_probes_are_sorted_by_severity(session_factory, settings, monkeypatch):
+    """不可用的排最上面——这是工具页存在的唯一意义。"""
+    from xhs_manager.console import probes
+
+    fake = [
+        probes.Probe("a", "正常项", "ok", ""),
+        probes.Probe("b", "坏掉的", "down", ""),
+        probes.Probe("c", "降级的", "degraded", ""),
+        probes.Probe("d", "说不准的", "unknown", ""),
+    ]
+    monkeypatch.setattr(probes, "_timed", lambda job: fake.pop(0) if fake else
+                        probes.Probe("z", "z", "ok", ""))
+    probes.reset_cache()
+
+    with session_factory() as s:
+        out = probes.run_all(s, _video_settings())
+
+    got = [p["status"] for p in out["probes"]]
+    assert got == sorted(got, key=lambda st: probes.SEVERITY[st])
+    assert got[0] == "down"
+
+
+def test_results_are_cached_and_refresh_bypasses_the_cache(session_factory, monkeypatch):
+    """连点刷新不该把 opencli 和各平台再打一遍。"""
+    from xhs_manager.console import probes
+
+    calls = {"n": 0}
+
+    def counted(job):
+        calls["n"] += 1
+        return probes.Probe("x", "x", "ok", "")
+
+    monkeypatch.setattr(probes, "_timed", counted)
+    probes.reset_cache()
+
+    with session_factory() as s:
+        first = probes.run_all(s, _video_settings())
+        after = calls["n"]
+        second = probes.run_all(s, _video_settings())
+        assert calls["n"] == after            # 命中缓存，没再探测
+        assert second["cached"] is True
+        assert first["cached"] is False
+
+        probes.run_all(s, _video_settings(), force=True)
+        assert calls["n"] > after             # force 绕过缓存
+
+
+def _video_settings():
+    from xhs_manager.video_pipeline.config import VideoPipelineSettings
+    return VideoPipelineSettings()
+
+
+def test_collect_backends_reports_degraded_when_a_platform_falls_back(monkeypatch):
+    """首选后端不可用、靠兜底跑起来的平台，要算「降级」而不是「正常」。"""
+    from xhs_manager.console import probes
+
+    chains = {
+        "bilibili": [("站内 API", True), ("索引", True)],          # 首选就通 → ok
+        "zhihu": [("cookie", False), ("索引", True)],              # 靠兜底 → degraded
+        "douyin": [("opencli", False), ("索引", False)],           # 全挂 → down
+    }
+    monkeypatch.setattr(
+        "xhs_manager.video_pipeline.integrations.collectors.probe_platform",
+        lambda p: chains[p],
+    )
+    settings = _video_settings()
+    settings.trend_platforms = list(chains)
+
+    p = probes.probe_collect_backends(settings)
+    assert p.status == "degraded"
+    assert p.facts["platforms"] == {"bilibili": "ok", "zhihu": "degraded", "douyin": "down"}
+    assert "site-login" in p.fix
+
+
+def test_collect_backends_is_down_only_when_nothing_works(monkeypatch):
+    from xhs_manager.console import probes
+
+    monkeypatch.setattr(
+        "xhs_manager.video_pipeline.integrations.collectors.probe_platform",
+        lambda p: [("任意后端", False)],
+    )
+    settings = _video_settings()
+    settings.trend_platforms = ["bilibili", "zhihu"]
+
+    assert probes.probe_collect_backends(settings).status == "down"
+
+
+@pytest.mark.parametrize("free_gb,expected", [(0.5, "down"), (3.0, "degraded"), (50.0, "ok")])
+def test_disk_thresholds(monkeypatch, tmp_path, free_gb, expected):
+    """渲染中间帧能占好几个 GB，空间见底要在成片失败之前就说。"""
+    import shutil as _shutil
+
+    from xhs_manager.console import probes
+
+    settings = _video_settings()
+    settings.output_base_dir = str(tmp_path)
+    monkeypatch.setattr(
+        _shutil, "disk_usage",
+        lambda p: type("U", (), {"free": int(free_gb * 1024 ** 3), "total": 0, "used": 0})(),
+    )
+    assert probes.probe_disk(settings).status == expected
+
+
+def test_tools_endpoint_returns_sorted_probes(client, monkeypatch):
+    from xhs_manager.console import probes
+
+    monkeypatch.setattr(probes, "_timed", lambda job: probes.Probe("x", "x", "ok", ""))
+    probes.reset_cache()
+
+    body = client.get("/console/api/tools").json()
+    assert body["counts"]["ok"] >= 1
+    assert all("elapsed_ms" in p for p in body["probes"])

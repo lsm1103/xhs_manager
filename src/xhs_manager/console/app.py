@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy.orm import Session
 
-from xhs_manager.console import queries
+from xhs_manager.console import probes, queries
 from xhs_manager.video_pipeline.config import get_video_settings
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -94,6 +94,13 @@ def create_console_router(get_session: Callable[[], Iterator[Session]]) -> APIRo
     @router.get("/api/runs")
     def api_runs(session: Session = Depends(get_session)) -> dict:
         return {"runs": queries.list_runs(session)}
+
+    @router.get("/api/tools")
+    def api_tools(
+        refresh: bool = Query(False, description="跳过缓存，强制重新探测"),
+        session: Session = Depends(get_session),
+    ) -> dict:
+        return probes.run_all(session, get_video_settings(), force=refresh)
 
     @router.get("/api/file")
     def api_file(path: str = Query(..., description="产物目录内的相对或绝对路径")) -> FileResponse:

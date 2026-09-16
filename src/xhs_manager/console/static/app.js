@@ -10,7 +10,7 @@ const nav = document.getElementById("nav");
 let view = "tasks";
 let taskId = null;
 let taskFilter = "all";
-let cache = { tasks: null, runs: null, task: {} };
+let cache = { tasks: null, runs: null, task: {}, tools: null };
 
 const BUCKETS = [
   ["act", "待处理"],
@@ -217,6 +217,38 @@ function renderRuns(runs) {
       <tbody>${rows}</tbody></table></div>`;
 }
 
+/* ── 工具体检 ── */
+const TOOL_TONE = { ok: "ok", degraded: "wait", down: "bad", unknown: "off" };
+const TOOL_LABEL = { ok: "正常", degraded: "降级", down: "不可用", unknown: "未知" };
+
+function renderTools(data) {
+  const { probes, counts } = data;
+
+  const rows = probes.map((p) => {
+    /* 采集后端链带 13 个平台的明细，摊开比一句「降级 2」有用 */
+    const chain = p.facts && p.facts.platforms
+      ? `<div class="chainlist">${Object.entries(p.facts.platforms)
+          .sort((a, b) => ["down", "degraded", "unknown", "ok"].indexOf(a[1])
+                        - ["down", "degraded", "unknown", "ok"].indexOf(b[1]))
+          .map(([name, st]) => `<span class="${st}">${esc(name)}</span>`).join("")}</div>`
+      : "";
+    return `<div class="tool ${p.status}">
+      <div class="n">${esc(p.name)} <span class="tag ${TOOL_TONE[p.status]}">${TOOL_LABEL[p.status]}</span></div>
+      <div><span class="x">${esc(p.detail)}</span>
+        ${p.fix ? `<span class="fix">→ ${esc(p.fix)}</span>` : ""}${chain}</div>
+      <div class="ms">${p.elapsed_ms} ms</div>
+    </div>`;
+  }).join("");
+
+  const bad = counts.down + counts.unknown;
+  return head("工具体检",
+      `${probes.length} 项 · 不可用 ${counts.down} · 降级 ${counts.degraded} · 正常 ${counts.ok}`
+      + (data.cached ? " · 缓存结果" : ` · 探测耗时 ${data.elapsed_ms}ms`),
+      `<button class="btn" id="recheck">重新体检</button>`) +
+    (bad ? "" : `<div class="ok-note">所有外部依赖正常。</div>`) +
+    `<div class="tools">${rows}</div>`;
+}
+
 /* ── 路由 ── */
 async function render() {
   const el = document.getElementById("main");
@@ -231,6 +263,9 @@ async function render() {
     } else if (view === "runs") {
       cache.runs = cache.runs || await api("/console/api/runs");
       el.innerHTML = renderRuns(cache.runs.runs);
+    } else if (view === "tools") {
+      cache.tools = cache.tools || await api("/console/api/tools");
+      el.innerHTML = renderTools(cache.tools);
     }
   } catch (e) {
     el.innerHTML = `<div class="banner"><div><div class="t">加载失败</div>
@@ -242,6 +277,12 @@ async function render() {
     const on = b.dataset.view === view || (view === "task" && b.dataset.view === "tasks");
     b.setAttribute("aria-current", on ? "page" : "false");
   });
+  if (cache.tools) {
+    const tb = document.getElementById("badge-tools");
+    const n = cache.tools.counts.down + cache.tools.counts.unknown;
+    tb.textContent = n;
+    tb.hidden = !n;
+  }
   if (cache.tasks) {
     const badge = document.getElementById("badge-act");
     const n = cache.tasks.counts.act + cache.tasks.counts.err;
@@ -263,7 +304,7 @@ function fromHash() {
   const m = /^#\/task\/(.+)$/.exec(location.hash);
   if (m) { view = "task"; taskId = m[1]; return; }
   const v = (location.hash || "#/tasks").slice(2);
-  view = ["tasks", "runs"].includes(v) ? v : "tasks";
+  view = ["tasks", "runs", "tools"].includes(v) ? v : "tasks";
   taskId = null;
 }
 
@@ -286,6 +327,15 @@ document.getElementById("main").addEventListener("click", (e) => {
 
   const tf = e.target.closest("[data-tf]");
   if (tf) { taskFilter = tf.dataset.tf; return render(); }
+
+  if (e.target.id === "recheck") {
+    e.target.textContent = "体检中…";
+    e.target.disabled = true;
+    cache.tools = null;
+    api("/console/api/tools?refresh=true")
+      .then((d) => { cache.tools = d; render(); })
+      .catch(() => render());
+  }
 });
 
 document.getElementById("main").addEventListener("keydown", (e) => {
