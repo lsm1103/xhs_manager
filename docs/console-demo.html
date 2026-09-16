@@ -269,13 +269,69 @@ td .meta { font-family: var(--mono); font-size: 10px; color: var(--dim); display
 .asset .row button { font-family: var(--mono); font-size: 10px; color: var(--dim); border: 1px solid var(--line); border-radius: 2px; padding: 2px 7px; }
 .asset .row button:hover { color: var(--ink); border-color: var(--dim); }
 
-/* ── 配置（只读）── */
+/* ── 配置（可写）── */
+.cfg-group { margin-bottom: 20px; }
+.cfg-group > h3 { font-size: 13px; font-weight: 600; margin: 0 0 2px; display: flex; align-items: center; gap: 9px; }
+.cfg-group > .gp { font-size: 11.5px; color: var(--dim); margin: 0 0 9px; }
 .cfg { border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--panel); }
-.cfg-row { display: grid; grid-template-columns: 148px 1fr; gap: 14px; padding: 10px 15px; border-bottom: 1px solid var(--line-2); align-items: baseline; }
+.cfg-group.danger .cfg { border-color: rgba(244,121,106,.35); }
+.cfg-row {
+  display: grid; grid-template-columns: 158px minmax(0, 1fr) 190px; gap: 16px;
+  padding: 11px 15px; border-bottom: 1px solid var(--line-2); align-items: center;
+}
 .cfg-row:last-child { border-bottom: none; }
+.cfg-row.dirty { background: rgba(61,220,151,.05); }
+.cfg-row.dirty .k::after { content: "●"; color: var(--acc); font-size: 8px; margin-left: 6px; vertical-align: 2px; }
 .cfg-row .k { font-size: 12.5px; font-weight: 500; }
-.cfg-row .v { font-family: var(--mono); font-size: 12px; color: var(--ink-2); min-width: 0; }
-.cfg-row .v em { font-style: normal; color: var(--dim); font-size: 11px; display: block; margin-top: 2px; line-height: 1.6; }
+.cfg-row .k em { font-style: normal; display: block; font-family: var(--mono); font-size: 10px; color: var(--dim); margin-top: 1px; }
+.cfg-row .ctl { min-width: 0; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.cfg-row .side { font-family: var(--mono); font-size: 10.5px; color: var(--dim); text-align: right; line-height: 1.5; }
+.cfg-row .side .was { color: var(--acc); }
+
+.cfg select, .cfg input[type="text"], .cfg input[type="number"] {
+  font-family: var(--mono); font-size: 12px;
+  background: var(--panel-2); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 3px; padding: 4px 8px;
+  min-width: 0; max-width: 100%;
+}
+.cfg select:hover, .cfg input:hover { border-color: var(--dim); }
+.cfg input[type="text"] { width: 100%; }
+.cfg input[type="number"] { width: 72px; }
+.cfg input[type="range"] { accent-color: var(--acc); width: 148px; max-width: 100%; }
+.cfg .unit { font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+.cfg .val { font-family: var(--mono); font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; min-width: 44px; }
+
+.sw { display: inline-flex; align-items: center; gap: 8px; }
+.sw .track { width: 34px; height: 18px; border-radius: 10px; background: var(--line); border: 1px solid var(--line); position: relative; flex: none; transition: background .12s; }
+.sw .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--dim); transition: transform .12s, background .12s; }
+.sw[aria-pressed="true"] .track { background: rgba(61,220,151,.28); border-color: var(--acc); }
+.sw[aria-pressed="true"] .track::after { transform: translateX(16px); background: var(--acc); }
+.sw .t { font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+.sw[aria-pressed="true"] .t { color: var(--acc); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chips button {
+  font-family: var(--mono); font-size: 11px; padding: 2px 8px;
+  border: 1px solid var(--line); border-radius: 2px; color: var(--dim);
+}
+.chips button:hover { border-color: var(--dim); color: var(--ink-2); }
+.chips button[aria-pressed="true"] { background: rgba(77,140,255,.14); border-color: rgba(77,140,255,.5); color: var(--acc-2); }
+
+/* 待保存条：改动先攒着，一次提交，避免误触 */
+.savebar {
+  position: sticky; bottom: 0; z-index: 30; margin-top: 18px;
+  background: var(--panel-2); border: 1px solid var(--acc); border-radius: 4px;
+  padding: 11px 15px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  box-shadow: 0 -6px 22px rgba(0,0,0,.45);
+}
+.savebar .n { font-size: 12.5px; font-weight: 600; }
+.savebar .d { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.savebar .acts { margin-left: auto; display: flex; gap: 8px; }
+
+.confirm { border: 1px solid rgba(244,121,106,.5); border-left: 3px solid var(--bad); background: rgba(244,121,106,.07); border-radius: 4px; padding: 12px 15px; margin-top: 10px; }
+.confirm .t { font-weight: 600; font-size: 13px; }
+.confirm .d { font-size: 12px; color: var(--ink-2); margin-top: 3px; line-height: 1.6; }
+.confirm .acts { display: flex; gap: 8px; margin-top: 10px; }
 
 /* ── 设计注记：明确标成注记，可关闭，不占黄金位置 ── */
 .memo {
@@ -532,15 +588,65 @@ const ASSET_GROUPS = [
     ]},
 ];
 
-const CONFIG = [
-  { k: "账号", v: "AI 工作流实验员 <span style='color:var(--dim)'>@ai-workflow-lab</span>", e: "策略版本 v3 · 2026-08-20 生效" },
-  { k: "采集平台", v: "10 个", e: "bilibili · v2ex · toutiao · baidu · wechat · zhihu · weibo · xiaohongshu · douyin · twitter" },
-  { k: "视频时长", v: "30 – 180s", e: "min_duration / max_duration" },
-  { k: "TTS", v: "edge · zh-CN-XiaoxiaoNeural · +25%", e: "逐场景合成，按句级时间标记对齐字幕" },
-  { k: "视觉主题", v: "tech_night", e: "另有 warm_paper · electric · 7 版面 × 10 转场" },
-  { k: "渲染", v: "1080×1920 @ 30fps", e: "Playwright 逐帧截图 + ffmpeg" },
-  { k: "发布", v: "小红书 · 草稿模式", e: "xhs_publish_mode = draft" },
-  { k: "调度", v: "每日 08:00", e: "UTC 00:00 · DailyScheduler" },
+/* 配置分组按「改了会发生什么」，不按字母。
+   每次运行都会 _snapshot_config()，所以改动只影响之后的运行，历史运行不受影响。 */
+const CFG_GROUPS = [
+  { id: "next", title: "下次运行生效", desc: "改完立即写入 .env，正在跑的运行不受影响——它用的是启动时的配置快照。" },
+  { id: "now",  title: "立刻生效", desc: "保存后马上作用于调度器与采集层。" },
+  { id: "risk", title: "危险区", desc: "这两项会让系统真的对外产生动作，切换需要二次确认。", danger: true },
+];
+
+const CFG_FIELDS = [
+  // ── 下次运行生效 ──
+  { g: "next", k: "视觉主题", env: "XHS_VIDEO_COMPOSITION_THEME", type: "select", val: "tech_night",
+    opts: [["tech_night", "tech_night"], ["warm_paper", "warm_paper"], ["electric", "electric"]],
+    side: "7 版面 × 10 转场" },
+  { g: "next", k: "TTS 提供方", env: "XHS_VIDEO_TTS_PROVIDER", type: "select", val: "edge",
+    opts: [["edge", "edge"], ["voxcpm", "voxcpm"], ["studio", "studio"]],
+    side: "studio 不可达时回落 edge" },
+  { g: "next", k: "音色", env: "XHS_VIDEO_TTS_VOICE", type: "select", val: "zh-CN-XiaoxiaoNeural",
+    opts: [["zh-CN-XiaoxiaoNeural", "晓晓 · 女"], ["zh-CN-XiaoyiNeural", "晓伊 · 女"],
+           ["zh-CN-YunxiNeural", "云希 · 男"], ["zh-CN-YunjianNeural", "云健 · 男"],
+           ["zh-CN-YunyangNeural", "云扬 · 男"]],
+    side: "edge 提供 8 个中文音色" },
+  { g: "next", k: "语速", env: "XHS_VIDEO_TTS_RATE", type: "range", val: 25, min: -20, max: 60, step: 5,
+    fmt: (v) => (v > 0 ? "+" : "") + v + "%", side: "+25% 时 2:36 的片子约 830 字" },
+  { g: "next", k: "视频时长", env: "MIN / MAX_DURATION", type: "range2", val: [30, 180], min: 15, max: 300, step: 15,
+    side: "脚本生成时的软约束" },
+  { g: "next", k: "每次产出", env: "XHS_VIDEO_TOPICS_PER_RUN", type: "number", val: 3, min: 1, max: 10,
+    unit: "条", side: "一次流水线跑几支片" },
+  { g: "next", k: "分辨率", env: "XHS_VIDEO_RENDER_RESOLUTION", type: "select", val: "1080x1920",
+    opts: [["1080x1920", "1080×1920 竖版"], ["1920x1080", "1920×1080 横版"], ["1080x1080", "1080×1080 方形"]],
+    side: "" },
+  { g: "next", k: "帧率", env: "XHS_VIDEO_RENDER_FPS", type: "number", val: 30, min: 24, max: 60, unit: "fps",
+    side: "2:36 @30fps = 4680 帧" },
+  { g: "next", k: "背景音乐", env: "XHS_VIDEO_BGM_ENABLED", type: "switch", val: true,
+    side: "曲库 62 首 · 6 种情绪" },
+
+  // ── 立刻生效 ──
+  { g: "now", k: "采集平台", env: "XHS_VIDEO_TREND_PLATFORMS", type: "chips",
+    val: ["bilibili", "v2ex", "toutiao", "baidu", "wechat", "zhihu", "weibo", "xiaohongshu", "douyin", "twitter"],
+    opts: ["bilibili", "v2ex", "toutiao", "baidu", "wechat", "zhihu", "weibo", "xiaohongshu", "douyin", "twitter", "juejin", "36kr", "web"],
+    side: "共 13 个可选" },
+  { g: "now", k: "采集关键词", env: "XHS_VIDEO_TREND_KEYWORDS", type: "text",
+    val: "AI,人工智能,大模型,AI工具,效率,自动化", side: "逗号分隔" },
+  { g: "now", k: "每平台条数", env: "XHS_VIDEO_TRENDS_PER_PLATFORM", type: "number", val: 20, min: 5, max: 50,
+    unit: "条", side: "平台 × 关键词 = 请求数" },
+  { g: "now", k: "带上平台热榜", env: "XHS_VIDEO_TREND_INCLUDE_HOT", type: "switch", val: false,
+    side: "定向调研时应关闭" },
+  { g: "now", k: "每日触发", env: "XHS_VIDEO_DAILY_TRIGGER_HOUR", type: "number", val: 0, min: 0, max: 23,
+    unit: "时 UTC", side: "0 = 北京 08:00" },
+
+  // ── 危险区 ──
+  { g: "risk", k: "小红书发布模式", env: "XHS_VIDEO_XHS_PUBLISH_MODE", type: "select", val: "draft",
+    opts: [["draft", "draft · 存草稿"], ["publish", "publish · 直接发布"]],
+    danger: { on: "publish", title: "切到 publish 之后，通过发布审批的内容会真的发到小红书",
+      body: "当前是 draft：只写进浏览器本地草稿箱，你还能在小红书 App 里检查一遍再发。切到 publish 后这一步消失。" },
+    side: "当前：不会真的发出去" },
+  { g: "risk", k: "自动流水线", env: "XHS_VIDEO_PIPELINE_ENABLED", type: "switch", val: false,
+    danger: { on: true, title: "打开后，每日定时会自动跑完整条流水线",
+      body: "包含采集、调 Claude API 生成脚本、下载素材、渲染。发布仍受发布模式和审批约束，但前面几步会自动消耗 API 额度和磁盘。" },
+    side: "关闭时只能手动触发" },
 ];
 
 /* ════════ 渲染 ════════ */
@@ -739,15 +845,101 @@ function viewTools() {
     `<div class="tools">${rows}</div>`;
 }
 
-/* ── 配置（只读）── */
+/* ── 配置（可写）── */
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const cfgDraft = {};   // env -> 待保存值
+let cfgPending = null; // 待确认的危险改动
+
+function cfgVal(f) { return f.env in cfgDraft ? cfgDraft[f.env] : f.val; }
+function cfgDirty() { return CFG_FIELDS.filter((f) => f.env in cfgDraft && !same(cfgDraft[f.env], f.val)); }
+
+function showVal(f, v) {
+  if (f.type === "switch") return v ? "开" : "关";
+  if (f.type === "range") return f.fmt(v);
+  if (f.type === "range2") return `${v[0]}–${v[1]}s`;
+  if (f.type === "chips") return `${v.length} 个`;
+  return String(v);
+}
+
+function control(f) {
+  const v = cfgVal(f), e = f.env;
+  switch (f.type) {
+    case "select":
+      return `<select data-cfg="${e}">${f.opts
+        .map(([k, l]) => `<option value="${k}"${k === v ? " selected" : ""}>${l}</option>`).join("")}</select>`;
+    case "switch":
+      return `<button class="sw" data-cfg="${e}" data-toggle="1" aria-pressed="${v}">
+        <span class="track"></span><span class="t">${v ? "开" : "关"}</span></button>`;
+    case "range":
+      return `<input type="range" data-cfg="${e}" min="${f.min}" max="${f.max}" step="${f.step}" value="${v}">
+        <span class="val">${f.fmt(v)}</span>`;
+    case "range2":
+      return `<input type="number" data-cfg="${e}" data-part="0" min="${f.min}" max="${f.max}" step="${f.step}" value="${v[0]}">
+        <span class="unit">–</span>
+        <input type="number" data-cfg="${e}" data-part="1" min="${f.min}" max="${f.max}" step="${f.step}" value="${v[1]}">
+        <span class="unit">秒</span>`;
+    case "number":
+      return `<input type="number" data-cfg="${e}" min="${f.min}" max="${f.max}" value="${v}">
+        ${f.unit ? `<span class="unit">${f.unit}</span>` : ""}`;
+    case "text":
+      return `<input type="text" data-cfg="${e}" value="${esc(v)}">`;
+    case "chips":
+      return `<div class="chips">${f.opts.map((o) =>
+        `<button data-cfg="${e}" data-chip="${o}" aria-pressed="${v.includes(o)}">${o}</button>`).join("")}</div>`;
+  }
+  return "";
+}
+
 function viewConfig() {
-  const rows = CONFIG.map((c) => `
-    <div class="cfg-row"><div class="k">${esc(c.k)}</div>
-      <div class="v">${c.v}<em>${esc(c.e)}</em></div></div>`).join("");
-  return head("配置", "只读快照 · 来自 .env 与 video_pipeline/config.py") +
-    memo("config", `这一页<b>只读</b>。改配置仍然走 <code>.env</code> 和 CLI——
-      控制台不做配置编辑器，避免出现"界面改了一套、文件里还是另一套"。`) +
-    `<div class="cfg">${rows}</div>`;
+  const dirty = cfgDirty();
+  const dirtyEnv = new Set(dirty.map((f) => f.env));
+
+  const groups = CFG_GROUPS.map((g) => {
+    const rows = CFG_FIELDS.filter((f) => f.g === g.id).map((f) => {
+      const changed = dirtyEnv.has(f.env);
+      const side = changed
+        ? `<span class="was">${showVal(f, f.val)} → ${showVal(f, cfgVal(f))}</span>`
+        : esc(f.side || "");
+      return `<div class="cfg-row${changed ? " dirty" : ""}">
+        <div class="k">${esc(f.k)}<em>${esc(f.env)}</em></div>
+        <div class="ctl">${control(f)}</div>
+        <div class="side">${side}</div>
+      </div>`;
+    }).join("");
+    // 确认块紧跟在被改的那一项下面，而不是丢到页面顶部——
+    // 否则你在页尾扳了开关，确认框出现在你看不见的地方
+    const ask = cfgPending && cfgPending.f.g === g.id ? `<div class="confirm">
+        <div class="t">${esc(cfgPending.d.title)}</div>
+        <div class="d">${esc(cfgPending.d.body)}</div>
+        <div class="acts">
+          <button class="btn danger" data-cfg-confirm="1">我确认，改成 ${showVal(cfgPending.f, cfgPending.v)}</button>
+          <button class="btn" data-cfg-cancel="1">取消</button>
+        </div></div>` : "";
+
+    return `<section class="cfg-group${g.danger ? " danger" : ""}">
+      <h3>${g.title}${g.danger ? ' <span class="tag bad">需二次确认</span>' : ""}</h3>
+      <p class="gp">${g.desc}</p>
+      <div class="cfg">${rows}</div>
+      ${ask}
+    </section>`;
+  }).join("");
+
+  const confirm = "";
+
+  const bar = dirty.length ? `<div class="savebar">
+      <div><div class="n">${dirty.length} 项改动待保存</div>
+        <div class="d">${dirty.map((f) => f.k).join(" · ")}</div></div>
+      <div class="acts">
+        <button class="btn" data-cfg-discard="1">放弃</button>
+        <button class="btn primary" data-cfg-save="1">写入 .env</button>
+      </div></div>` : "";
+
+  return head("配置", "来自 .env 与 video_pipeline/config.py · 可写",
+      `<button class="btn">查看运行快照</button>`) +
+    memo("config", `改动<b>不会影响已经跑过的运行</b>——每次运行启动时都会
+      <code>_snapshot_config()</code> 存一份当时的配置，历史运行按各自的快照回溯。
+      所以这一页可以放心改。危险项单独分区并要求二次确认。`) +
+    confirm + groups + bar;
 }
 
 /* ── 路由 ── */
@@ -793,7 +985,73 @@ main.addEventListener("click", (e) => {
   if (e.target.id === "recheck") {
     e.target.textContent = "体检中…"; e.target.disabled = true;
     setTimeout(render, 700);
+    return;
   }
+
+  /* ── 配置页 ── */
+  if (e.target.closest("[data-cfg-discard]")) {
+    Object.keys(cfgDraft).forEach((k) => delete cfgDraft[k]);
+    cfgPending = null; return render();
+  }
+  if (e.target.closest("[data-cfg-save]")) {
+    cfgDirty().forEach((f) => { f.val = cfgDraft[f.env]; });
+    Object.keys(cfgDraft).forEach((k) => delete cfgDraft[k]);
+    return render();
+  }
+  if (e.target.closest("[data-cfg-cancel]")) { cfgPending = null; return render(); }
+  if (e.target.closest("[data-cfg-confirm]")) {
+    cfgDraft[cfgPending.f.env] = cfgPending.v; cfgPending = null; return render();
+  }
+
+  const chip = e.target.closest("[data-chip]");
+  if (chip) {
+    const f = CFG_FIELDS.find((x) => x.env === chip.dataset.cfg);
+    const cur = [...cfgVal(f)], o = chip.dataset.chip;
+    const i = cur.indexOf(o);
+    i === -1 ? cur.push(o) : cur.splice(i, 1);
+    cfgDraft[f.env] = cur; return render();
+  }
+
+  const tog = e.target.closest("[data-toggle]");
+  if (tog) {
+    const f = CFG_FIELDS.find((x) => x.env === tog.dataset.cfg);
+    const next = !cfgVal(f);
+    if (f.danger && next === f.danger.on) { cfgPending = { f, v: next, d: f.danger }; return render(); }
+    cfgDraft[f.env] = next; return render();
+  }
+});
+
+/* 配置控件的值变化 */
+main.addEventListener("input", (e) => {
+  const el = e.target.closest("[data-cfg]");
+  if (!el || el.dataset.toggle || el.dataset.chip) return;
+  const f = CFG_FIELDS.find((x) => x.env === el.dataset.cfg);
+  if (!f) return;
+
+  if (f.type === "range2") {
+    const cur = [...cfgVal(f)];
+    cur[+el.dataset.part] = +el.value;
+    if (cur[0] >= cur[1]) return;          // 最短不能大于等于最长
+    cfgDraft[f.env] = cur;
+    return render();
+  }
+
+  let v = el.type === "number" || f.type === "range" ? +el.value : el.value;
+  if (f.danger && v === f.danger.on) { cfgPending = { f, v, d: f.danger }; el.value = f.val; return render(); }
+
+  cfgDraft[f.env] = v;
+  if (f.type === "range") {                // 拖动时只更新数字，不整页重渲，否则滑块会掉焦
+    const lab = el.parentElement.querySelector(".val");
+    if (lab) lab.textContent = f.fmt(v);
+    return;
+  }
+  render();
+});
+
+/* 滑块松手后再整页重渲，把「旧 → 新」和待保存条刷出来 */
+main.addEventListener("change", (e) => {
+  const el = e.target.closest('input[type="range"][data-cfg]');
+  if (el) render();
 });
 
 main.addEventListener("keydown", (e) => {
