@@ -193,6 +193,14 @@ class AutomationScope(str, Enum):
 STEP_SCOPE = {
     "collect_research": AutomationScope.RESEARCH,
     "produce_content": AutomationScope.PRODUCTION,
+    # 视频流水线的六个阶段。归到已有的作用域里，
+    # 这样「暂停自动化」对视频线同样生效，不需要另造一套开关。
+    "video_collect": AutomationScope.RESEARCH,
+    "video_select": AutomationScope.PRODUCTION,
+    "video_materialize": AutomationScope.PRODUCTION,
+    "video_compose": AutomationScope.PRODUCTION,
+    "video_render": AutomationScope.PRODUCTION,
+    "video_publish": AutomationScope.PUBLISHING,
     "prepare_publication": AutomationScope.PUBLISHING,
     "publish_content": AutomationScope.PUBLISHING,
     "collect_comments": AutomationScope.COMMENTS,

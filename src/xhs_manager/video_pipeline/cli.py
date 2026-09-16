@@ -250,6 +250,87 @@ def cmd_xhs_check(args) -> None:
     sys.exit(0 if alive else 1)
 
 
+def cmd_worker(args) -> None:
+    """常驻 worker：从队列里领视频阶段来跑。
+
+    和 `run` 的区别是全部的区别：run 是 CLI 同步跑完六个阶段，
+    进程一挂就断在半路；worker 是一次领一个阶段，失败自动重试，
+    重启后从队列里接着来。
+    """
+    from xhs_manager.video_pipeline import steps
+    from xhs_manager.worker import Worker
+
+    settings = get_video_settings()
+    factory = build_session_factory()
+    handlers = steps.make_handlers(factory, settings)
+
+    worker = Worker(
+        factory,
+        handlers,
+        worker_id=args.worker_id,
+        poll_seconds=args.poll,
+        step_lease_seconds=steps.STEP_LEASE_SECONDS,
+    )
+    logging.getLogger(__name__).info(
+        "worker 启动: %s · 支持步骤 %s", worker.worker_id, ", ".join(sorted(handlers)),
+    )
+    if args.once:
+        handled = worker.run_once()
+        print("处理了一个工作项" if handled else "队列为空")
+        return
+    worker.run_forever()
+
+
+def cmd_produce(args) -> None:
+    """把某个任务交给队列去生产。不阻塞——交完就返回，由 worker 去跑。"""
+    from xhs_manager.models import ContentTask
+    from xhs_manager.video_pipeline import steps
+    from xhs_manager.video_pipeline.domain import PipelineStatus
+
+    with build_session_factory()() as session:
+        task = session.get(ContentTask, args.task)
+        if task is None:
+            print(f"任务不存在: {args.task}")
+            sys.exit(1)
+
+        topic = steps._topic_for_task(session, task.id)
+        if topic is None:
+            print("这个任务没有关联的视频选题；先用 adopt 认领，或用 seed 造一个")
+            sys.exit(1)
+
+        stage = (PipelineStatus(args.stage) if args.stage
+                 else steps._resume_stage(session, topic.pipeline_run_id))
+        if stage is None:
+            print("这条运行已经跑完了")
+            return
+
+        item = steps.enqueue_stage(
+            session, task=task, run_id=topic.pipeline_run_id, stage=stage,
+        )
+        session.commit()
+        print(f"已入队 {item.step_type}（run {topic.pipeline_run_id[:8]}，"
+              f"最多重试 {item.max_attempts} 次）")
+        print("启动 worker 来跑：python -m xhs_manager.video_pipeline.cli worker")
+
+
+def cmd_queue(args) -> None:
+    """看队列里有什么。"""
+    from xhs_manager.models import WorkItem
+
+    with build_session_factory()() as session:
+        items = (session.query(WorkItem)
+                 .order_by(WorkItem.created_at.desc()).limit(args.limit).all())
+        if not items:
+            print("队列为空")
+            return
+        print(f"{'步骤':<20}{'状态':<11}{'尝试':<7}{'任务':<10}{'错误'}")
+        print("-" * 96)
+        for i in items:
+            err = (i.error_detail or "")[:40]
+            print(f"{i.step_type:<20}{i.status:<11}{i.attempt}/{i.max_attempts:<5}"
+                  f"{i.task_id[:8]:<10}{err}")
+
+
 def cmd_adopt(args) -> None:
     """把视频选题认领进内容任务模型。
 
@@ -482,6 +563,24 @@ def main() -> None:
     ul = subparsers.add_parser("unlink", help="撤销视频选题的任务归属")
     ul.add_argument("topic", help="视频选题 ID")
     ul.set_defaults(func=cmd_unlink)
+
+    # worker
+    wk = subparsers.add_parser("worker", help="常驻 worker，从队列领视频阶段来跑")
+    wk.add_argument("--once", action="store_true", help="只领一个工作项就退出")
+    wk.add_argument("--poll", type=float, default=2.0, help="队列为空时的轮询间隔（秒）")
+    wk.add_argument("--worker-id", help="worker 标识，默认随机")
+    wk.set_defaults(func=cmd_worker)
+
+    # produce
+    pr = subparsers.add_parser("produce", help="把某个任务交给队列去生产")
+    pr.add_argument("task", metavar="TASK_ID", help="内容任务 ID")
+    pr.add_argument("--stage", help="从这个阶段开始，默认按运行当前状态续跑")
+    pr.set_defaults(func=cmd_produce)
+
+    # queue
+    qu = subparsers.add_parser("queue", help="查看工作队列")
+    qu.add_argument("-n", "--limit", type=int, default=20, help="显示条数")
+    qu.set_defaults(func=cmd_queue)
 
     # collect-doctor
     cd_parser = subparsers.add_parser(
