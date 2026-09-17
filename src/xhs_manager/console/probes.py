@@ -142,25 +142,31 @@ def probe_tts_providers(settings) -> Probe:
 
 
 def probe_tts_studio(settings) -> Probe:
-    """TTS Studio 是独立进程（模型常驻），这里只聚合它的状态，不代管它的生命周期。"""
+    """配音服务。已并入主进程的 /tts，但重模型仍跑在各自的子进程里。"""
     import httpx
 
-    url = getattr(settings, "tts_studio_url", "http://127.0.0.1:8420").rstrip("/")
+    url = getattr(settings, "tts_studio_url", "http://127.0.0.1:8000/tts").rstrip("/")
     try:
         r = httpx.get(f"{url}/api/models", timeout=2.0)
         models = r.json()
     except Exception as e:
-        return Probe("tts_studio", "TTS Studio", "down",
+        return Probe("tts_studio", "配音服务", "down",
                      f"{url} 连接不上（{type(e).__name__}）· 已回落 edge-tts",
-                     fix="python -m xhs_manager.tts_studio.app",
+                     fix="确认主服务在跑：uvicorn xhs_manager.api:app",
                      facts={"url": url})
 
     if isinstance(models, dict):
         models = models.get("models", [])
-    loaded = [m.get("id") or m.get("name") for m in models if m.get("loaded")] if models else []
-    return Probe("tts_studio", "TTS Studio", "ok",
-                 f"{len(models)} 个模型 · 已加载 {len(loaded) or 0}",
-                 facts={"url": url, "models": models, "loaded": loaded})
+    # 注册表报的是 status，不是 loaded——原来按 loaded 取，永远是 0
+    ready = [m.get("id") for m in models if m.get("status") == "ready"]
+    heavy = [m.get("id") for m in models if m.get("resident") and m.get("status") == "ready"]
+    detail = f"{len(models)} 个模型 · 就绪 {len(ready)}"
+    if heavy:
+        detail += f"（常驻 {'、'.join(heavy)}）"
+    return Probe("tts_studio", "配音服务", "ok" if ready else "degraded",
+                 detail if ready else f"{len(models)} 个模型都没加载 · 生成前要先加载",
+                 fix="" if ready else "在控制台「配音」页点加载",
+                 facts={"url": url, "models": models, "ready": ready})
 
 
 def probe_moneyprinter(settings) -> Probe:

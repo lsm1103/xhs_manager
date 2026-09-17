@@ -5,6 +5,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -424,3 +425,36 @@ class SystemPause(Base):
     requires_manual_resume: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     resumed_by: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     resumed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class TtsGeneration(Base):
+    """一次配音生成记录。
+
+    原来住在 data/tts_studio.db 里。搬进主库是「合并成一个系统」的一部分：
+    配音是内容生产的一环，它的历史应该和任务、成片在同一个地方查。
+    """
+
+    __tablename__ = "tts_generations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    model_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+
+    voice: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    ref_audio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    params: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+    audio_path: Mapped[str] = mapped_column(Text, nullable=False)
+    duration: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    elapsed: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    rtf: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    sample_rate: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    file_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # 波形峰值（下采样后的 JSON 数组）。存下来前端直接画，
+    # 不用每次重新解码音频。
+    waveform: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="ok")
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

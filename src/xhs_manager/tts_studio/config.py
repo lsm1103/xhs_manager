@@ -1,4 +1,7 @@
-"""TTS Studio 配置。"""
+"""配音模型的配置：各模型的路径、产物目录、开机自动加载哪些。
+
+服务本身的配置（端口、数据库）不在这里——配音已经并入主服务。
+"""
 
 from pathlib import Path
 
@@ -12,10 +15,9 @@ AI_ROOT = PROJECT_ROOT.parent
 class StudioSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="TTS_STUDIO_", extra="ignore")
 
-    host: str = "127.0.0.1"
-    port: int = 8420
-
-    db_path: str = "data/tts_studio.db"
+    # 不再有 host/port/db_path：配音已经并进主服务（/tts），
+    # 历史记录也搬进了主库的 tts_generations 表。
+    # 留下的只是模型路径和产物目录。
     audio_dir: str = "data/tts_studio/audio"
     upload_dir: str = "data/tts_studio/refs"
 

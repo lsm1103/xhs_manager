@@ -1,5 +1,7 @@
 import hashlib
 import json
+import logging
+import threading
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
@@ -79,6 +81,10 @@ from xhs_manager.services import (
     set_pause,
     write_research_signal,
 )
+from xhs_manager.tts_studio.api import create_tts_router
+from xhs_manager.tts_studio.config import get_settings as get_tts_settings
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(
@@ -133,12 +139,66 @@ def create_app(
     # 控制台：本机运维视图，挂在同一个进程下。
     # 它只读，且不走 require_internal_token——鉴权靠「只绑回环地址」。
     app.include_router(create_console_router(get_session))
+
+    @app.middleware("http")
+    async def _no_store_console(request: Request, call_next):
+        """控制台的页面和脚本一律不缓存。
+
+        本机运维界面，省不下这点带宽；而缓存住一份旧 app.js 的代价是
+        改完界面看不到变化，甚至点到已经不存在的按钮。
+        """
+        response = await call_next(request)
+        if request.url.path.startswith("/console"):
+            response.headers["Cache-Control"] = "no-store, must-revalidate"
+        return response
+
     if CONSOLE_STATIC.is_dir():
         app.mount(
             "/console/static",
             StaticFiles(directory=str(CONSOLE_STATIC)),
             name="console-static",
         )
+
+    # 配音：原来是 :8420 上的独立服务，现在是这个进程里的 /tts。
+    tts_router = create_tts_router(get_session)
+    app.include_router(tts_router)
+    app.state.tts_registry = tts_router.registry
+
+    @app.on_event("startup")
+    def _autoload_tts_models() -> None:
+        """按配置预热配音模型，但绝不阻塞启动。
+
+        edge 只是一个 import 检查，毫秒级；indextts2 要 54 秒。
+        放在后台线程里，服务照常起来，模型就绪后界面自然显示为已加载。
+        """
+        registry = app.state.tts_registry
+        wanted = [m.strip() for m in get_tts_settings().autoload if m.strip()]
+        if not wanted:
+            return
+
+        def _warm() -> None:
+            for model_id in wanted:
+                try:
+                    registry.load(model_id)
+                except Exception:      # noqa: BLE001 - 预热失败不该影响服务
+                    logger.warning("预热配音模型 %s 失败", model_id, exc_info=True)
+
+        threading.Thread(target=_warm, name="tts-autoload", daemon=True).start()
+
+    @app.on_event("shutdown")
+    def _release_tts_models() -> None:
+        """退出前卸载常驻模型。
+
+        重模型跑在子进程里，本进程只握着管道。不主动卸载的话，
+        服务一停它们就变成没人认领的孤儿——每个几个 GB，
+        而且下次启动还会再起一份。
+        """
+        for state in app.state.tts_registry.states.values():
+            if state.proc is not None:
+                try:
+                    app.state.tts_registry.unload(state.spec.id)
+                except Exception:      # noqa: BLE001 - 关停路径上不让异常挡住退出
+                    logger.warning("卸载 %s 失败", state.spec.id, exc_info=True)
 
     @app.get("/health/live")
     def live() -> dict[str, str]:

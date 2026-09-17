@@ -64,7 +64,8 @@ class VideoPipelineSettings(BaseSettings):
 
     # tts_provider=studio 时走 TTS Studio 服务（模型常驻，免每条片子重复加载）。
     # 服务不可达或模型未 ready 会自动回落到 edge。
-    tts_studio_url: str = "http://127.0.0.1:8420"
+    # 配音已并入主服务：同一个进程的 /tts，不再是 :8420 上的独立服务
+    tts_studio_url: str = "http://127.0.0.1:8000/tts"
     tts_studio_model: str = "indextts2"
     tts_studio_ref: str = ""                    # data/tts_studio/refs/ 下的文件名
     tts_studio_emotion: str = ""                # 留空则按场景 bgm_mood 映射

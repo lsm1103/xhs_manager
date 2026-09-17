@@ -147,7 +147,13 @@ class StudioTtsProvider(TtsProvider):
         body = json.dumps(payload).encode()
         r = urllib.request.Request(
             self.base_url + path, data=body,
-            headers={"Content-Type": "application/json"}, method="POST",
+            headers={
+                "Content-Type": "application/json",
+                # /tts 的写接口要求这个头（挡浏览器跨源驱动）。
+                # 服务端到服务端的调用不受影响，带上就行。
+                "X-Console-Action": "pipeline",
+            },
+            method="POST",
         )
         with urllib.request.urlopen(r, timeout=self.timeout) as resp:
             return json.loads(resp.read())

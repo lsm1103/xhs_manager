@@ -56,7 +56,7 @@ publication plans / tasks / approvals / audit logs` 共 20 张表，26 个 API �
 这是另一条产品线（图文内容运营），和视频工厂目前**没有打通**。
 本设计**不把它纳入第一期**——理由见第 6 节。
 
-### C. TTS Studio — **已经有界面**，端口 8420
+### C. TTS Studio — 原来是端口 8420 的独立界面，现已并入控制台「配音」页
 
 独立 FastAPI + 静态页（`index.html` 103 行 + `app.js` 237 行 + `style.css` 63 行）。
 模型加载/卸载、生成试听、历史、参考音色上传、A/B 对比。
@@ -76,7 +76,7 @@ publication plans / tasks / approvals / audit logs` 共 20 张表，26 个 API �
    如果有一个页面并排显示「脚本声明时长 / 实际语音时长 / 组合里的场景起点」，
    一眼就能看出 195 ≠ 168。
 3. **工具健康度分散在五个地方。** opencli 扩展（`opencli doctor`）、
-   TTS Studio（curl 8420）、MoneyPrinterTurbo（看路径）、ffmpeg（看能力）、
+   配音服务（/tts/api/models）、MoneyPrinterTurbo（看路径）、ffmpeg（看能力）、
    Chrome profile（看目录）、人脸模型（看是否下载）、搜索引擎是否被风控（跑一次才知道）。
    出问题时要挨个手查。
 4. **产物找不到。** 成片、封面、旁白分段、字幕、`composition/index.html`
@@ -147,7 +147,7 @@ publication plans / tasks / approvals / audit logs` 共 20 张表，26 个 API �
 | opencli 扩展 | `opencli doctor` | ✅ |
 | 搜索引擎是否被风控 | `_SEARCH_STATE` | ✅ 本轮新增 |
 | TTS 提供方 | `registry.build_providers()` + available() | ✅ |
-| TTS Studio 服务 | HTTP 8420 | ✅ |
+| 配音服务 | 同进程 /tts | ✅ |
 | MoneyPrinterTurbo | 路径 + config.toml 里的 pexels key | ✅ |
 | ffmpeg / ffprobe | 能力探测（非文件存在性） | ✅ |
 | Chrome profile 登录态 | `xhs-check` / `site-login` 状态 | ✅ |
@@ -183,7 +183,7 @@ TTS Studio 用 403 行 vanilla 代码做出了可用界面；
 | 服务 | 端口 | 说明 |
 |---|---|---|
 | 主业务 API | 8000 | 已有，对外，带 token 鉴权 |
-| TTS Studio | 8420 | 已有，模型常驻，独立生命周期 |
+| 配音 | 同进程 /tts | 已合并；重模型仍在各自子进程里 |
 | **控制台** | **8500** | 新增，只绑 `127.0.0.1` |
 
 独立进程而不是挂进 `api.py`：主 API 是业务接口，有鉴权和审计；

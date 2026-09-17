@@ -12,8 +12,9 @@ let view = "tasks";
 let taskId = null;
 let taskFilter = "all";
 let cache = { tasks: null, runs: null, task: {}, tools: null,
-              signals: null, assets: null };
+              signals: null, assets: null, tts: null };
 let sigPlatform = "all";
+let ttsModel = null;          // 生成表单当前选的模型
 
 const BUCKETS = [
   ["act", "待处理"],
@@ -80,6 +81,20 @@ async function post(path, body) {
   try { data = await res.json(); } catch (_) { /* 空响应体 */ }
   if (!res.ok) throw new Error(data.detail || `请求失败（${res.status}）`);
   return data;
+}
+
+async function del(path) {
+  const headers = { "X-Console-Action": "1" };
+  let tok = null;
+  try { tok = localStorage.getItem(TOKEN_KEY); } catch (_) { /* 隐私模式 */ }
+  if (tok) headers["X-Console-Token"] = tok;
+  const res = await fetch(path, { method: "DELETE", headers });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try { detail = (await res.json()).detail || detail; } catch (_) { /* 空响应体 */ }
+    throw new Error(detail);
+  }
+  return res.json();
 }
 
 /* 本地时间 → datetime-local 的值。排期输入框用本人所在时区，
@@ -396,6 +411,147 @@ function renderAssets(data) {
 }
 
 /* ── 工具体检 ── */
+/* ── 配音 ──
+   四个模型的加载语义本来就不一样，界面上如实区分而不是抹平：
+   edge 无模型（可用性检查），voxcpm2 每次调用自行加载，
+   indextts2/omnivoice 是常驻子进程——卸载是真的杀进程。 */
+
+const KIND_CN = { stateless: "云端", cli: "命令行", worker: "常驻进程" };
+const TTS_TONE = { ready: "ok", loading: "run", error: "bad", unloaded: "off" };
+const TTS_LABEL = { ready: "就绪", loading: "加载中", error: "出错", unloaded: "未加载" };
+
+/* 波形：库里存的是下采样后的峰值，直接画成竖条，不用重新解码音频 */
+function waveform(peaks) {
+  if (!peaks || !peaks.length) return "";
+  const step = Math.max(1, Math.floor(peaks.length / 180));
+  const bars = [];
+  for (let i = 0; i < peaks.length; i += step) {
+    const h = Math.max(2, Math.round(peaks[i] * 100));
+    bars.push(`<i style="height:${h}%"></i>`);
+  }
+  return `<div class="wave">${bars.join("")}</div>`;
+}
+
+function ttsModelCard(m) {
+  const tone = TTS_TONE[m.status] || "off";
+  const caps = [
+    m.supports_voice ? "预置音色" : null,
+    m.supports_ref ? "音色克隆" : null,
+    m.supports_emotion ? "情感控制" : null,
+  ].filter(Boolean);
+  const busy = m.status === "loading";
+  const btn = m.status === "ready"
+    ? `<button class="btn tiny danger" data-tts="unload" data-model="${esc(m.id)}"
+         data-confirm="${m.resident ? "确认杀进程？" : "确认卸载？"}">卸载</button>`
+    : `<button class="btn tiny" data-tts="load" data-model="${esc(m.id)}"
+         ${busy ? "disabled" : ""}>${busy ? "加载中…" : "加载"}</button>`;
+  return `<div class="mcard${m.status === "ready" ? " on" : ""}">
+    <div class="mtop">
+      <span class="mname">${esc(m.name)}</span>
+      <span class="tag ${tone}">${TTS_LABEL[m.status] || esc(m.status)}</span>
+    </div>
+    <div class="mmeta">${KIND_CN[m.kind] || esc(m.kind)}${
+      m.resident ? " · 常驻" : ""}${
+      m.load_elapsed ? ` · 加载 ${m.load_elapsed}s` : ""}${
+      caps.length ? " · " + caps.join(" / ") : ""}</div>
+    <div class="mnote">${esc(m.note)}</div>
+    ${m.error ? `<div class="merr">${esc(m.error)}</div>` : ""}
+    <div class="macts">${btn}</div>
+  </div>`;
+}
+
+function ttsForm(models, refs) {
+  const ready = models.filter((m) => m.status === "ready");
+  if (!ready.length) {
+    return `<section class="block"><h3>生成</h3>
+      <p class="prose dim">还没有就绪的模型。先在上面加载一个——
+        edge 是云端服务，秒开；indextts2 要 54 秒，但加载后常驻。</p></section>`;
+  }
+  const cur = ready.find((m) => m.id === ttsModel) || ready[0];
+  ttsModel = cur.id;
+
+  const voice = cur.supports_voice && cur.voices.length
+    ? `<label>音色<select id="tts-voice">${cur.voices.map((v) =>
+        `<option value="${esc(v)}">${esc(v.replace("zh-CN-", "").replace("Neural", ""))}</option>`
+      ).join("")}</select></label>` : "";
+  const ref = cur.supports_ref
+    ? `<label>参考音色${cur.id === "indextts2" ? "（必填）" : ""}
+        <select id="tts-ref"><option value="">${
+          cur.id === "indextts2" ? "— 请选择 —" : "不使用"}</option>${
+          refs.map((r) => `<option value="${esc(r.name)}">${esc(r.name)}${
+            r.duration ? ` · ${r.duration.toFixed(1)}s` : ""}</option>`).join("")
+        }</select></label>` : "";
+  const emo = cur.supports_emotion && cur.emotions.length
+    ? `<label>情感<select id="tts-emo"><option value="">不指定</option>${
+        cur.emotions.map((e) => `<option value="${esc(e)}">${esc(e)}</option>`).join("")
+      }</select></label>` : "";
+  const instruct = cur.id === "voxcpm2" || cur.id === "omnivoice"
+    ? `<label>指令<input id="tts-instruct" placeholder="如：语气轻快的女声"></label>` : "";
+
+  return `<section class="block"><h3>生成</h3>
+    <div class="sched">
+      <label>模型<select id="tts-pick">${ready.map((m) =>
+        `<option value="${esc(m.id)}"${m.id === cur.id ? " selected" : ""}>${esc(m.name)}</option>`
+      ).join("")}</select></label>
+      ${voice}${ref}${emo}${instruct}
+      <label>语速<input id="tts-speed" type="number" step="0.05" min="0.5" max="2" value="1"></label>
+    </div>
+    <textarea id="tts-text" class="ttstext" rows="3"
+      placeholder="要合成的文本…"></textarea>
+    <div class="acts"><button class="btn primary" id="tts-go">生成</button></div>
+  </section>`;
+}
+
+function renderTts(data) {
+  const { models, items, refs } = data;
+  const ready = models.filter((m) => m.status === "ready").length;
+  const secs = items.reduce((a, b) => a + (b.duration || 0), 0);
+
+  const rows = items.map((g) => {
+    const bad = g.status !== "ok";
+    const stats = [
+      g.duration ? `${g.duration.toFixed(1)}s` : null,
+      g.elapsed ? `耗时 ${g.elapsed}s` : null,
+      g.rtf ? `RTF ${g.rtf}` : null,
+      g.sample_rate ? `${(g.sample_rate / 1000).toFixed(1)}kHz` : null,
+      g.ref_audio ? `参考 ${esc(g.ref_audio)}` : null,
+      g.voice ? esc(g.voice.replace("zh-CN-", "")) : null,
+    ].filter(Boolean).join(" · ");
+    return `<div class="gen${bad ? " failed" : ""}">
+      <div class="gtop">
+        <span class="tag ${bad ? "bad" : "vid"}">${esc(g.model_id)}</span>
+        <span class="gtime">${ago(g.created_at)}</span>
+        <button class="btn tiny danger" data-tts="drop" data-gen="${esc(g.id)}"
+          data-confirm="确认删除？">删除</button>
+      </div>
+      <div class="gtext">${esc(g.text)}</div>
+      ${bad ? `<div class="merr">${esc(g.error || "生成失败")}</div>`
+            : `${waveform(g.waveform)}
+               <audio src="/tts${esc(g.audio_url)}" controls preload="none"></audio>`}
+      <div class="gmeta">${stats}</div>
+    </div>`;
+  }).join("");
+
+  return head("配音",
+    `${models.length} 个模型 · 就绪 ${ready} · 历史 ${items.length} 条 · 合计 ${
+      Math.round(secs)}s`,
+    `<button class="btn" id="tts-refresh">刷新</button>`) +
+    `<div class="actmsg" id="actmsg" hidden></div>` +
+    `<section class="block"><h3>模型</h3>
+      <div class="mcards">${models.map(ttsModelCard).join("")}</div></section>` +
+    ttsForm(models, refs) +
+    `<section class="block"><h3>历史 <span class="cnt">${items.length}</span></h3>
+      ${items.length ? `<div class="gens">${rows}</div>`
+        : `<p class="prose dim">还没有生成记录。</p>`}</section>`;
+}
+
+async function loadTts() {
+  const [models, gens, refs] = await Promise.all([
+    api("/tts/api/models"), api("/tts/api/generations?limit=40"), api("/tts/api/refs"),
+  ]);
+  return { models: models.models, items: gens.items, refs: refs.items };
+}
+
 const TOOL_TONE = { ok: "ok", degraded: "wait", down: "bad", unknown: "off" };
 const TOOL_LABEL = { ok: "正常", degraded: "降级", down: "不可用", unknown: "未知" };
 
@@ -447,6 +603,9 @@ async function render() {
     } else if (view === "assets") {
       cache.assets = cache.assets || await api("/console/api/assets");
       el.innerHTML = renderAssets(cache.assets);
+    } else if (view === "tts") {
+      cache.tts = cache.tts || await loadTts();
+      el.innerHTML = renderTts(cache.tts);
     } else if (view === "tools") {
       cache.tools = cache.tools || await api("/console/api/tools");
       el.innerHTML = renderTools(cache.tools);
@@ -489,7 +648,7 @@ function fromHash() {
   const m = /^#\/task\/(.+)$/.exec(location.hash);
   if (m) { view = "task"; taskId = m[1]; return; }
   const v = (location.hash || "#/tasks").slice(2);
-  view = ["tasks", "runs", "tools", "signals", "assets"].includes(v) ? v : "tasks";
+  view = ["tasks", "runs", "tools", "signals", "assets", "tts"].includes(v) ? v : "tasks";
   taskId = null;
 }
 
@@ -568,7 +727,77 @@ async function runAction(btn) {
   }
 }
 
+/* 配音页的动作。加载不需要二次确认（慢但无害），
+   卸载和删除需要——卸载常驻模型是真的把子进程杀掉。 */
+async function runTtsAction(btn) {
+  const kind = btn.dataset.tts;
+  btn.disabled = true;
+  try {
+    let msg;
+    if (kind === "load") {
+      btn.textContent = "加载中…";
+      const out = await post(`/tts/api/models/${btn.dataset.model}/load`);
+      if (out.status === "error") throw new Error(out.error || "加载失败");
+      msg = `${out.name} 已就绪${out.load_elapsed ? `，用时 ${out.load_elapsed}s` : ""}`;
+    } else if (kind === "unload") {
+      const out = await post(`/tts/api/models/${btn.dataset.model}/unload`);
+      msg = `${out.name} 已卸载`;
+    } else if (kind === "drop") {
+      await del(`/tts/api/generations/${btn.dataset.gen}`);
+      msg = "已删除这条记录和对应音频";
+    } else return;
+    cache.tts = null;
+    await render();
+    say(msg, false);
+  } catch (err) {
+    // 失败也要重画：加载失败后模型会变成 error 状态，卡片上要能看到原因
+    cache.tts = null;
+    await render();
+    say(err.message, true);
+  }
+}
+
+async function generateTts() {
+  const btn = document.getElementById("tts-go");
+  const text = document.getElementById("tts-text").value.trim();
+  if (!text) return say("先写点要念的文本", true);
+
+  const pick = (id) => { const el = document.getElementById(id); return el ? el.value : null; };
+  const body = {
+    model_id: document.getElementById("tts-pick").value,
+    text,
+    voice: pick("tts-voice") || null,
+    ref_audio: pick("tts-ref") || null,
+    emotion: pick("tts-emo") || null,
+    instruct: pick("tts-instruct") || null,
+    speed: Number(pick("tts-speed") || 1),
+  };
+
+  btn.disabled = true;
+  btn.textContent = "生成中…";
+  try {
+    const out = await post("/tts/api/generate", body);
+    cache.tts = null;
+    await render();
+    say(`生成完成 · ${out.duration ? out.duration.toFixed(1) + "s" : "?"}`
+        + `${out.rtf ? ` · RTF ${out.rtf}` : ""}`, false);
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = "生成";
+    say(err.message, true);
+  }
+}
+
 document.getElementById("main").addEventListener("click", (e) => {
+  const tts = e.target.closest("[data-tts]");
+  if (tts) {
+    if (!tts.dataset.confirm) return runTtsAction(tts);     // 加载：直接执行
+    if (armed === tts) { disarm(); return runTtsAction(tts); }
+    return arm(tts);
+  }
+  if (e.target.id === "tts-go") return generateTts();
+  if (e.target.id === "tts-refresh") { cache.tts = null; return render(); }
+
   const action = e.target.closest("[data-act]");
   if (action) {
     if (armed === action) { disarm(); return runAction(action); }
@@ -601,6 +830,18 @@ document.getElementById("main").addEventListener("click", (e) => {
       .then((d) => { cache.tools = d; render(); })
       .catch(() => render());
   }
+});
+
+/* 换模型就换一套参数：edge 给音色列表，indextts2 给参考音频和情感。
+   把不适用的字段留在界面上，只会让人填了不起作用的东西。 */
+document.getElementById("main").addEventListener("change", (e) => {
+  if (e.target.id !== "tts-pick") return;
+  const text = document.getElementById("tts-text").value;
+  ttsModel = e.target.value;
+  render().then(() => {
+    const box = document.getElementById("tts-text");
+    if (box) box.value = text;          // 重画表单不该把写好的文本冲掉
+  });
 });
 
 document.getElementById("main").addEventListener("keydown", (e) => {
