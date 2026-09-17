@@ -294,6 +294,10 @@ def _assert_publishable(session: Session, item: WorkItem) -> None:
     plan = promote.plan_for_topic(session, topic)
     if plan is None:
         raise StageError("publishing", "没有已批准的发布计划——发布需要先经过审批")
+    # 和主系统 publishing.py 一个判法：计划不是 scheduled 就不发。
+    # 撤销排期靠的就是这一行。
+    if plan.status != "scheduled":
+        raise StageError("publishing", f"发布计划已是 {plan.status}，不再发布")
 
     now = utcnow()
     allowed_from = _aware(plan.allowed_from)

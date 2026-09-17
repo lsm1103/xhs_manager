@@ -251,6 +251,21 @@ def approve_and_schedule(
         select(PublicationPlan).where(PublicationPlan.idempotency_key == key)
     )
     if existing is not None:
+        if existing.status != "cancelled":
+            return existing        # 连点两下只排一次
+        # 撤销过的计划要能重新排期，否则撤销一次就等于永久废掉这支片子。
+        existing.status = "scheduled"
+        existing.scheduled_at = scheduled_at
+        existing.allowed_from = scheduled_at
+        existing.allowed_until = scheduled_at + window
+        approval.status = "approved"
+        task.scheduled_at = scheduled_at
+        add_audit(
+            session, actor_type="human", actor_id=actor_id,
+            action="video.publish_approved", resource_type="content_version",
+            resource_id=version.id, trace_id=f"approval:{approval.id}",
+            reason=comment or f"重新排期 {scheduled_at.isoformat()}",
+        )
         return existing
 
     approval.status = "approved"
@@ -290,6 +305,32 @@ def reject(session: Session, approval_id: str, *, actor_id: str = "console",
         reason=comment or "发布被打回",
     )
     return approval
+
+
+def cancel_plan(session: Session, plan_id: str, *, actor_id: str = "console",
+                comment: str = "") -> PublicationPlan:
+    """撤销一条已排期的发布。
+
+    批准是个会真的把片子推出去的动作，所以它必须可撤销。
+    计划置为 cancelled 之后，发布闸门（steps._assert_publishable）会拦下来；
+    队列里那条还没跑的 video_publish 由调用方一并清掉。
+    """
+    plan = session.get(PublicationPlan, plan_id)
+    if plan is None:
+        raise PromoteError(f"发布计划不存在: {plan_id}")
+    if plan.status not in ("scheduled", "cancelled"):
+        raise PromoteError(f"计划已是 {plan.status}，不能撤销")
+    plan.status = "cancelled"
+    task = session.get(ContentTask, plan.task_id)
+    if task is not None:
+        task.scheduled_at = None
+    add_audit(
+        session, actor_type="human", actor_id=actor_id,
+        action="video.publish_cancelled", resource_type="content_version",
+        resource_id=plan.content_version_id, trace_id=f"plan:{plan.id}",
+        reason=comment or "排期被撤销",
+    )
+    return plan
 
 
 def plan_for_topic(session: Session, topic: VideoTopic) -> PublicationPlan | None:

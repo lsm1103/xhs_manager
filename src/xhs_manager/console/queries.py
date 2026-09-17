@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from xhs_manager.models import Account, ContentTask
@@ -418,8 +419,68 @@ def get_task(session: Session, task_id: str) -> dict[str, Any] | None:
             "url": p.external_url, "error": p.error_detail,
             "published_at": _iso(p.published_at),
         } for p in b.publications],
+        "approval": _approval_view(session, b),
+        "plan": _plan_view(session, b),
+        "rerunnable": _rerunnable_stages(b),
     })
     return base
+
+
+def _approval_view(session: Session, b: _VideoBundle) -> dict[str, Any] | None:
+    """这支片子有没有等着人看的发布审批。"""
+    from xhs_manager.models import ApprovalRequest
+
+    if b.script is None or not b.script.content_version_id:
+        return None
+    approval = session.scalar(
+        select(ApprovalRequest).where(
+            ApprovalRequest.resource_type == "content_version",
+            ApprovalRequest.resource_id == b.script.content_version_id,
+        ).order_by(ApprovalRequest.created_at.desc())
+    )
+    if approval is None:
+        return None
+    return {
+        "id": approval.id,
+        "status": approval.status,
+        "expires_at": _iso(approval.expires_at),
+    }
+
+
+def _plan_view(session: Session, b: _VideoBundle) -> dict[str, Any] | None:
+    from xhs_manager.models import PublicationPlan
+
+    if b.script is None or not b.script.content_version_id:
+        return None
+    plan = session.scalar(
+        select(PublicationPlan)
+        .where(PublicationPlan.content_version_id == b.script.content_version_id)
+        .order_by(PublicationPlan.created_at.desc())
+    )
+    if plan is None:
+        return None
+    return {
+        "id": plan.id,
+        "scheduled_at": _iso(plan.scheduled_at),
+        "allowed_from": _iso(plan.allowed_from),
+        "allowed_until": _iso(plan.allowed_until),
+        "status": plan.status,
+    }
+
+
+def _rerunnable_stages(b: _VideoBundle) -> list[dict[str, str]]:
+    """可以重跑的阶段。
+
+    发布不在其中——重跑发布得走审批和排期，不能在这里一键触发。
+    """
+    labels = {
+        PipelineStatus.COLLECTING: "采集",
+        PipelineStatus.SELECTING: "选题脚本",
+        PipelineStatus.MATERIALIZING: "素材配音",
+        PipelineStatus.COMPOSING: "HTML 组合",
+        PipelineStatus.RENDERING: "渲染",
+    }
+    return [{"stage": st.value, "label": label} for st, label in labels.items()]
 
 
 def list_signals(session: Session, *, run_id: str | None = None,

@@ -658,3 +658,293 @@ def test_assets_skip_tasks_without_any_output(session_factory, video_task):
         s.commit()
     with session_factory() as s:
         assert queries.list_assets(s)["groups"] == []
+
+
+# ── 写动作：审批与重跑 ──────────────────────────────────────
+
+
+@pytest.fixture
+def approvable(session_factory, video_task, account):
+    """把选题认领进任务并提交发布审批，返回各种 id。"""
+    from xhs_manager.video_pipeline import linking, promote
+
+    with session_factory() as s:
+        linking.adopt_topic(s, video_task["topic"], account_id=account)
+        s.commit()
+    with session_factory() as s:
+        result = promote.promote_for_approval(s, video_task["topic"])
+        s.commit()
+        return {**video_task, "approval": result.approval_id}
+
+
+HEADERS = {"X-Console-Action": "1"}
+
+
+@pytest.mark.parametrize("path", [
+    "/console/api/approvals/x/approve",
+    "/console/api/approvals/x/reject",
+    "/console/api/tasks/x/rerun",
+])
+def test_write_endpoints_refuse_requests_without_the_console_header(client, path):
+    """跨源的页面发不出自定义头，预检又会被挡——这就是控制台的 CSRF 防线。"""
+    assert client.post(path, json={}).status_code == 403
+
+
+def test_write_endpoints_check_the_token_when_one_is_configured(
+    client, approvable, monkeypatch
+):
+    monkeypatch.setenv("XHS_CONSOLE_TOKEN", "s3cret")
+    url = f"/console/api/approvals/{approvable['approval']}/reject"
+    assert client.post(url, json={}, headers=HEADERS).status_code == 403
+    assert client.post(
+        url, json={}, headers={**HEADERS, "X-Console-Token": "wrong"}
+    ).status_code == 403
+    ok = client.post(url, json={}, headers={**HEADERS, "X-Console-Token": "s3cret"})
+    assert ok.status_code == 200
+
+
+def test_approving_schedules_the_plan_and_queues_the_publish(
+    client, session_factory, approvable
+):
+    from xhs_manager.models import WorkItem
+
+    when = datetime(2026, 9, 20, 19, 30, tzinfo=timezone.utc)
+    resp = client.post(
+        f"/console/api/approvals/{approvable['approval']}/approve",
+        json={"scheduled_at": when.isoformat(), "window_hours": 3},
+        headers=HEADERS,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["scheduled_at"].startswith("2026-09-20T19:30")
+    assert body["allowed_until"].startswith("2026-09-20T22:30")
+
+    with session_factory() as s:
+        items = s.query(WorkItem).all()
+        assert [i.step_type for i in items] == ["video_publish"]
+        # 到点之前不能被 worker 领走
+        assert items[0].available_at.replace(tzinfo=timezone.utc) == when
+
+
+def test_approving_twice_does_not_schedule_two_publishes(
+    client, session_factory, approvable
+):
+    """手抖点两下不能发两次。幂等键落在计划上，工作项也认同一个键。"""
+    from xhs_manager.models import WorkItem
+
+    url = f"/console/api/approvals/{approvable['approval']}/approve"
+    first = client.post(url, json={"delay_minutes": 10}, headers=HEADERS).json()
+    second = client.post(url, json={"delay_minutes": 10}, headers=HEADERS).json()
+
+    assert first["plan_id"] == second["plan_id"]
+    with session_factory() as s:
+        assert s.query(WorkItem).count() == 1
+
+
+def test_rejecting_marks_the_approval_and_queues_nothing(
+    client, session_factory, approvable
+):
+    from xhs_manager.models import WorkItem
+
+    resp = client.post(
+        f"/console/api/approvals/{approvable['approval']}/reject",
+        json={"comment": "标题太标题党"}, headers=HEADERS,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "rejected"
+    with session_factory() as s:
+        assert s.query(WorkItem).count() == 0
+
+
+def test_approving_a_rejected_request_is_refused(client, approvable):
+    url_r = f"/console/api/approvals/{approvable['approval']}/reject"
+    client.post(url_r, json={}, headers=HEADERS)
+    resp = client.post(
+        f"/console/api/approvals/{approvable['approval']}/approve",
+        json={}, headers=HEADERS,
+    )
+    assert resp.status_code == 409
+    assert "rejected" in resp.json()["detail"]
+
+
+def test_rerun_refuses_the_publish_stage(client, approvable):
+    """发布必须走审批和排期，不能在这里一键重来。"""
+    resp = client.post(
+        f"/console/api/tasks/{approvable['topic']}/rerun",
+        json={"stage": "publishing"}, headers=HEADERS,
+    )
+    assert resp.status_code == 400
+    assert "审批" in resp.json()["detail"]
+
+
+@pytest.mark.parametrize("stage,code", [("", 400), ("renderingg", 400)])
+def test_rerun_refuses_an_unknown_stage(client, approvable, stage, code):
+    resp = client.post(
+        f"/console/api/tasks/{approvable['topic']}/rerun",
+        json={"stage": stage}, headers=HEADERS,
+    )
+    assert resp.status_code == code
+
+
+def test_rerun_needs_the_topic_to_be_adopted_first(client, video_task):
+    """没认领的选题没有 ContentTask，队列里无处可放。"""
+    resp = client.post(
+        f"/console/api/tasks/{video_task['topic']}/rerun",
+        json={"stage": "rendering"}, headers=HEADERS,
+    )
+    assert resp.status_code == 409
+    assert "adopt" in resp.json()["detail"]
+
+
+def test_rerun_queues_the_stage(client, session_factory, approvable):
+    from xhs_manager.models import WorkItem
+
+    resp = client.post(
+        f"/console/api/tasks/{approvable['topic']}/rerun",
+        json={"stage": "rendering"}, headers=HEADERS,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "pending"
+    with session_factory() as s:
+        item = s.query(WorkItem).one()
+        assert item.step_type == "video_render"
+
+
+def test_rerun_revives_a_work_item_that_already_failed(
+    client, session_factory, approvable
+):
+    """重跑一个失败的阶段必须真的重跑。
+
+    幂等键让 enqueue_stage 直接返回那条旧记录，如果不复位，
+    界面上按钮按了、后台什么也不会发生——这是最难被发现的一类 bug。
+    """
+    from xhs_manager.models import WorkItem
+
+    url = f"/console/api/tasks/{approvable['topic']}/rerun"
+    client.post(url, json={"stage": "rendering"}, headers=HEADERS)
+    with session_factory() as s:
+        item = s.query(WorkItem).one()
+        item.status = "failed"
+        item.attempt = 3
+        item.error_code = "ffmpeg_exploded"
+        s.commit()
+
+    assert client.post(url, json={"stage": "rendering"}, headers=HEADERS).status_code == 200
+    with session_factory() as s:
+        item = s.query(WorkItem).one()
+        assert (item.status, item.attempt, item.error_code) == ("pending", 0, None)
+
+
+def test_task_detail_exposes_what_the_buttons_need(client, session_factory, approvable):
+    """界面按钮的开关来自详情接口：有没有待审批、有没有排期、哪些阶段能重跑。"""
+    detail = client.get(f"/console/api/tasks/{approvable['topic']}").json()
+    assert detail["approval"]["status"] == "pending"
+    assert detail["plan"] is None
+    stages = [r["stage"] for r in detail["rerunnable"]]
+    assert "publishing" not in stages
+    assert "rendering" in stages
+
+    client.post(
+        f"/console/api/approvals/{approvable['approval']}/approve",
+        json={"delay_minutes": 5}, headers=HEADERS,
+    )
+    detail = client.get(f"/console/api/tasks/{approvable['topic']}").json()
+    assert detail["approval"]["status"] == "approved"
+    assert detail["plan"]["scheduled_at"]
+
+
+def test_cancelling_a_plan_stops_the_publish(client, session_factory, approvable):
+    """撤销排期必须真的拦住发布。
+
+    发布闸门只看「有没有计划」是不够的——计划还在，状态变了也得拦。
+    """
+    from xhs_manager.models import WorkItem
+    from xhs_manager.video_pipeline import steps
+
+    plan = client.post(
+        f"/console/api/approvals/{approvable['approval']}/approve",
+        json={"delay_minutes": 1}, headers=HEADERS,
+    ).json()
+    resp = client.post(f"/console/api/plans/{plan['plan_id']}/cancel",
+                       json={}, headers=HEADERS)
+    assert resp.status_code == 200
+    assert resp.json() == {"plan_id": plan["plan_id"], "status": "cancelled",
+                           "cancelled_items": 1}
+
+    with session_factory() as s:
+        assert s.query(WorkItem).count() == 0
+
+    # 就算队列里被人手动塞回一条，闸门也不放行
+    with session_factory() as s:
+        from xhs_manager.models import ContentTask
+        from xhs_manager.video_pipeline.models import VideoTopic
+        topic = s.get(VideoTopic, approvable["topic"])
+        task = s.get(ContentTask, topic.task_id)
+        item = steps.enqueue_publish(s, task=task, run_id=topic.pipeline_run_id)
+        s.commit()
+        with pytest.raises(Exception) as err:
+            steps._assert_publishable(s, item)
+        assert "cancelled" in str(err.value)
+
+
+def test_cancelling_twice_is_harmless(client, approvable):
+    plan = client.post(
+        f"/console/api/approvals/{approvable['approval']}/approve",
+        json={"delay_minutes": 1}, headers=HEADERS,
+    ).json()
+    url = f"/console/api/plans/{plan['plan_id']}/cancel"
+    assert client.post(url, json={}, headers=HEADERS).status_code == 200
+    second = client.post(url, json={}, headers=HEADERS)
+    assert second.status_code == 200
+    assert second.json()["cancelled_items"] == 0
+
+
+def test_cancel_needs_the_console_header(client):
+    assert client.post("/console/api/plans/x/cancel", json={}).status_code == 403
+
+
+def test_a_local_wall_clock_schedule_survives_the_round_trip(client, session_factory,
+                                                             approvable):
+    """界面上的 datetime-local 没有时区，落库必须先转成 UTC。
+
+    不转的话 SQLite 会把偏移量丢掉，读回来又被当成 UTC——
+    排期整整错开一个时区，而页面上两处显示还会自相矛盾。
+    """
+    from xhs_manager.models import PublicationPlan
+
+    typed = datetime(2026, 9, 20, 19, 30)            # 用户本机时间，无时区
+    resp = client.post(
+        f"/console/api/approvals/{approvable['approval']}/approve",
+        json={"scheduled_at": typed.isoformat()}, headers=HEADERS,
+    ).json()
+
+    # 接口回执和库里存的，必须都指向本地 19:30 这个瞬间
+    want = typed.astimezone(timezone.utc)
+    assert datetime.fromisoformat(resp["scheduled_at"]) == want
+    with session_factory() as s:
+        stored = s.query(PublicationPlan).one().scheduled_at
+        assert stored.replace(tzinfo=timezone.utc) == want
+
+
+def test_a_cancelled_plan_can_be_scheduled_again(client, session_factory, approvable):
+    """撤销不是死路。
+
+    计划带幂等键，如果撤销后重新批准只是把那条 cancelled 的原样返回，
+    这支片子就永远发不出去了——闸门认状态，而状态再也变不回来。
+    """
+    from xhs_manager.models import PublicationPlan, WorkItem
+
+    url = f"/console/api/approvals/{approvable['approval']}/approve"
+    plan = client.post(url, json={"delay_minutes": 1}, headers=HEADERS).json()
+    client.post(f"/console/api/plans/{plan['plan_id']}/cancel", json={}, headers=HEADERS)
+
+    again = client.post(
+        url, json={"scheduled_at": "2026-09-25T08:00:00+00:00"}, headers=HEADERS,
+    )
+    assert again.status_code == 200
+    assert again.json()["scheduled_at"].startswith("2026-09-25T08:00")
+
+    with session_factory() as s:
+        rows = s.query(PublicationPlan).all()
+        assert len(rows) == 1 and rows[0].status == "scheduled"   # 不该多出一条
+        assert s.query(WorkItem).count() == 1                     # 发布重新入队

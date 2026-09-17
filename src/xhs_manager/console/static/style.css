@@ -182,7 +182,7 @@ td.empty { color: var(--dim); text-align: center; padding: 28px 14px; }
 
 /* ── 流水线阶段 ── */
 .sub { border: 1px solid var(--line); border-radius: 4px; background: var(--panel); overflow: hidden; }
-.sub-row { display: grid; grid-template-columns: 116px 1fr auto; gap: 12px; padding: 9px 14px; border-bottom: 1px solid var(--line-2); align-items: center; font-size: 12.5px; }
+.sub-row { display: grid; grid-template-columns: 116px 1fr auto 52px; gap: 12px; padding: 9px 14px; border-bottom: 1px solid var(--line-2); align-items: center; font-size: 12.5px; }
 .sub-row:last-child { border-bottom: none; }
 .sub-row.failed { background: rgba(244,121,106,.06); }
 .sub-row .en { font-family: var(--mono); font-size: 10.5px; color: var(--acc-2); }
@@ -229,9 +229,54 @@ td.empty { color: var(--dim); text-align: center; padding: 28px 14px; }
   .nav .sep, .nav-foot, .nav-note { display: none; }
   .main { padding: 16px 14px 56px; }
   .sub-row { grid-template-columns: 1fr; gap: 4px; }
+  .sub-row .t:last-child { justify-self: start; }
   .tool { grid-template-columns: 1fr; gap: 6px; }
   .tool .ms { text-align: left; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
 .ok-note { font-size: 12.5px; color: var(--acc); margin-bottom: 12px; }
+
+/* ── 写动作 ──────────────────────────────────────────────
+   批准是这个界面里唯一会对外产生后果的按钮，所以它长得和别的不一样：
+   实心、主色、按两下。确认长在按钮原地，不弹到别处去。 */
+.btn.primary { background: var(--acc); border-color: var(--acc); color: #04150d; font-weight: 600; }
+.btn.primary:hover { background: #57e8a9; border-color: #57e8a9; color: #04150d; }
+.btn.danger { color: var(--bad); border-color: rgba(244,121,106,.4); }
+.btn.danger:hover { border-color: var(--bad); color: var(--bad); background: rgba(244,121,106,.1); }
+.btn.tiny { font-size: 10.5px; padding: 3px 8px; }
+
+/* 武装状态：闪一下再停住。要让人看见自己刚才那一下改变了什么。 */
+.btn.armed { background: var(--bad); border-color: var(--bad); color: #1a0705; font-weight: 600;
+             animation: armpulse .9s ease-out 1; }
+.btn.armed:hover { background: #ff8f80; border-color: #ff8f80; color: #1a0705; }
+@keyframes armpulse {
+  0%   { box-shadow: 0 0 0 0 rgba(244,121,106,.55); }
+  100% { box-shadow: 0 0 0 7px rgba(244,121,106,0); }
+}
+@media (prefers-reduced-motion: reduce) { .btn.armed { animation: none; } }
+
+.approval .acts { margin-top: 12px; display: flex; gap: 8px; }
+.sched { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+.sched label { display: flex; flex-direction: column; gap: 5px; font-size: 10.5px;
+               letter-spacing: .09em; text-transform: uppercase; color: var(--dim); }
+.sched input, .sched select {
+  font-family: var(--mono); font-size: 12.5px; color: var(--ink);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 3px;
+  padding: 6px 9px; min-width: 176px;
+}
+.sched input:focus, .sched select:focus { border-color: var(--acc-2); outline: none; }
+
+.plan { display: flex; gap: 26px; flex-wrap: wrap; padding: 11px 14px; margin-top: 4px;
+        background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; }
+.plan > div { display: flex; flex-direction: column; gap: 4px; }
+.plan .k { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.plan .v { font-family: var(--mono); font-size: 13px; color: var(--ink); }
+.plan .v.bad { color: var(--bad); }
+
+/* 动作回执。放在页头正下方——重跑按钮可能在页面很下面，
+   但你按完抬眼要能看见结果。 */
+.actmsg { margin: 0 0 16px; padding: 9px 13px; border-radius: 4px; font-size: 12.5px;
+          border: 1px solid var(--line); background: var(--panel-2); }
+.actmsg.ok  { border-color: rgba(61,220,151,.4); color: var(--acc); background: rgba(61,220,151,.07); }
+.actmsg.bad { border-color: rgba(244,121,106,.45); color: var(--bad); background: rgba(244,121,106,.07); }

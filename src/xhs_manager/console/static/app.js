@@ -1,6 +1,7 @@
-/* XHS Studio 控制台 · P0
+/* XHS Studio 控制台
  *
- * 只读。所有数据来自 /console/api/*，页面不发任何写请求。
+ * 数据来自 /console/api/*。读随便读；写只有四个动作——
+ * 批准、打回、撤销排期、重跑某个阶段，都要按两下。
  * 零构建、零依赖——和 tts_studio 同一套范式。
  */
 
@@ -40,7 +41,9 @@ function ago(iso) {
 }
 
 async function api(path) {
-  const res = await fetch(path, { headers: { Accept: "application/json" } });
+  /* no-store：控制台显示的是活的状态。浏览器缓存一个任务详情，
+     就会让人对着一份旧快照去按批准。 */
+  const res = await fetch(path, { headers: { Accept: "application/json" }, cache: "no-store" });
   if (!res.ok) {
     let detail = `${res.status}`;
     try { detail = (await res.json()).detail || detail; } catch (_) { /* 非 JSON 错误体 */ }
@@ -56,6 +59,42 @@ function head(title, sub, acts = "") {
 
 function fileUrl(p) {
   return `/console/api/file?path=${encodeURIComponent(p)}`;
+}
+
+/* ── 写动作 ──────────────────────────────────────────────
+   批准会真的把片子推出去，所以两道约束写死在这里：
+   1) 每个写请求都带 X-Console-Action。跨源页面发不出自定义头，
+      预检也过不了——整类 CSRF 就挡在这一行。
+   2) 每个按钮按两下才生效，而且确认就长在按钮原地。
+      弹到屏幕另一头的确认框，人只会盲点。 */
+
+const TOKEN_KEY = "xhs.console.token";
+
+async function post(path, body) {
+  const headers = { "Content-Type": "application/json", "X-Console-Action": "1" };
+  let tok = null;
+  try { tok = localStorage.getItem(TOKEN_KEY); } catch (_) { /* 隐私模式 */ }
+  if (tok) headers["X-Console-Token"] = tok;
+  const res = await fetch(path, { method: "POST", headers, body: JSON.stringify(body || {}) });
+  let data = {};
+  try { data = await res.json(); } catch (_) { /* 空响应体 */ }
+  if (!res.ok) throw new Error(data.detail || `请求失败（${res.status}）`);
+  return data;
+}
+
+/* 本地时间 → datetime-local 的值。排期输入框用本人所在时区，
+   显示成 UTC 只会让人排错时间。 */
+function localInput(d) {
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - off).toISOString().slice(0, 16);
+}
+
+function when(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—"
+    : d.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit",
+                                 hour: "2-digit", minute: "2-digit" });
 }
 
 /* ── 任务台 ── */
@@ -102,6 +141,70 @@ function renderTasks(data) {
 }
 
 /* ── 任务详情 ── */
+/* 按两下才生效的按钮。第二下之前它长这样：[确认批准] [取消] */
+function act(kind, label, tone, confirm) {
+  return `<button class="btn ${tone}" data-act="${kind}" data-confirm="${esc(confirm)}">${label}</button>`;
+}
+
+/* 发布审批。这一块是整个控制台唯一会对外产生后果的地方。 */
+function renderApproval(t) {
+  const a = t.approval, p = t.plan;
+  if (!a && !p) return "";
+
+  const live = p && p.status === "scheduled";
+  /* 撤销过排期之后还要能重新排。审批本身没被打回，缺的只是一个时间。 */
+  const canSchedule = a && (a.status === "pending"
+    || (a.status === "approved" && p && p.status === "cancelled"));
+  let body;
+
+  if (live) {
+    const late = new Date(p.allowed_until).getTime() < Date.now();
+    body = `<div class="plan">
+        <div><span class="k">排期</span><span class="v">${when(p.scheduled_at)}</span></div>
+        <div><span class="k">窗口截止</span><span class="v${late ? " bad" : ""}">${when(p.allowed_until)}</span></div>
+        <div><span class="k">状态</span><span class="tag ${late ? "bad" : "wait"}">${late ? "已错过窗口" : "等待发布"}</span></div>
+      </div>
+      <p class="prose dim">到点后由 worker 发布。${late
+        ? "窗口已过，worker 不会再发——要发得重新排期。"
+        : "现在还能收回。"}</p>
+      <div class="acts" data-plan="${esc(p.id)}">
+        ${act("cancel", "撤销排期", "danger", "确认撤销？")}
+      </div>`;
+  } else if (canSchedule) {
+    const again = a.status === "approved";
+    const dflt = localInput(new Date(Date.now() + 30 * 60000));
+    body = `<p class="prose">${again
+        ? "上一次排期已撤销。重新选个时间就能再排一次。"
+        : "批准之后，worker 会在排期时间把这支片子发出去。"}
+        窗口过了就不发——宁可晚一天，也不半夜推出去。</p>
+      <div class="sched">
+        <label>发布时间<input type="datetime-local" id="sched-at" value="${dflt}"></label>
+        <label>窗口<select id="sched-win">
+          <option value="1">1 小时</option>
+          <option value="2" selected>2 小时</option>
+          <option value="6">6 小时</option>
+          <option value="24">24 小时</option>
+        </select></label>
+      </div>
+      <div class="acts" data-approval="${esc(a.id)}">
+        ${act("approve", again ? "重新排期" : "批准并排期", "primary", "确认排期？")}
+        ${act("reject", "打回", "", "确认打回？")}
+      </div>`;
+  } else {
+    const tone = { approved: "ok", rejected: "bad" }[a.status] || "off";
+    const label = { approved: "已批准", rejected: "已打回", pending: "待审批" }[a.status] || a.status;
+    const extra = p && p.status === "cancelled" ? " · 排期已撤销" : "";
+    body = `<div class="plan">
+        <div><span class="k">审批</span><span class="tag ${tone}">${label}${extra}</span></div>
+      </div>
+      <p class="prose dim">${a.status === "rejected"
+        ? "打回后要重新提交审批：<code>cli promote</code>。"
+        : "没有生效中的排期。"}</p>`;
+  }
+
+  return `<section class="block approval"><h3>发布审批</h3>${body}</section>`;
+}
+
 function renderTask(t, siblings) {
   const i = siblings.findIndex((x) => x.id === t.id);
   const prev = siblings[i - 1], next = siblings[i + 1];
@@ -136,11 +239,20 @@ function renderTask(t, siblings) {
     const links = [];
     if (s.html_path) links.push(`<a href="${fileUrl(s.html_path)}" target="_blank" rel="noopener">打开组合页</a>`);
     if (s.output_path) links.push(`<a href="${fileUrl(s.output_path)}" target="_blank" rel="noopener">打开成片</a>`);
+    /* 重跑按钮只长在能重跑的阶段上。发布不在其中——它得走审批。
+       失败的那一行给实心按钮：出错时你要找的就是它。 */
+    const can = (t.rerunnable || []).some((r) => r.stage === s.stage);
+    const rerun = can
+      ? `<span class="t"><button class="btn tiny${s.failed ? " primary" : ""}"
+           data-act="rerun" data-stage="${esc(s.stage)}"
+           data-confirm="确认重跑？">重跑</button></span>`
+      : `<span class="t"></span>`;
     return `<div class="sub-row${s.failed ? " failed" : ""}">
       <span class="en">${esc(s.stage)}</span>
       <span class="d"><b class="hl">${esc(s.label)}</b> · ${esc(s.detail)}
         ${links.length ? ` · ${links.join(" · ")}` : ""}</span>
       <span class="t"><span class="tag ${tag[1]}">${tag[0]}</span></span>
+      ${rerun}
     </div>`;
   }).join("");
 
@@ -189,12 +301,14 @@ function renderTask(t, siblings) {
     head(esc(t.title),
       `${esc(t.id.slice(0, 8))} · 视频 · ${esc(t.state_label)} · ${runLine}${t.orphan ? " · 游离任务" : ""}`,
       pager) +
+    `<div class="actmsg" id="actmsg" hidden></div>` +
     (t.run && t.run.error ? `<div class="banner"><div>
         <div class="t">流水线失败</div><div class="d">${esc(t.run.error)}</div></div></div>` : "") +
     check +
     `<section class="block"><h3>角度</h3>
       <p class="prose">${esc(t.angle)}</p>
       <p class="prose dim">为什么是现在：${esc(t.why_now)} · 面向：${esc(t.audience)}</p></section>` +
+    renderApproval(t) +
     `<section class="block"><h3>流水线</h3><div class="sub">${stageHtml}</div></section>` +
     (player ? `<section class="block"><h3>成片</h3>${player}</section>` : "") +
     scenes + pubs;
@@ -364,6 +478,7 @@ async function render() {
 }
 
 function go(next, id) {
+  disarm();
   view = next;
   taskId = id ?? null;
   location.hash = next === "task" ? `#/task/${id}` : `#/${next}`;
@@ -383,7 +498,84 @@ nav.addEventListener("click", (e) => {
   if (b) go(b.dataset.view);
 });
 
+/* 第一下武装、第二下执行。武装状态 6 秒后自己解除——
+   点了一半走开，回来不该还留着一个一碰就发的按钮。 */
+let armed = null;
+let armTimer = null;
+
+function disarm() {
+  if (armed) {
+    armed.textContent = armed.dataset.label;
+    armed.classList.remove("armed");
+    armed = null;
+  }
+  clearTimeout(armTimer);
+}
+
+function arm(btn) {
+  disarm();
+  btn.dataset.label = btn.textContent;
+  btn.textContent = btn.dataset.confirm;
+  btn.classList.add("armed");
+  armed = btn;
+  armTimer = setTimeout(disarm, 6000);
+}
+
+function say(msg, bad) {
+  const el = document.getElementById("actmsg");
+  if (!el) return;
+  el.textContent = msg;
+  el.className = "actmsg" + (bad ? " bad" : " ok");
+  el.hidden = false;
+}
+
+async function runAction(btn) {
+  const kind = btn.dataset.act;
+  const box = btn.closest("[data-approval],[data-plan]");
+  const body = {};
+  let path;
+
+  if (kind === "approve") {
+    path = `/console/api/approvals/${box.dataset.approval}/approve`;
+    const at = document.getElementById("sched-at");
+    if (at && at.value) body.scheduled_at = at.value;   // 本地时间，后端按本机时区解析
+    body.window_hours = Number(document.getElementById("sched-win").value);
+  } else if (kind === "reject") {
+    path = `/console/api/approvals/${box.dataset.approval}/reject`;
+  } else if (kind === "cancel") {
+    path = `/console/api/plans/${box.dataset.plan}/cancel`;
+  } else if (kind === "rerun") {
+    path = `/console/api/tasks/${taskId}/rerun`;
+    body.stage = btn.dataset.stage;
+  } else return;
+
+  btn.disabled = true;
+  try {
+    const out = await post(path, body);
+    const done = {
+      approve: () => `已排期 ${when(out.scheduled_at)}，窗口到 ${when(out.allowed_until)}`,
+      reject: () => "已打回，不会发布",
+      cancel: () => `已撤销排期${out.cancelled_items ? "，并从队列里撤下发布" : ""}`,
+      rerun: () => `已把「${btn.closest(".sub-row").querySelector(".hl").textContent}」放回队列，等 worker 领走`,
+    }[kind]();
+    cache.task[taskId] = null;
+    cache.tasks = null;
+    await render();
+    say(done, false);
+  } catch (err) {
+    btn.disabled = false;
+    say(err.message, true);
+  }
+}
+
 document.getElementById("main").addEventListener("click", (e) => {
+  const action = e.target.closest("[data-act]");
+  if (action) {
+    if (armed === action) { disarm(); return runAction(action); }
+    return arm(action);
+  }
+  disarm();
+
   const goto = e.target.closest("[data-goto]");
   if (goto && goto.dataset.goto) return go("task", goto.dataset.goto);
 
