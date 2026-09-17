@@ -10,7 +10,9 @@ const nav = document.getElementById("nav");
 let view = "tasks";
 let taskId = null;
 let taskFilter = "all";
-let cache = { tasks: null, runs: null, task: {}, tools: null };
+let cache = { tasks: null, runs: null, task: {}, tools: null,
+              signals: null, assets: null };
+let sigPlatform = "all";
 
 const BUCKETS = [
   ["act", "待处理"],
@@ -217,6 +219,68 @@ function renderRuns(runs) {
       <tbody>${rows}</tbody></table></div>`;
 }
 
+/* ── 采集信号 ── */
+const PLATFORM_CN = { xiaohongshu: "小红书", bilibili: "B站", v2ex: "V2EX",
+                      wechat: "公众号", weibo: "微博", toutiao: "头条",
+                      zhihu: "知乎", douyin: "抖音", twitter: "X", baidu: "百度" };
+
+function renderSignals(data) {
+  const list = sigPlatform === "all"
+    ? data.signals : data.signals.filter((s) => s.platform === sigPlatform);
+
+  const opts = [["all", `全部 ${data.signals.length}`]].concat(
+    data.platforms.map((p) => [p, PLATFORM_CN[p] || p]));
+
+  const rows = list.map((s) => {
+    /* 超过 90 天标出来：热度分只看互动量、不看时效，
+       去年的帖子会稳稳排在榜首 */
+    const stale = s.age_days != null && s.age_days >= 90;
+    const when = s.published_at
+      ? `${s.published_at.slice(0, 10)} <span style="color:${stale ? "var(--warn)" : "var(--dim)"}">· ${s.age_days} 天前</span>`
+      : `<span style="color:var(--dim)">未提供</span>`;
+    return `<tr>
+      <td><span class="ttl">${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>` : esc(s.title)}</span>
+        <span class="meta">${esc(s.author || "—")}</span></td>
+      <td><span class="tag ${s.via === "站内" ? "vid" : "off"}">${esc(PLATFORM_CN[s.platform] || s.platform)}</span></td>
+      <td class="mono">${esc(s.engagement)}</td>
+      <td class="mono">${when}</td>
+      <td class="mono">${s.heat == null ? "—" : s.heat.toFixed(0)}</td>
+      <td class="mono">${esc(s.via)}</td>
+    </tr>`;
+  }).join("");
+
+  return head("采集信号", `${data.platforms.length} 平台 · 共 ${data.signals.length} 条`) +
+    `<div class="bar">
+      <div class="seg"><span class="lbl">平台</span><div class="opts">${opts
+        .map(([k, l]) => `<button data-plat="${k}" aria-pressed="${sigPlatform === k}">${l}</button>`)
+        .join("")}</div></div>
+      <span class="spacer"></span><span class="count">${list.length} 条</span>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th style="width:44%">标题</th><th>平台</th><th>互动</th>
+        <th>发布</th><th>热度</th><th>通道</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="empty">没有信号</td></tr>`}</tbody>
+    </table></div>`;
+}
+
+/* ── 资产 ── */
+function renderAssets(data) {
+  const groups = data.groups.map((g) => `
+    <section class="block">
+      <h3><a href="#/task/${esc(g.topic_id)}">${esc(g.title)}</a>
+        <span class="tag ${BUCKET_TONE[g.bucket] || "off"}">${esc(g.state_label)}</span></h3>
+      <div class="sub">${g.items.map((a) => `
+        <div class="sub-row">
+          <span class="en">${esc(a.kind)}</span>
+          <span class="d"><code>${esc(a.path)}</code>${a.meta ? ` · ${esc(a.meta)}` : ""}</span>
+          <span class="t"><a href="${fileUrl(a.path)}" target="_blank" rel="noopener">打开</a></span>
+        </div>`).join("")}</div>
+    </section>`).join("");
+
+  return head("资产", `${data.groups.length} 个任务 · ${data.total} 个产物`) +
+    (groups || `<div class="loading">还没有产物</div>`);
+}
+
 /* ── 工具体检 ── */
 const TOOL_TONE = { ok: "ok", degraded: "wait", down: "bad", unknown: "off" };
 const TOOL_LABEL = { ok: "正常", degraded: "降级", down: "不可用", unknown: "未知" };
@@ -263,6 +327,12 @@ async function render() {
     } else if (view === "runs") {
       cache.runs = cache.runs || await api("/console/api/runs");
       el.innerHTML = renderRuns(cache.runs.runs);
+    } else if (view === "signals") {
+      cache.signals = cache.signals || await api("/console/api/signals");
+      el.innerHTML = renderSignals(cache.signals);
+    } else if (view === "assets") {
+      cache.assets = cache.assets || await api("/console/api/assets");
+      el.innerHTML = renderAssets(cache.assets);
     } else if (view === "tools") {
       cache.tools = cache.tools || await api("/console/api/tools");
       el.innerHTML = renderTools(cache.tools);
@@ -304,7 +374,7 @@ function fromHash() {
   const m = /^#\/task\/(.+)$/.exec(location.hash);
   if (m) { view = "task"; taskId = m[1]; return; }
   const v = (location.hash || "#/tasks").slice(2);
-  view = ["tasks", "runs", "tools"].includes(v) ? v : "tasks";
+  view = ["tasks", "runs", "tools", "signals", "assets"].includes(v) ? v : "tasks";
   taskId = null;
 }
 
@@ -327,6 +397,9 @@ document.getElementById("main").addEventListener("click", (e) => {
 
   const tf = e.target.closest("[data-tf]");
   if (tf) { taskFilter = tf.dataset.tf; return render(); }
+
+  const plat = e.target.closest("[data-plat]");
+  if (plat) { sigPlatform = plat.dataset.plat; return render(); }
 
   if (e.target.id === "recheck") {
     e.target.textContent = "体检中…";

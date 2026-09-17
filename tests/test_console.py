@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from xhs_manager.api import create_app
 from xhs_manager.console import queries
-from xhs_manager.domain import new_id
+from xhs_manager.domain import new_id, utcnow
 from xhs_manager.video_pipeline.models import (
     VideoComposition,
     VideoPipelineRun,
@@ -561,3 +561,100 @@ def test_ensure_default_account_reuses_the_existing_one(session_factory):
     assert first == second
     with session_factory() as s:
         assert s.query(Account).count() == 1
+
+
+# ── P4：采集与资产浏览器 ────────────────────────────────────
+
+
+def test_signals_show_each_platform_its_own_metric(session_factory, video_task):
+    """B站是播放、V2EX 是回复、小红书是点赞——压成一个「点赞」列会让多数行变空。"""
+    from xhs_manager.video_pipeline.models import VideoTrendSignal
+
+    run_id = None
+    with session_factory() as s:
+        run_id = s.query(VideoTopic).one().pipeline_run_id
+        for platform, eng in [
+            ("bilibili", {"views": 124000}),
+            ("v2ex", {"comments": 41}),
+            ("xiaohongshu", {"likes": 8192}),
+            ("wechat", {}),
+        ]:
+            s.add(VideoTrendSignal(
+                id=new_id(), pipeline_run_id=run_id, platform=platform,
+                source_url=f"https://{platform}.com/x", title=f"{platform} 标题",
+                summary="", heat_score=50.0, engagement=eng,
+                content_digest=new_id(), tags=[],
+            ))
+        s.commit()
+
+    with session_factory() as s:
+        data = queries.list_signals(s, run_id=run_id)
+
+    got = {x["platform"]: x["engagement"] for x in data["signals"]}
+    assert got["bilibili"] == "12.4万 播放"
+    assert got["v2ex"] == "41 回复"
+    assert got["xiaohongshu"] == "8,192 赞"
+    assert got["wechat"] == "—"
+
+
+def test_signals_flag_stale_ones_with_an_age(session_factory, video_task):
+    """点赞第二高的那条发布于 434 天前——热度分不看时效，界面必须看得见。"""
+    from datetime import timedelta
+
+    from xhs_manager.video_pipeline.models import VideoTrendSignal
+
+    with session_factory() as s:
+        run_id = s.query(VideoTopic).one().pipeline_run_id
+        s.add(VideoTrendSignal(
+            id=new_id(), pipeline_run_id=run_id, platform="xiaohongshu",
+            source_url="https://x/1", title="去年的爆款", summary="",
+            heat_score=99.0, engagement={"likes": 4614},
+            published_at=utcnow() - timedelta(days=434),
+            content_digest=new_id(), tags=[],
+        ))
+        s.commit()
+
+    with session_factory() as s:
+        row = queries.list_signals(s)["signals"][0]
+    assert row["age_days"] >= 430
+
+
+def test_signals_mark_index_channel_separately(session_factory, video_task):
+    """站外索引拿不到互动数据，来源要标出来，不能和站内样本混为一谈。"""
+    from xhs_manager.video_pipeline.models import VideoTrendSignal
+
+    with session_factory() as s:
+        run_id = s.query(VideoTopic).one().pipeline_run_id
+        s.add(VideoTrendSignal(
+            id=new_id(), pipeline_run_id=run_id, platform="weibo",
+            source_url="https://weibo.com/x", title="索引来的", summary="",
+            heat_score=10.0, engagement={}, content_digest=new_id(),
+            tags=["索引通道"],
+        ))
+        s.commit()
+
+    with session_factory() as s:
+        row = next(x for x in queries.list_signals(s)["signals"] if x["platform"] == "weibo")
+    assert row["via"] == "索引"
+
+
+def test_assets_are_grouped_by_task(session_factory, video_task):
+    with session_factory() as s:
+        data = queries.list_assets(s)
+
+    assert len(data["groups"]) == 1
+    kinds = [i["kind"] for i in data["groups"][0]["items"]]
+    assert "成片" in kinds and "HTML 组合" in kinds
+    assert data["groups"][0]["title"] == "测试选题"
+
+
+def test_assets_skip_tasks_without_any_output(session_factory, video_task):
+    """只有脚本、还没渲染的任务不该在资产页里占一行空组。"""
+    from xhs_manager.video_pipeline.models import VideoRender
+
+    with session_factory() as s:
+        s.query(VideoRender).delete()
+        s.query(VideoComposition).delete()
+        s.commit()
+    with session_factory() as s:
+        assert queries.list_assets(s)["groups"] == []

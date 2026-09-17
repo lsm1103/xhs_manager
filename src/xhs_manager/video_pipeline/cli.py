@@ -30,6 +30,7 @@ from datetime import date
 
 from xhs_manager.config import get_settings
 from xhs_manager.db import create_db_engine, create_session_factory
+from xhs_manager.models import ContentTask
 from xhs_manager.video_pipeline.config import get_video_settings
 from xhs_manager.video_pipeline.domain import PipelineStatus
 from xhs_manager.video_pipeline.models import VideoPipelineRun, VideoTopic
@@ -313,6 +314,81 @@ def cmd_produce(args) -> None:
         print("启动 worker 来跑：python -m xhs_manager.video_pipeline.cli worker")
 
 
+def cmd_approvals(args) -> None:
+    """列出等着人看的视频发布审批。"""
+    from xhs_manager.video_pipeline import promote
+
+    with build_session_factory()() as session:
+        rows = promote.pending_approvals(session)
+        if not rows:
+            print("没有待审批的视频")
+            return
+        print(f"{'审批 ID':<38}{'时长':<9}{'场景':<7}标题")
+        print("-" * 100)
+        for r in rows:
+            print(f"{r['approval_id']}  {r['duration']:>4}s   "
+                  f"{r['scenes']:>3}    {r['title'][:38]}")
+        print(f"\n共 {len(rows)} 条。批准：approve <审批ID> --at '2026-09-17 19:30'")
+
+
+def cmd_approve(args) -> None:
+    """批准发布并排期。到点之后由 worker 去发。"""
+    from datetime import datetime, timedelta, timezone
+
+    from xhs_manager.models import ContentVersion
+    from xhs_manager.video_pipeline import promote, steps
+
+    if args.at:
+        try:
+            when = datetime.fromisoformat(args.at)
+        except ValueError:
+            print(f"时间格式看不懂: {args.at}（用 '2026-09-17 19:30'）")
+            sys.exit(1)
+        if when.tzinfo is None:
+            when = when.astimezone()
+    else:
+        when = datetime.now(timezone.utc) + timedelta(minutes=args.delay)
+
+    with build_session_factory()() as session:
+        plan = promote.approve_and_schedule(
+            session, args.approval, scheduled_at=when,
+            window=timedelta(hours=args.window), comment=args.comment,
+        )
+        version = session.get(ContentVersion, plan.content_version_id)
+        task = session.get(ContentTask, plan.task_id) if plan.task_id else None
+        if task is not None:
+            steps.enqueue_publish(
+                session, task=task,
+                run_id=_run_id_for_task(session, task.id),
+                available_at=plan.scheduled_at,
+            )
+        session.commit()
+
+    print(f"已批准：{version.selected_title[:40]}")
+    print(f"  排期   {plan.scheduled_at.isoformat()}")
+    print(f"  窗口   {plan.allowed_from.isoformat()} ~ {plan.allowed_until.isoformat()}")
+    print(f"  幂等键 {plan.idempotency_key}")
+    print("\n到点后 worker 会去发；过了窗口就不发了，需要重新排期。")
+
+
+def _run_id_for_task(session, task_id: str) -> str:
+    from xhs_manager.video_pipeline import steps
+
+    topic = steps._topic_for_task(session, task_id)
+    if topic is None:
+        raise SystemExit("任务没有关联的视频选题")
+    return topic.pipeline_run_id
+
+
+def cmd_reject(args) -> None:
+    from xhs_manager.video_pipeline import promote
+
+    with build_session_factory()() as session:
+        promote.reject(session, args.approval, comment=args.comment)
+        session.commit()
+    print("已打回")
+
+
 def cmd_queue(args) -> None:
     """看队列里有什么。"""
     from xhs_manager.models import WorkItem
@@ -581,6 +657,25 @@ def main() -> None:
     qu = subparsers.add_parser("queue", help="查看工作队列")
     qu.add_argument("-n", "--limit", type=int, default=20, help="显示条数")
     qu.set_defaults(func=cmd_queue)
+
+    # approvals
+    ap = subparsers.add_parser("approvals", help="列出待审批的视频发布")
+    ap.set_defaults(func=cmd_approvals)
+
+    # approve
+    apv = subparsers.add_parser("approve", help="批准发布并排期")
+    apv.add_argument("approval", help="审批 ID")
+    apv.add_argument("--at", help="发布时间，如 '2026-09-17 19:30'；不给则按 --delay")
+    apv.add_argument("--delay", type=int, default=5, help="多少分钟后发布（默认 5）")
+    apv.add_argument("--window", type=int, default=2, help="允许窗口小时数（默认 2）")
+    apv.add_argument("--comment", default="", help="审批意见")
+    apv.set_defaults(func=cmd_approve)
+
+    # reject
+    rj = subparsers.add_parser("reject", help="打回发布审批")
+    rj.add_argument("approval", help="审批 ID")
+    rj.add_argument("--comment", default="", help="打回理由")
+    rj.set_defaults(func=cmd_reject)
 
     # collect-doctor
     cd_parser = subparsers.add_parser(

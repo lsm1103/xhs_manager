@@ -6,6 +6,7 @@
       "runtimeExecutable": ".venv/bin/python",
       "runtimeArgs": ["-m", "uvicorn", "xhs_manager.api:app", "--host", "127.0.0.1", "--port", "8000"],
       "port": 8000,
+      "autoPort": false,
       "url": "http://127.0.0.1:8000"
     }
   ]

@@ -95,6 +95,27 @@ def create_console_router(get_session: Callable[[], Iterator[Session]]) -> APIRo
     def api_runs(session: Session = Depends(get_session)) -> dict:
         return {"runs": queries.list_runs(session)}
 
+    @router.get("/api/signals")
+    def api_signals(
+        run_id: str | None = Query(None),
+        platform: str | None = Query(None),
+        session: Session = Depends(get_session),
+    ) -> dict:
+        return queries.list_signals(session, run_id=run_id, platform=platform)
+
+    @router.get("/api/assets")
+    def api_assets(session: Session = Depends(get_session)) -> dict:
+        return queries.list_assets(session)
+
+    @router.get("/api/approvals")
+    def api_approvals(session: Session = Depends(get_session)) -> dict:
+        from xhs_manager.video_pipeline import promote
+
+        rows = promote.pending_approvals(session)
+        for r in rows:
+            r["expires_at"] = r["expires_at"].isoformat() if r["expires_at"] else None
+        return {"approvals": rows}
+
     @router.get("/api/tools")
     def api_tools(
         refresh: bool = Query(False, description="跳过缓存，强制重新探测"),

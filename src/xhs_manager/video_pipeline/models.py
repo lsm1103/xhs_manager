@@ -114,6 +114,10 @@ class VideoTopic(Base):
     task_id: Mapped[Optional[str]] = mapped_column(
         ForeignKey("content_tasks.id"), nullable=True
     )
+    # 走审批链时对应的选题提案。审批只认主系统那张表，视频线不另造一套。
+    topic_proposal_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("topic_proposals.id"), nullable=True
+    )
     rank: Mapped[int] = mapped_column(Integer, nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     angle: Mapped[str] = mapped_column(Text, nullable=False)
@@ -146,6 +150,11 @@ class VideoScript(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     topic_id: Mapped[str] = mapped_column(
         ForeignKey("video_topics.id"), nullable=False
+    )
+    # 对应的内容版本。scenes 会映射成 content_versions.slide_scripts，
+    # 图文和视频因此共用同一套版本与审批机制。
+    content_version_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("content_versions.id"), nullable=True
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     total_duration: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -302,6 +311,10 @@ class VideoPublication(Base):
     )
     topic_id: Mapped[str] = mapped_column(
         ForeignKey("video_topics.id"), nullable=False
+    )
+    # 对应的发布计划。排期、允许窗口与幂等键都归它管。
+    publication_plan_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("publication_plans.id"), nullable=True
     )
     platform: Mapped[str] = mapped_column(String(32), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)

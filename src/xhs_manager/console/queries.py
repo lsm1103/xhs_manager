@@ -422,6 +422,103 @@ def get_task(session: Session, task_id: str) -> dict[str, Any] | None:
     return base
 
 
+def list_signals(session: Session, *, run_id: str | None = None,
+                 platform: str | None = None, limit: int = 300) -> dict[str, Any]:
+    """采集信号浏览器。
+
+    「互动」按平台各自的指标给：B站是播放、V2EX 是回复、小红书是点赞。
+    压成同一个「点赞」列会让多数行变成空值——那是数据模型的真实差异，
+    不是可以被平均掉的噪音。
+    """
+    q = session.query(VideoTrendSignal)
+    if run_id:
+        q = q.filter(VideoTrendSignal.pipeline_run_id == run_id)
+    if platform:
+        q = q.filter(VideoTrendSignal.platform == platform)
+
+    rows = q.order_by(VideoTrendSignal.heat_score.desc()).limit(limit).all()
+    now = datetime.now(timezone.utc)
+
+    def engagement(r) -> str:
+        e = r.engagement or {}
+        if r.platform == "bilibili" and e.get("views"):
+            views = e["views"]
+            return f"{views / 10000:.1f}万 播放" if views >= 10000 else f"{views} 播放"
+        if r.platform == "v2ex" and e.get("comments"):
+            return f"{e['comments']} 回复"
+        if e.get("likes"):
+            return f"{e['likes']:,} 赞"
+        if e.get("comments"):
+            return f"{e['comments']} 评论"
+        return "—"
+
+    items = []
+    for r in rows:
+        published = _aware(r.published_at)
+        age = (now - published).days if published else None
+        items.append({
+            "id": r.id,
+            "platform": r.platform,
+            "title": r.title,
+            "author": r.author,
+            "url": r.source_url,
+            "engagement": engagement(r),
+            "heat": r.heat_score,
+            "published_at": _iso(r.published_at),
+            "age_days": age,
+            # 站外索引拿不到互动数据，来源要标出来，否则会被当成同等质量的样本
+            "via": "索引" if "索引通道" in (r.tags or []) else "站内",
+        })
+
+    platforms = sorted({p[0] for p in session.query(VideoTrendSignal.platform).distinct()})
+    return {"signals": items, "platforms": platforms, "total": len(items)}
+
+
+def list_assets(session: Session) -> dict[str, Any]:
+    """产物浏览器：按任务分组，一个任务的成片、封面、旁白在一起。
+
+    存在的意义就是不用再 cd 到两层 uuid 目录里翻文件。
+    """
+    groups = []
+    for b in _load_video_bundles(session):
+        if b.script is None:
+            continue
+        items: list[dict[str, Any]] = []
+
+        if b.render is not None and b.render.output_path:
+            items.append({
+                "kind": "成片", "path": b.render.output_path,
+                "meta": f"{_fmt_duration(b.render.duration)}"
+                        + (f" · {b.render.file_size / 1024 / 1024:.1f} MB"
+                           if b.render.file_size else ""),
+                "playable": True,
+            })
+            for platform, cover in (b.render.covers or {}).items():
+                items.append({"kind": f"封面 · {platform}", "path": cover,
+                              "meta": "", "playable": False})
+        if b.composition is not None and b.composition.html_path:
+            items.append({
+                "kind": "HTML 组合", "path": b.composition.html_path,
+                "meta": f"{b.composition.total_duration:.0f}s · 可拖时间轴",
+                "playable": False,
+            })
+
+        if not items:
+            continue
+        code, label, bucket = _video_state(b)
+        groups.append({
+            "task_id": b.topic.task_id,
+            "topic_id": b.topic.id,
+            "title": b.topic.title,
+            "state_label": label,
+            "bucket": bucket,
+            "items": items,
+        })
+
+    total = sum(len(g["items"]) for g in groups)
+    return {"groups": groups, "total": total}
+
+
 def list_runs(session: Session) -> list[dict[str, Any]]:
     """流水线运行列表。任务是「产出」视角，运行是「批次」视角，两者都要能看。"""
     runs = (session.query(VideoPipelineRun)

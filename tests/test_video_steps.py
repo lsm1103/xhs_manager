@@ -81,7 +81,13 @@ def test_a_finished_stage_enqueues_the_next_one(session_factory, task_with_video
     assert calls == [(task_with_video["run"], PipelineStatus.COLLECTING)]
 
 
-def test_the_whole_chain_runs_stage_by_stage(session_factory, task_with_video, monkeypatch):
+def test_the_chain_runs_to_render_and_then_stops_for_approval(
+    session_factory, task_with_video, monkeypatch
+):
+    """渲染完成是整条链上唯一的人工闸门。
+
+    它**不会**自动入队发布——「渲染完就发」是视频线接进主系统之前的行为。
+    """
     calls, fake = _handlers(session_factory)
     monkeypatch.setattr("xhs_manager.video_pipeline.pipeline.VideoPipeline.run_stage", fake)
 
@@ -99,9 +105,11 @@ def test_the_whole_chain_runs_stage_by_stage(session_factory, task_with_video, m
 
     assert [stage for _, stage in calls] == [
         PipelineStatus.COLLECTING, PipelineStatus.SELECTING, PipelineStatus.MATERIALIZING,
-        PipelineStatus.COMPOSING, PipelineStatus.RENDERING, PipelineStatus.PUBLISHING,
+        PipelineStatus.COMPOSING, PipelineStatus.RENDERING,
     ]
     with session_factory() as s:
+        types = {i.step_type for i in s.query(WorkItem).all()}
+        assert "video_publish" not in types          # 闸门生效
         task = s.get(ContentTask, task_with_video["task"])
         assert task.state == TaskState.PENDING_PUBLISH_APPROVAL.value
 

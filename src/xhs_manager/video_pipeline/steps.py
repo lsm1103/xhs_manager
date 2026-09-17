@@ -21,11 +21,12 @@ idempotency_key 带上 run_id 和阶段名，同一条运行的同一个阶段�
 from __future__ import annotations
 
 import logging
+from datetime import timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from xhs_manager.domain import TaskState, WorkItemStatus
+from xhs_manager.domain import TaskState, WorkItemStatus, utcnow
 from xhs_manager.models import ContentTask, WorkflowInstance, WorkItem
 from xhs_manager.services import transition_task
 from xhs_manager.video_pipeline.config import VideoPipelineSettings, get_video_settings
@@ -155,16 +156,16 @@ def make_handlers(session_factory, settings: VideoPipelineSettings | None = None
         if not run_id:
             raise StageError(item.step_type, "工作项没有带上 run_id")
 
+        if stage is PipelineStatus.PUBLISHING:
+            _assert_publishable(session, item)
+
         pipeline = VideoPipeline(session_factory, conf)
         result = pipeline.run_stage(run_id, stage)      # 阶段函数一行没改
 
-        # 阶段成功了才推进：入队下一个阶段
+        # 阶段成功了才推进
         task = session.get(ContentTask, item.task_id)
-        nxt = _next_stage(stage)
-        if task is not None and nxt is not None:
-            enqueue_stage(session, task=task, run_id=run_id, stage=nxt)
-        elif task is not None:
-            _finish(session, task, run_id)
+        if task is not None:
+            _advance(session, task, run_id, stage)
 
         summary = result.get("status") or stage.value
         return f"run:{run_id}:{stage.value}:{summary}"[:240]
@@ -195,6 +196,41 @@ def make_handlers(session_factory, settings: VideoPipelineSettings | None = None
     handlers = {step: run_stage_step for step in STEP_STAGES}
     handlers["produce_content"] = produce_content
     return handlers
+
+
+def _advance(session: Session, task: ContentTask, run_id: str,
+             done: PipelineStatus) -> None:
+    """一个阶段跑完之后该干什么。
+
+    渲染完成是整条链上唯一的**人工闸门**：不再自动入队发布，
+    而是提交发布审批。要发出去必须有人批准并排期——
+    「渲染完就发」是视频线接进主系统之前的行为，不该保留。
+    """
+    if done is PipelineStatus.RENDERING:
+        topic = _topic_for_task(session, task.id)
+        if topic is not None:
+            try:
+                from xhs_manager.video_pipeline import promote
+                promote.promote_for_approval(session, topic.id)
+            except Exception as e:
+                logger.warning("提交发布审批失败（成片本身已就绪）: %s", e)
+        _finish(session, task, run_id)
+        return
+
+    nxt = _next_stage(done)
+    if nxt is None:
+        _finish(session, task, run_id)
+        return
+    enqueue_stage(session, task=task, run_id=run_id, stage=nxt)
+
+
+def enqueue_publish(session: Session, *, task: ContentTask, run_id: str,
+                    available_at=None) -> WorkItem | None:
+    """排期到点之后，由发布计划把发布阶段放进队列。"""
+    return enqueue_stage(
+        session, task=task, run_id=run_id,
+        stage=PipelineStatus.PUBLISHING, available_at=available_at,
+    )
 
 
 def _resume_stage(session: Session, run_id: str) -> PipelineStatus | None:
@@ -241,6 +277,41 @@ def _finish(session: Session, task: ContentTask, run_id: str) -> None:
                 task.id[:8], target.value, task.state, e,
             )
             return
+
+
+def _assert_publishable(session: Session, item: WorkItem) -> None:
+    """发布前的闸门：必须有已批准的发布计划，且此刻在允许窗口内。
+
+    没有这一关，队列里任何一个 video_publish 都会直接把片子推出去——
+    包括手动排进去的、重试残留的。
+    """
+    from xhs_manager.video_pipeline import promote
+
+    topic = _topic_for_task(session, item.task_id)
+    if topic is None:
+        raise StageError("publishing", "任务没有关联的视频选题")
+
+    plan = promote.plan_for_topic(session, topic)
+    if plan is None:
+        raise StageError("publishing", "没有已批准的发布计划——发布需要先经过审批")
+
+    now = utcnow()
+    allowed_from = _aware(plan.allowed_from)
+    allowed_until = _aware(plan.allowed_until)
+    if allowed_from and now < allowed_from:
+        raise StageError("publishing", f"还没到排期时间（{allowed_from.isoformat()}）")
+    if allowed_until and now > allowed_until:
+        # 过了窗口宁可不发：半夜把片子推出去比晚一天更糟
+        raise StageError(
+            "publishing",
+            f"已错过允许发布窗口（{allowed_until.isoformat()}），需要重新排期",
+        )
+
+
+def _aware(dt):
+    if dt is None:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def pending_items(session: Session, task_id: str) -> list[WorkItem]:

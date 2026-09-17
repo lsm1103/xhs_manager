@@ -75,6 +75,9 @@ pending_research → researching → pending_topic_approval → PRODUCING
 
 ### 2.1 表怎么对上
 
+> 下表的四条边已全部接上：`task_id`（P2）、`topic_proposal_id` /
+> `content_version_id` / `publication_plan_id`（P4，随各自的写入方一起加）。
+
 | 概念 | 主系统 | 视频线 | 合并策略 |
 |---|---|---|---|
 | 采集批次 | `research_runs` | `video_pipeline_runs` | **保留两张**，`video_pipeline_runs` 加 `research_run_id` 外键 |
