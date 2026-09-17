@@ -2,6 +2,35 @@
 
 本仓库已完成产品定义、技术顶层设计、开发规格和第一阶段可靠性骨架。
 
+## 运行
+
+```bash
+./run.sh
+```
+
+一条命令拉起两个进程，Ctrl-C 一起停：
+
+| 进程 | 干什么 |
+|---|---|
+| 主服务 | API（`/v1/*`）、控制台（`/console`）、配音（`/tts/*`），默认 `127.0.0.1:8000` |
+| worker | 从 `work_items` 队列领视频阶段来跑（采集 / 脚本 / 素材 / 组合 / 渲染） |
+
+只起一个：`./run.sh api` 或 `./run.sh worker`。
+换端口：`XHS_PORT=8001 ./run.sh`。
+跳过启动时的数据库迁移：`./run.sh --no-migrate`。
+
+控制台在 http://127.0.0.1:8000/console —— 任务台、采集、资产、配音、运行、工具六页，
+发布审批和阶段重跑也在这里。
+
+> **别用 `kill -9` 停主服务。** 配音的重模型（IndexTTS-2、OmniVoice）是它的子进程，
+> 靠退出钩子卸载；硬杀会留下几个 GB 的孤儿进程。Ctrl-C 或 `kill` 都会走优雅退出。
+
+跑一次性的任务不需要 worker：
+
+```bash
+.venv/bin/python -m xhs_manager.video_pipeline.cli --help
+```
+
 ## 文档导航
 
 1. [产品简述](docs/00-product-brief.md)
