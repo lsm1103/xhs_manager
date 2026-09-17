@@ -636,12 +636,20 @@ async function render() {
   window.scrollTo(0, 0);
 }
 
+/* 导航只改 hash，渲染统一交给 hashchange。
+   两边都调 render() 的话每次点击会渲染两次——接口请求翻倍，
+   而且 `cache.x = cache.x || await api()` 两次都看到空缓存，
+   缓存等于没生效。 */
 function go(next, id) {
   disarm();
-  view = next;
-  taskId = id ?? null;
-  location.hash = next === "task" ? `#/task/${id}` : `#/${next}`;
-  render();
+  const hash = next === "task" ? `#/task/${id}` : `#/${next}`;
+  if (location.hash === hash) {
+    // hash 没变就不会有 hashchange，这时自己渲染
+    view = next;
+    taskId = id ?? null;
+    return render();
+  }
+  location.hash = hash;
 }
 
 function fromHash() {
