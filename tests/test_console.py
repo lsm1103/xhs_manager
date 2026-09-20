@@ -948,3 +948,228 @@ def test_a_cancelled_plan_can_be_scheduled_again(client, session_factory, approv
         rows = s.query(PublicationPlan).all()
         assert len(rows) == 1 and rows[0].status == "scheduled"   # 不该多出一条
         assert s.query(WorkItem).count() == 1                     # 发布重新入队
+
+
+# ── 人工标记状态 ────────────────────────────────────────────
+
+
+def test_marking_a_topic_hides_it_without_deleting_it(client, session_factory, video_task):
+    """「放弃」是人明确说过的话，不该被产物反推的状态盖掉。"""
+    from xhs_manager.video_pipeline.models import VideoTopic
+
+    url = f"/console/api/tasks/{video_task['topic']}/state"
+    assert client.post(url, json={"state": "dropped"}, headers=HEADERS).status_code == 200
+
+    detail = client.get(f"/console/api/tasks/{video_task['topic']}").json()
+    assert (detail["state"], detail["state_label"]) == ("dropped", "放弃")
+
+    listing = client.get("/console/api/tasks").json()
+    row = next(t for t in listing["tasks"] if t["id"] == video_task["topic"])
+    assert row["bucket"] == "off"                 # 收起来，但还在列表里
+    assert listing["counts"]["off"] == 1
+
+    with session_factory() as s:
+        assert s.get(VideoTopic, video_task["topic"]) is not None   # 没被删
+
+
+def test_unmarking_restores_the_previous_status(client, session_factory, video_task):
+    """撤销标记要回到标记之前的样子，不能一律落回默认值。"""
+    from xhs_manager.video_pipeline.models import VideoTopic
+
+    url = f"/console/api/tasks/{video_task['topic']}/state"
+    with session_factory() as s:
+        s.get(VideoTopic, video_task["topic"]).status = "scripted"
+        s.commit()
+
+    client.post(url, json={"state": "expired"}, headers=HEADERS)
+    client.post(url, json={"state": ""}, headers=HEADERS)
+
+    with session_factory() as s:
+        topic = s.get(VideoTopic, video_task["topic"])
+        assert topic.status == "scripted"
+        assert topic.previous_status is None
+
+
+def test_marking_twice_does_not_lose_the_original_status(client, session_factory,
+                                                         video_task):
+    """连着标两次，previous 不能被第一个标记覆盖掉。"""
+    from xhs_manager.video_pipeline.models import VideoTopic
+
+    url = f"/console/api/tasks/{video_task['topic']}/state"
+    with session_factory() as s:
+        s.get(VideoTopic, video_task["topic"]).status = "scripted"
+        s.commit()
+
+    client.post(url, json={"state": "dropped"}, headers=HEADERS)
+    client.post(url, json={"state": "expired"}, headers=HEADERS)
+    client.post(url, json={"state": ""}, headers=HEADERS)
+
+    with session_factory() as s:
+        assert s.get(VideoTopic, video_task["topic"]).status == "scripted"
+
+
+def test_marking_refuses_states_it_does_not_know(client, video_task):
+    resp = client.post(f"/console/api/tasks/{video_task['topic']}/state",
+                       json={"state": "随便写的"}, headers=HEADERS)
+    assert resp.status_code == 400
+
+
+def test_marking_needs_the_console_header(client, video_task):
+    assert client.post(f"/console/api/tasks/{video_task['topic']}/state",
+                       json={"state": "dropped"}).status_code == 403
+
+
+def test_marking_cancels_the_content_task_and_clears_the_queue(
+    client, session_factory, video_task, account
+):
+    """标记为放弃之后 worker 还在渲染，是这个界面上最容易让人误会的现象。"""
+    from xhs_manager.models import ContentTask, WorkItem
+    from xhs_manager.video_pipeline import linking, steps
+    from xhs_manager.video_pipeline.domain import PipelineStatus
+    from xhs_manager.video_pipeline.models import VideoTopic
+
+    with session_factory() as s:
+        linking.adopt_topic(s, video_task["topic"], account_id=account)
+        s.commit()
+    with session_factory() as s:
+        topic = s.get(VideoTopic, video_task["topic"])
+        task = s.get(ContentTask, topic.task_id)
+        steps.enqueue_stage(s, task=task, run_id=topic.pipeline_run_id,
+                            stage=PipelineStatus.RENDERING)
+        s.commit()
+
+    resp = client.post(f"/console/api/tasks/{video_task['topic']}/state",
+                       json={"state": "dropped"}, headers=HEADERS)
+    assert resp.json()["cancelled_items"] == 1
+    with session_factory() as s:
+        assert s.query(WorkItem).count() == 0
+        topic = s.get(VideoTopic, video_task["topic"])
+        assert s.get(ContentTask, topic.task_id).state == "cancelled"
+
+
+# ── 人工发布 ────────────────────────────────────────────────
+
+
+@pytest.fixture
+def publication(session_factory, video_task):
+    """一条失败的小红书发布记录，外加脚本里写好的平台文案。"""
+    from xhs_manager.video_pipeline.models import VideoPublication, VideoScript
+
+    with session_factory() as s:
+        script = s.get(VideoScript, video_task["script"])
+        script.platform_metadata = {"xiaohongshu": {
+            "title": "5个词搞懂AI大脑",
+            "desc": "一条时间线讲清 AI 黑话进化史。",
+            "tags": ["AI科普", "LLM"],
+        }}
+        pub = VideoPublication(
+            id=new_id(), render_id=video_task["render"], topic_id=video_task["topic"],
+            platform="xiaohongshu", title="5个词搞懂AI大脑",
+            description="一条时间线讲清 AI 黑话进化史。", tags=["AI科普", "LLM"],
+            publish_method="opencli", status="failed",
+            error_detail="第 3 步失败 (upload input[type=file])",
+        )
+        s.add(pub)
+        s.commit()
+        return pub.id
+
+
+def test_the_checklist_carries_everything_you_must_copy(client, video_task, publication):
+    """人工发布要的东西一项不能少：标题、带标签的正文、成片路径。"""
+    c = client.get(f"/console/api/tasks/{video_task['topic']}").json()["checklist"]
+    assert c["title"] == "5个词搞懂AI大脑"
+    assert c["title_len"] == 9
+    assert c["tags"] == ["AI科普", "LLM"]
+    # 正文要是可以整段粘贴的成品：标签跟在后面，不用自己拼
+    assert c["body"] == "一条时间线讲清 AI 黑话进化史。\n\n#AI科普 #LLM"
+    assert c["video_path"].endswith("video.mp4")
+    assert c["publication_id"] == publication
+    assert c["status"] == "failed"
+
+
+def test_there_is_no_checklist_before_the_video_is_rendered(client, session_factory,
+                                                            video_task):
+    """没有成片，复制文案也没用。"""
+    from xhs_manager.video_pipeline.models import VideoRender
+
+    with session_factory() as s:
+        s.get(VideoRender, video_task["render"]).status = "rendering"
+        s.commit()
+    assert client.get(f"/console/api/tasks/{video_task['topic']}").json()["checklist"] is None
+
+
+def test_marking_published_records_the_fact_without_publishing_anything(
+    client, session_factory, video_task, publication
+):
+    """这个接口一行浏览器代码都不碰——它只是记下「我自己发过了」。"""
+    from xhs_manager.video_pipeline.models import VideoPublication
+
+    resp = client.post(f"/console/api/publications/{publication}/mark-published",
+                       json={"url": "https://www.xiaohongshu.com/explore/abc123"},
+                       headers=HEADERS)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "published"
+
+    with session_factory() as s:
+        pub = s.get(VideoPublication, publication)
+        assert pub.publish_method == "manual"
+        assert pub.external_url.endswith("abc123")
+        assert pub.published_at is not None
+        assert pub.error_detail is None          # 旧的失败原因要擦掉
+
+    detail = client.get(f"/console/api/tasks/{video_task['topic']}").json()
+    assert detail["state_label"] == "已发布"
+
+
+def test_marking_published_without_a_link_is_allowed(client, publication):
+    """链接是可选的——人发完了不一定想回来贴链接。"""
+    resp = client.post(f"/console/api/publications/{publication}/mark-published",
+                       json={}, headers=HEADERS)
+    assert resp.status_code == 200 and resp.json()["url"] is None
+
+
+def test_a_link_that_is_not_a_link_is_refused(client, publication):
+    resp = client.post(f"/console/api/publications/{publication}/mark-published",
+                       json={"url": "xiaohongshu.com/explore/abc"}, headers=HEADERS)
+    assert resp.status_code == 400
+
+
+def test_retry_clears_the_failure_so_the_checklist_is_usable_again(
+    client, session_factory, video_task, publication
+):
+    from xhs_manager.video_pipeline.models import VideoPublication
+
+    resp = client.post(f"/console/api/publications/{publication}/retry",
+                       json={}, headers=HEADERS)
+    assert resp.status_code == 200
+    with session_factory() as s:
+        pub = s.get(VideoPublication, publication)
+        assert (pub.status, pub.error_detail) == ("awaiting_manual", None)
+        assert pub.publish_method == "manual"
+
+    # 复位之后是「待人工发布」，属于等你动手，不是出错
+    row = next(t for t in client.get("/console/api/tasks").json()["tasks"]
+               if t["id"] == video_task["topic"])
+    assert (row["state"], row["bucket"]) == ("awaiting_manual", "act")
+
+
+def test_retry_will_not_quietly_wipe_a_published_record(client, publication):
+    """已记为发布的那条是一条事实。要改，得说清楚是在改它。"""
+    client.post(f"/console/api/publications/{publication}/mark-published",
+                json={"url": "https://www.xiaohongshu.com/explore/x"}, headers=HEADERS)
+
+    blocked = client.post(f"/console/api/publications/{publication}/retry",
+                          json={}, headers=HEADERS)
+    assert blocked.status_code == 409
+
+    forced = client.post(f"/console/api/publications/{publication}/retry",
+                         json={"force": True}, headers=HEADERS)
+    assert forced.status_code == 200 and forced.json()["was"] == "published"
+
+
+@pytest.mark.parametrize("path", [
+    "/console/api/publications/x/retry",
+    "/console/api/publications/x/mark-published",
+])
+def test_publication_writes_need_the_console_header(client, path):
+    assert client.post(path, json={}).status_code == 403

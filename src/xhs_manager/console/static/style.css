@@ -316,3 +316,37 @@ td.empty { color: var(--dim); text-align: center; padding: 28px 14px; }
 .wave { display: flex; align-items: center; gap: 1px; height: 34px; }
 .wave i { flex: 1; min-width: 1px; background: linear-gradient(180deg, var(--acc-2), var(--acc));
           opacity: .55; border-radius: 1px; }
+
+/* ── 人工发布清单 ──────────────────────────────────────
+   自动发布封过一次号，所以这一页的重点是「让复制这件事不出错」：
+   每项单独一块、原样显示、旁边就是复制按钮。 */
+.cfield { margin-top: 12px; border: 1px solid var(--line); border-radius: 4px;
+          background: var(--panel-2); overflow: hidden; }
+.chead { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+         border-bottom: 1px solid var(--line-2); background: rgba(255,255,255,.015); }
+.chead .k { font-size: 11px; letter-spacing: .08em; color: var(--ink-2); font-weight: 600; }
+.chead .hint { font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+/* 按钮统一靠右成组。不能给每个按钮都写 margin-left:auto——
+   那样两个按钮会被推得七零八落。 */
+.chead .cbtns { margin-left: auto; display: flex; gap: 6px; }
+.chead a.btn { text-decoration: none; }
+.cval { padding: 11px 13px; font-size: 13px; line-height: 1.8; color: var(--ink);
+        white-space: pre-wrap; word-break: break-word; }
+.cval.mono { font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); }
+.cval .dim { color: var(--dim); }
+.btn.copied { background: var(--acc); border-color: var(--acc); color: #04150d; }
+
+.checklist .sched { margin-top: 14px; }
+.checklist .sched input { min-width: 340px; }
+
+/* ── 人工标记 ──────────────────────────────────────────
+   不是危险动作，不值得占一排按钮；而且它要显示「现在是什么标记」，
+   所以用 select。 */
+.mark { font-family: var(--body); font-size: 11.5px; color: var(--dim);
+        background: var(--panel-2); border: 1px solid var(--line); border-radius: 3px;
+        padding: 4px 7px; }
+.mark:hover { color: var(--ink-2); border-color: var(--dim); }
+.mark.on { color: var(--warn); border-color: rgba(229,173,85,.45); }
+.mark:focus { border-color: var(--acc-2); outline: none; }
+/* 收起来的行整体压暗——它还在列表里，但不该再抢注意力 */
+tbody tr.off td { opacity: .55; }

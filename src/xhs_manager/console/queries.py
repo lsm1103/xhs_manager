@@ -1,7 +1,7 @@
 """控制台的只读查询层。
 
-这里把「为了查一次库而反复手写的一次性脚本」固化下来。所有函数都只读，
-不改任何数据，也不触发流水线——P0 的全部承诺就是「看得见」。
+这里把「为了查一次库而反复手写的一次性脚本」固化下来。本模块只读，
+不改任何数据，也不触发流水线；写动作都在 console/app.py 里。
 
 两条内容线在这里被统一成同一个「任务」形状：
   图文线  content_tasks          —— 主系统的任务，带审批与排期
@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
@@ -33,7 +34,9 @@ from xhs_manager.video_pipeline.models import (
 )
 
 # 任务在界面上的四个桶。顺序即优先级：要你动手的排最前面。
-BUCKET_ORDER = ("act", "err", "run", "done")
+# off 排在最后：人工收起来的东西不该再占视线，
+# 但也不能直接藏掉——藏起来的数据比多一行更麻烦。
+BUCKET_ORDER = ("act", "err", "run", "done", "off")
 
 
 def _aware(dt: datetime | None) -> datetime | None:
@@ -125,19 +128,34 @@ def _load_video_bundles(session: Session, topic_id: str | None = None) -> list[_
     return bundles
 
 
+#: 人工标记的状态。优先于一切推导出来的状态——
+#: 这是人明确说过「这条不要了」，不该被数据反推覆盖。
+MANUAL_STATES = {
+    "dropped": ("放弃", "off"),
+    "expired": ("已过期", "off"),
+}
+
+
 def _video_state(b: _VideoBundle) -> tuple[str, str, str]:
     """(状态码, 中文标签, 桶)。
 
-    视频线目前没有审批环节，所以没有 act 桶——渲染完就等人工发布。
-    等 P4 接上审批之后，「待发布审批」才会真正出现在 act 里。
+    人工标记优先。剩下的从产物反推：有成片就等发布，有失败就进出错桶。
     """
+    manual = MANUAL_STATES.get(b.topic.status or "")
+    if manual:
+        return b.topic.status, manual[0], "off"
+
     published = [p for p in b.publications if p.status == "published"]
     failed_pubs = [p for p in b.publications if p.status == "failed"]
+    waiting = [p for p in b.publications if p.status == "awaiting_manual"]
 
     if published:
         return "published", "已发布", "done"
     if failed_pubs:
         return "publish_failed", "发布失败", "err"
+    if waiting:
+        # 文案和成片都备好了，就等人复制过去发。这是「等你动手」，不是出错。
+        return "awaiting_manual", "待人工发布", "act"
     if b.render is not None:
         if b.render.status == "failed":
             return "render_failed", "渲染失败", "err"
@@ -414,16 +432,73 @@ def get_task(session: Session, task_id: str) -> dict[str, Any] | None:
         "consistency": consistency(b),
         "stages": _sub_pipeline(session, b),
         "scenes": scenes,
-        "publications": [{
-            "platform": p.platform, "status": p.status, "title": p.title,
-            "url": p.external_url, "error": p.error_detail,
-            "published_at": _iso(p.published_at),
-        } for p in b.publications],
+        "publications": [_publication_view(p, b) for p in b.publications],
+        "checklist": _checklist(b),
         "approval": _approval_view(session, b),
         "plan": _plan_view(session, b),
         "rerunnable": _rerunnable_stages(b),
     })
     return base
+
+
+def _publication_view(p, b: _VideoBundle) -> dict[str, Any]:
+    """一条发布记录。带上人工发布要用的全部字段。"""
+    return {
+        "id": p.id,
+        "platform": p.platform,
+        "status": p.status,
+        "method": p.publish_method,
+        "title": p.title,
+        "description": p.description,
+        "tags": list(p.tags or []),
+        "cover_path": p.cover_path,
+        "video_path": b.render.output_path if b.render else None,
+        "url": p.external_url,
+        "error": p.error_detail,
+        "published_at": _iso(p.published_at),
+    }
+
+
+def _checklist(b: _VideoBundle) -> dict[str, Any] | None:
+    """人工发布清单：要往小红书里填的东西，一项不少。
+
+    片子没渲染完就没有清单——没有成片，复制文案也没用。
+    脚本里按平台写好的文案优先；没有就退回选题标题。
+    """
+    if b.render is None or b.render.status != "completed" or not b.render.output_path:
+        return None
+
+    meta = {}
+    if b.script is not None and isinstance(b.script.platform_metadata, dict):
+        meta = b.script.platform_metadata.get("xiaohongshu", {}) or {}
+
+    title = meta.get("title") or b.topic.title
+    desc = meta.get("desc") or meta.get("description") or ""
+    tags = meta.get("tags") or meta.get("hashtags") or []
+
+    # 已有发布记录的话以它为准：那是真正发出去（或准备发出去）的那一版
+    pub = next((p for p in b.publications if p.platform == "xiaohongshu"), None)
+    if pub is not None:
+        title = pub.title or title
+        desc = pub.description or desc
+        tags = list(pub.tags or tags)
+
+    tag_line = " ".join(f"#{t}" for t in tags)
+    return {
+        "publication_id": pub.id if pub else None,
+        "status": pub.status if pub else None,
+        "title": title,
+        "title_len": len(title),
+        "desc": desc,
+        "tags": list(tags),
+        # 小红书的标签是跟在正文后面的，直接给一段可以整体粘贴的成品
+        "body": f"{desc}\n\n{tag_line}".strip() if tag_line else desc,
+        "video_path": b.render.output_path,
+        "video_dir": str(Path(b.render.output_path).parent),
+        "cover_path": (b.render.covers or {}).get("xiaohongshu") or b.render.cover_path,
+        "duration": b.render.duration,
+        "file_size": b.render.file_size,
+    }
 
 
 def _approval_view(session: Session, b: _VideoBundle) -> dict[str, Any] | None:

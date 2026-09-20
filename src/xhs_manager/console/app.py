@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy.orm import Session
 
 from xhs_manager.console import probes, queries
+from xhs_manager.services import add_audit
 from xhs_manager.video_pipeline.config import get_video_settings
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -88,6 +89,26 @@ def _guard_write(
     expected = os.environ.get("XHS_CONSOLE_TOKEN", "").strip()
     if expected and x_console_token != expected:
         raise HTTPException(status_code=403, detail="控制台令牌无效")
+
+
+def _drop_pending_work(session: Session, topic) -> int:
+    """把这条选题在队列里还没跑的活撤掉。
+
+    标记成「放弃」之后 worker 还在渲染，是这个界面上最容易让人
+    误会的一种现象。已经在跑的那条不动——半路掐掉只会留下半个产物，
+    它跑完自然就停了。
+    """
+    from xhs_manager.models import WorkItem
+
+    if not topic.task_id:
+        return 0
+    items = session.query(WorkItem).filter(
+        WorkItem.task_id == topic.task_id,
+        WorkItem.status == "pending",
+    ).all()
+    for item in items:
+        session.delete(item)
+    return len(items)
 
 
 def _parse_when(raw: str | None, delay_minutes: int) -> datetime:
@@ -227,6 +248,149 @@ def create_console_router(get_session: Callable[[], Iterator[Session]]) -> APIRo
         except promote.PromoteError as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
         return {"approval_id": approval.id, "status": approval.status}
+
+    @router.post("/api/tasks/{task_id}/state", dependencies=[Depends(_guard_write)])
+    def api_set_state(
+        task_id: str,
+        body: dict | None = None,
+        session: Session = Depends(get_session),
+    ) -> dict:
+        """人工标记任务状态：放弃 / 已过期 / 撤销标记。
+
+        标记只写在选题上，因为任务台列的就是选题——有些还没认领进
+        内容任务，不该因为「没有 ContentTask」就不能标记。
+        认领过的，顺带把内容任务也收掉。
+        """
+        from xhs_manager.console.queries import MANUAL_STATES
+        from xhs_manager.domain import ALLOWED_TRANSITIONS, TaskState
+        from xhs_manager.models import ContentTask
+        from xhs_manager.video_pipeline.models import VideoTopic
+
+        body = body or {}
+        state = (body.get("state") or "").strip()
+        if state and state not in MANUAL_STATES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"只能标记为 {'、'.join(MANUAL_STATES)}，或传空值撤销标记",
+            )
+
+        topic = session.get(VideoTopic, task_id)
+        if topic is None:
+            raise HTTPException(status_code=404, detail="任务不存在")
+
+        if state:
+            # 撤销标记时要能回到原来的样子，所以先把旧状态记下来
+            previous = topic.status
+            if previous not in MANUAL_STATES:
+                topic.previous_status = previous
+            topic.status = state
+        else:
+            topic.status = topic.previous_status or "selected"
+            topic.previous_status = None
+
+        # 队列里还没跑的活要撤掉：标记为放弃之后 worker 还在渲染，
+        # 是这个界面上最容易让人误会的一种现象。
+        killed = _drop_pending_work(session, topic)
+
+        task_state = None
+        if topic.task_id:
+            task = session.get(ContentTask, topic.task_id)
+            if task is not None and state:
+                current = TaskState(task.state)
+                if TaskState.CANCELLED in ALLOWED_TRANSITIONS.get(current, frozenset()):
+                    task.state = TaskState.CANCELLED.value
+                task_state = task.state
+
+        add_audit(
+            session, actor_type="human", actor_id="console",
+            action="video_topic.marked" if state else "video_topic.unmarked",
+            resource_type="video_topic", resource_id=topic.id,
+            trace_id=f"topic:{topic.id}",
+            reason=body.get("comment") or (f"标记为 {state}" if state else "撤销标记"),
+        )
+        return {"task_id": topic.id, "status": topic.status,
+                "task_state": task_state, "cancelled_items": killed}
+
+    @router.post("/api/publications/{pub_id}/retry", dependencies=[Depends(_guard_write)])
+    def api_retry_publication(
+        pub_id: str,
+        body: dict | None = None,
+        session: Session = Depends(get_session),
+    ) -> dict:
+        """把一条发布记录复位，好让清单重新可用。
+
+        复位不等于「重新发出去」：人工模式下它只是把失败原因擦掉，
+        没有任何东西会被自动推出去。
+
+        已经记为「已发布」的要显式 force——那是在修改一条事实记录
+        （比如笔记被删了、或者当初标错了），不该和「清掉失败」共用一个
+        不假思索的按钮。
+        """
+        from xhs_manager.video_pipeline.models import VideoPublication
+
+        body = body or {}
+        pub = session.get(VideoPublication, pub_id)
+        if pub is None:
+            raise HTTPException(status_code=404, detail="发布记录不存在")
+        was = pub.status
+        if was == "published" and not body.get("force"):
+            raise HTTPException(
+                status_code=409,
+                detail="这条已记为已发布。要改成未发布，用「撤销已发布」。",
+            )
+
+        pub.status = "awaiting_manual"
+        pub.publish_method = "manual"
+        pub.error_detail = None
+        if was == "published":
+            pub.external_url = None
+            pub.published_at = None
+            add_audit(
+                session, actor_type="human", actor_id="console",
+                action="video.publish_record_cleared",
+                resource_type="video_publication", resource_id=pub.id,
+                trace_id=f"publication:{pub.id}",
+                reason=body.get("comment") or "撤销「已发布」标记",
+            )
+        return {"publication_id": pub.id, "status": pub.status, "was": was}
+
+    @router.post("/api/publications/{pub_id}/mark-published",
+                 dependencies=[Depends(_guard_write)])
+    def api_mark_published(
+        pub_id: str,
+        body: dict | None = None,
+        session: Session = Depends(get_session),
+    ) -> dict:
+        """记下「我已经自己发过了」。
+
+        这是记录事实，不是执行发布——这个接口一行浏览器代码都不碰。
+        """
+        from xhs_manager.video_pipeline.models import VideoPublication
+
+        body = body or {}
+        pub = session.get(VideoPublication, pub_id)
+        if pub is None:
+            raise HTTPException(status_code=404, detail="发布记录不存在")
+
+        url = (body.get("url") or "").strip()
+        if url and not url.startswith(("http://", "https://")):
+            raise HTTPException(status_code=400, detail="链接要以 http:// 或 https:// 开头")
+
+        pub.status = "published"
+        pub.publish_method = "manual"
+        pub.external_url = url or None
+        pub.published_at = _parse_when(body.get("published_at"), 0)
+        pub.error_detail = None
+
+        add_audit(
+            session, actor_type="human", actor_id="console",
+            action="video.published_manually", resource_type="video_publication",
+            resource_id=pub.id, trace_id=f"publication:{pub.id}",
+            reason=url or "人工发布，未填链接",
+        )
+        return {"publication_id": pub.id, "status": pub.status,
+                "url": pub.external_url,
+                "published_at": pub.published_at.isoformat()}
 
     @router.post("/api/plans/{plan_id}/cancel", dependencies=[Depends(_guard_write)])
     def api_cancel_plan(

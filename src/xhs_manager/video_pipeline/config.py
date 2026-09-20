@@ -98,7 +98,13 @@ class VideoPipelineSettings(BaseSettings):
         default_factory=lambda: ["xiaohongshu"]
     )
     publish_delay_minutes: int = 5              # 平台间发布间隔
-    xhs_publish_mode: str = "draft"             # draft=暂存离线 | publish=直接发布
+    # manual=不碰浏览器，只在控制台列出要填的内容，人工复制过去
+    # draft  =浏览器自动化登录你的号，存成草稿
+    # publish=浏览器自动化登录你的号，直接发出去
+    #
+    # 默认是 manual。draft 和 publish 都会驱动浏览器操作真实账号，
+    # 这类自动化已经导致过一次封号——要用得自己明确改配置。
+    xhs_publish_mode: str = "manual"
     xhs_browser_session: str = "xhs-video"      # opencli browser 会话名（已弃用）
     xhs_profile_dir: str = ""                   # 小红书专用 Chrome profile，空=~/.xhs_pipeline_chrome
     # 连接已运行的 Chrome（如 http://127.0.0.1:9222）。

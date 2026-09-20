@@ -133,6 +133,9 @@ class VideoTopic(Base):
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="pending"
     )
+    # 被人工标记为放弃/已过期之前是什么状态。撤销标记要还原回去，
+    # 否则标一次再恢复就永远停在默认值上了。
+    previous_status: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )

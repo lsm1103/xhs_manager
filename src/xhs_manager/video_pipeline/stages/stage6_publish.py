@@ -130,6 +130,20 @@ def publish_videos(
                     session.add(pub)
                 session.flush()
 
+                if _is_manual(platform, settings):
+                    # 人工发布：文案和成片都已经备好，剩下的交给人。
+                    # 这里一行浏览器代码都不能碰——自动化操作真实账号
+                    # 已经导致过一次封号。
+                    pub.status = "awaiting_manual"
+                    pub.publish_method = "manual"
+                    pub.error_detail = None
+                    results.append({
+                        "topic": topic.title[:30], "platform": platform_name,
+                        "status": pub.status, "url": None, "error": None,
+                    })
+                    logger.info("等待人工发布: %s / %s", platform_name, title[:24])
+                    continue
+
                 publish_result = _publish_to_platform(
                     platform=platform,
                     video_path=render.output_path,
@@ -184,6 +198,18 @@ def publish_videos(
         "total_attempts": len(results),
         "publications": results,
     }
+
+
+def _is_manual(platform: Platform, settings: VideoPipelineSettings) -> bool:
+    """这个平台是不是走人工发布。
+
+    目前只有小红书有自动化实现，也只有它有这个开关；
+    其余平台的自动发布根本没实现，一律按人工处理，
+    好过让它们在队列里反复失败。
+    """
+    if platform is Platform.XIAOHONGSHU:
+        return settings.xhs_publish_mode not in ("draft", "publish")
+    return platform is not Platform.XIAOHONGSHU
 
 
 def _publish_to_platform(

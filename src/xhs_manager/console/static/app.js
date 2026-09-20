@@ -21,8 +21,9 @@ const BUCKETS = [
   ["err", "出错"],
   ["run", "进行中"],
   ["done", "已完成"],
+  ["off", "已收起"],
 ];
-const BUCKET_TONE = { act: "wait", err: "bad", run: "run", done: "ok" };
+const BUCKET_TONE = { act: "wait", err: "bad", run: "run", done: "ok", off: "off" };
 
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -125,9 +126,10 @@ function renderTasks(data) {
     if (taskFilter === "all" && t.bucket !== lastBucket) {
       lastBucket = t.bucket;
       const label = (BUCKETS.find(([k]) => k === t.bucket) || [, t.bucket])[1];
-      rows += `<tr class="groupdiv"><td colspan="5">${label} · ${counts[t.bucket]}</td></tr>`;
+      rows += `<tr class="groupdiv"><td colspan="6">${label} · ${counts[t.bucket]}</td></tr>`;
     }
-    const cls = t.bucket === "act" ? "act" : t.bucket === "err" ? "err" : "";
+    const cls = t.bucket === "act" ? "act" : t.bucket === "err" ? "err"
+      : t.bucket === "off" ? "off" : "";
     rows += `<tr class="clickable ${cls}" data-task="${esc(t.id)}" tabindex="0" role="link">
       <td><span class="ttl">${esc(t.title)}</span>
         <span class="meta">${esc(t.id.slice(0, 8))}${t.orphan ? " · 游离任务" : ""}</span></td>
@@ -135,11 +137,12 @@ function renderTasks(data) {
       <td><span class="tag ${BUCKET_TONE[t.bucket] || "off"}">${esc(t.state_label)}</span></td>
       <td class="mono">${esc(t.output)}</td>
       <td class="mono">${ago(t.updated_at)}</td>
+      <td>${t.format === "video" ? markMenu(t.state, t.id) : ""}</td>
     </tr>`;
   }
 
   if (!list.length) {
-    rows = `<tr><td colspan="5" class="empty">这个筛选下没有任务</td></tr>`;
+    rows = `<tr><td colspan="6" class="empty">这个筛选下没有任务</td></tr>`;
   }
 
   return head("任务台",
@@ -151,7 +154,7 @@ function renderTasks(data) {
       <span class="spacer"></span><span class="count">${list.length} 条</span>
     </div>
     <div class="tablewrap"><table>
-      <thead><tr><th style="width:42%">任务</th><th>形态</th><th>状态</th><th>产出</th><th>更新</th></tr></thead>
+      <thead><tr><th style="width:38%">任务</th><th>形态</th><th>状态</th><th>产出</th><th>更新</th><th>标记</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
 }
 
@@ -159,6 +162,122 @@ function renderTasks(data) {
 /* 按两下才生效的按钮。第二下之前它长这样：[确认批准] [取消] */
 function act(kind, label, tone, confirm) {
   return `<button class="btn ${tone}" data-act="${kind}" data-confirm="${esc(confirm)}">${label}</button>`;
+}
+
+/* 人工标记：不想要的片子自己收起来。
+   用 select 而不是一排按钮——这不是危险动作，不值得占三个按钮的位置，
+   而且它要能显示「当前是什么标记」。 */
+const MARKS = [["", "未标记"], ["dropped", "放弃"], ["expired", "已过期"]];
+
+function markMenu(state, id) {
+  const cur = MARKS.some((m) => m[0] === state) ? state : "";
+  return `<select class="mark${cur ? " on" : ""}" data-mark${id ? `="${esc(id)}"` : ""}>
+    ${MARKS.map(([v, label]) =>
+      `<option value="${v}"${v === cur ? " selected" : ""}>${label}</option>`).join("")}
+  </select>`;
+}
+
+/* 人工发布清单。
+   自动发布封过一次号，所以这一块不驱动任何浏览器——
+   它只是把要填的东西摆出来，一键复制，你自己去发。 */
+
+async function copyText(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (_) {
+    // 非安全上下文拿不到 clipboard API，退回老办法
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } finally { ta.remove(); }
+  }
+  const was = btn.textContent;
+  btn.textContent = "已复制";
+  btn.classList.add("copied");
+  setTimeout(() => { btn.textContent = was; btn.classList.remove("copied"); }, 1400);
+}
+
+function field(label, value, hint) {
+  return `<div class="cfield">
+    <div class="chead">
+      <span class="k">${label}</span>
+      ${hint ? `<span class="hint">${hint}</span>` : ""}
+      <span class="cbtns"><button class="btn tiny" data-copy="${esc(value)}">复制</button></span>
+    </div>
+    <div class="cval">${esc(value) || "<span class=\"dim\">（空）</span>"}</div>
+  </div>`;
+}
+
+function renderChecklist(t) {
+  const c = t.checklist;
+  if (!c) return "";
+
+  const pub = (t.publications || []).find((p) => p.platform === "xiaohongshu");
+  const done = pub && pub.status === "published";
+  const failed = pub && pub.status === "failed";
+
+  if (done) {
+    return `<section class="block"><h3>发布</h3>
+      <div class="plan">
+        <div><span class="k">状态</span><span class="tag ok">已发布</span></div>
+        <div><span class="k">方式</span><span class="v">${esc(pub.method || "—")}</span></div>
+        <div><span class="k">时间</span><span class="v">${when(pub.published_at)}</span></div>
+      </div>
+      ${pub.url ? `<p class="prose"><a href="${esc(pub.url)}" target="_blank"
+         rel="noopener">${esc(pub.url)}</a></p>` : ""}
+      <div class="acts" data-pub="${esc(pub.id)}">
+        ${act("unpublish", "撤销「已发布」", "", "确认撤销？")}
+      </div></section>`;
+  }
+
+  const mb = c.file_size ? (c.file_size / 1024 / 1024).toFixed(1) + " MB" : "";
+  const dur = c.duration ? `${Math.floor(c.duration / 60)}:${String(
+    Math.round(c.duration % 60)).padStart(2, "0")}` : "";
+
+  return `<section class="block checklist"><h3>人工发布清单</h3>
+    <p class="prose dim">这一步不碰浏览器。把下面几项复制到小红书，发完回来点「我已发布」。</p>
+    ${failed ? `<div class="banner"><div>
+        <div class="t">上次自动发布失败</div>
+        <div class="d">${esc((pub.error || "").slice(0, 260))}</div>
+        <div class="fix">已经改成人工发布。按下面的清单自己发一次就行。</div>
+      </div></div>` : ""}
+
+    ${field("标题", c.title, `${c.title_len} 字${c.title_len > 20 ? " · 超过 20 字会被截断" : ""}`)}
+    ${field("正文（已含标签）", c.body, `${c.tags.length} 个标签`)}
+
+    <div class="cfield">
+      <div class="chead">
+        <span class="k">视频文件</span>
+        <span class="hint">${[dur, mb].filter(Boolean).join(" · ")}</span>
+        <span class="cbtns">
+          <button class="btn tiny" data-copy="${esc(c.video_path)}">复制路径</button>
+          <a class="btn tiny" href="${fileUrl(c.video_path)}" download>下载</a>
+        </span>
+      </div>
+      <div class="cval mono">${esc(c.video_path)}</div>
+    </div>
+    ${c.cover_path ? `<div class="cfield">
+      <div class="chead"><span class="k">封面</span>
+        <span class="cbtns">
+          <button class="btn tiny" data-copy="${esc(c.cover_path)}">复制路径</button>
+          <a class="btn tiny" href="${fileUrl(c.cover_path)}" target="_blank" rel="noopener">查看</a>
+        </span>
+      </div>
+      <div class="cval mono">${esc(c.cover_path)}</div></div>` : ""}
+
+    ${c.publication_id ? `<div class="sched">
+        <label>发布后的链接（可不填）
+          <input id="pub-url" placeholder="https://www.xiaohongshu.com/explore/..."></label>
+      </div>
+      <div class="acts" data-pub="${esc(c.publication_id)}">
+        ${act("published", "我已发布", "primary", "确认已发布？")}
+        ${failed ? act("retry", "清掉失败记录", "", "确认清掉？") : ""}
+      </div>`
+      : `<p class="prose dim">还没有发布记录——这支片子还没走到发布阶段。</p>`}
+  </section>`;
 }
 
 /* 发布审批。这一块是整个控制台唯一会对外产生后果的地方。 */
@@ -305,6 +424,7 @@ function renderTask(t, siblings) {
     </section>` : "";
 
   const pager = `<div class="acts">
+      ${markMenu(t.state)}
       <button class="btn" data-goto="${prev ? esc(prev.id) : ""}" ${prev ? "" : "disabled"}>← 上一条</button>
       <button class="btn" data-goto="${next ? esc(next.id) : ""}" ${next ? "" : "disabled"}>下一条 →</button>
     </div>`;
@@ -323,6 +443,7 @@ function renderTask(t, siblings) {
     `<section class="block"><h3>角度</h3>
       <p class="prose">${esc(t.angle)}</p>
       <p class="prose dim">为什么是现在：${esc(t.why_now)} · 面向：${esc(t.audience)}</p></section>` +
+    renderChecklist(t) +
     renderApproval(t) +
     `<section class="block"><h3>流水线</h3><div class="sub">${stageHtml}</div></section>` +
     (player ? `<section class="block"><h3>成片</h3>${player}</section>` : "") +
@@ -714,6 +835,18 @@ async function runAction(btn) {
   } else if (kind === "rerun") {
     path = `/console/api/tasks/${taskId}/rerun`;
     body.stage = btn.dataset.stage;
+  } else if (kind === "published" || kind === "retry" || kind === "unpublish") {
+    const pid = btn.closest("[data-pub]").dataset.pub;
+    if (kind === "published") {
+      path = `/console/api/publications/${pid}/mark-published`;
+      const u = document.getElementById("pub-url");
+      if (u && u.value.trim()) body.url = u.value.trim();
+    } else {
+      // 撤销「已发布」和清掉失败记录都是把记录复位，
+      // 但前者改的是一条事实记录，要显式说明
+      path = `/console/api/publications/${pid}/retry`;
+      if (kind === "unpublish") body.force = true;
+    }
   } else return;
 
   btn.disabled = true;
@@ -724,6 +857,9 @@ async function runAction(btn) {
       reject: () => "已打回，不会发布",
       cancel: () => `已撤销排期${out.cancelled_items ? "，并从队列里撤下发布" : ""}`,
       rerun: () => `已把「${btn.closest(".sub-row").querySelector(".hl").textContent}」放回队列，等 worker 领走`,
+      published: () => out.url ? `已记为发布：${out.url}` : "已记为发布",
+      retry: () => "失败记录已清掉，清单可以重新用了",
+      unpublish: () => "已撤销「已发布」标记",
     }[kind]();
     cache.task[taskId] = null;
     cache.tasks = null;
@@ -797,6 +933,9 @@ async function generateTts() {
 }
 
 document.getElementById("main").addEventListener("click", (e) => {
+  const cp = e.target.closest("[data-copy]");
+  if (cp) { e.stopPropagation(); return copyText(cp.dataset.copy, cp); }
+
   const tts = e.target.closest("[data-tts]");
   if (tts) {
     if (!tts.dataset.confirm) return runTtsAction(tts);     // 加载：直接执行
@@ -821,6 +960,8 @@ document.getElementById("main").addEventListener("click", (e) => {
 
   if (e.target.closest("a")) return;              // 让产物链接正常打开
 
+  if (e.target.closest("[data-mark]")) return;   // 行里的标记下拉不跳转
+
   const row = e.target.closest("[data-task]");
   if (row) return go("task", row.dataset.task);
 
@@ -842,7 +983,26 @@ document.getElementById("main").addEventListener("click", (e) => {
 
 /* 换模型就换一套参数：edge 给音色列表，indextts2 给参考音频和情感。
    把不适用的字段留在界面上，只会让人填了不起作用的东西。 */
-document.getElementById("main").addEventListener("change", (e) => {
+document.getElementById("main").addEventListener("change", async (e) => {
+  const mark = e.target.closest("[data-mark]");
+  if (mark) {
+    // 列表页的下拉带 id，详情页的不带（就是当前这条）
+    const id = mark.dataset.mark || taskId;
+    const label = mark.options[mark.selectedIndex].textContent;
+    try {
+      await post(`/console/api/tasks/${id}/state`, { state: mark.value });
+      cache.tasks = null;
+      cache.task[id] = null;
+      await render();
+      say(mark.value ? `已标记为「${label}」` : "已撤销标记", false);
+    } catch (err) {
+      cache.tasks = null;
+      await render();
+      say(err.message, true);
+    }
+    return;
+  }
+
   if (e.target.id !== "tts-pick") return;
   const text = document.getElementById("tts-text").value;
   ttsModel = e.target.value;
