@@ -27,3 +27,7 @@ data/tts_compare/*
 data/bgm/
 # 人脸检测模型，portrait_guard 首次使用时自动下载
 data/models/
+
+# 成片是构建产物：videos/<项目>/ 里留工程源文件和配音，mp4 由 render.py 重现。
+# 登记进控制台的那份副本在 data/video_pipeline/ 下，那里整个目录已经忽略。
+videos/**/*.mp4

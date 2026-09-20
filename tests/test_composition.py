@@ -753,3 +753,14 @@ def test_blurred_backdrop_covers_all_card_layouts(tmp_path):
         )
         assert 'class="still is-blurred"' in html, layout
         assert 'class="still m m-kenburns' not in html, layout
+
+
+def test_scene_without_media_falls_back_to_the_theme_backdrop():
+    """没有素材的场景不该硬塞一张图：文字型版面要的是主题底纹。
+
+    截图当全幅底图会和标题抢注意力——截图里的小字和大标题叠在一起谁都看不清。
+    """
+    html, _ = build_composition_html([_scene()], media_lookup=lambda sid: None)
+    assert '<div class="scene-media"></div>' in html
+    assert 'class="still' not in html
+    assert 'class="backdrop"' in html      # 主题的渐变底纹仍在

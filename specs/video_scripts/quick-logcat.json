@@ -1,0 +1,194 @@
+{
+  "topic": {
+    "title": "只想看一行日志，不用开 Android Studio",
+    "angle": "从「只是想确认一行报错，却要先开整个 IDE」这个具体时刻切入，给出一条命令的替代方案",
+    "why_now": "自己做的开源工具发布到 npm，需要一支讲清楚使用场景和边界的短片",
+    "target_audience": "日常要看 Android 日志的移动端开发者",
+    "video_type": "explainer"
+  },
+  "bgm_style": "克制的科技感，BPM 100 左右",
+  "scenes": [
+    {
+      "scene_id": "s01",
+      "order": 1,
+      "duration": 5,
+      "layout": "hook",
+      "visual_desc": "纯文字卡，用主题底纹",
+      "text_overlay": {
+        "main": "只想看一行报错",
+        "sub": "却要先打开整个 Android Studio。",
+        "animation": "slide_up"
+      },
+      "transition": "none",
+      "narration": "只是想确认一行报错，却要先打开整个 Android Studio。",
+      "material_hints": [
+        "none"
+      ],
+      "bgm_mood": "tension"
+    },
+    {
+      "scene_id": "s02",
+      "order": 2,
+      "duration": 8,
+      "layout": "bullets",
+      "visual_desc": "纯文字卡，用主题底纹",
+      "text_overlay": {
+        "main": "四步之后才看到那一行",
+        "sub": "启动 IDE；找到 Logcat 面板；连接设备；筛选日志",
+        "animation": "slide_up"
+      },
+      "transition": "fade",
+      "narration": "等 IDE 加载、找到 Logcat 面板、连设备、筛日志，四步之后才看到那一行。",
+      "material_hints": [
+        "none"
+      ],
+      "bgm_mood": "tension"
+    },
+    {
+      "scene_id": "s03",
+      "order": 3,
+      "duration": 7,
+      "layout": "terminal",
+      "visual_desc": "终端里敲出 npx quick-logcat，随后打印服务地址",
+      "text_overlay": {
+        "main": "npx quick-logcat",
+        "sub": "本地起个 Node 服务，日志走你本机的 adb，不上传第三方。",
+        "animation": "slide_up"
+      },
+      "transition": "slide_left",
+      "narration": "其实你只需要一条命令。本地起一个 Node 服务，自动打开浏览器，日志走你本机的 adb，不上传第三方。",
+      "material_hints": [
+        "local:videos/quick-logcat/assets/ui_empty.png"
+      ],
+      "bgm_mood": "reveal",
+      "window": "TERMINAL",
+      "terminal": {
+        "prompt": "$",
+        "output": [
+          "[server] http://localhost:5174",
+          "[adb] 1 device connected"
+        ]
+      }
+    },
+    {
+      "scene_id": "s04",
+      "order": 4,
+      "duration": 11,
+      "layout": "screenshot",
+      "visual_desc": "quick-logcat 真实界面，依次高亮设备下拉、级别复选框、三个过滤输入框",
+      "text_overlay": {
+        "main": "把日志先变得可看。",
+        "sub": "",
+        "animation": "slide_up"
+      },
+      "transition": "fade",
+      "narration": "真机模拟器随时切换，关键字、Tag、包名、级别都能过滤；暂停、清空、导出、自动重连都有。",
+      "material_hints": [
+        "local:videos/quick-logcat/assets/ui_full.png"
+      ],
+      "bgm_mood": "explain",
+      "focus": [
+        {
+          "at": 1.2,
+          "rect": [
+            6,
+            6,
+            280,
+            32
+          ],
+          "label": "真机 / 模拟器 随时切",
+          "note": "设备下拉里选，连上就开始收"
+        },
+        {
+          "at": 4.4,
+          "rect": [
+            8,
+            44,
+            240,
+            26
+          ],
+          "label": "V D I W E F A 级别过滤",
+          "note": "只留你关心的那一级"
+        },
+        {
+          "at": 7.6,
+          "rect": [
+            684,
+            8,
+            560,
+            30
+          ],
+          "label": "关键字 · Tag · 包名",
+          "note": "三个输入框，叠加过滤"
+        }
+      ]
+    },
+    {
+      "scene_id": "s05",
+      "order": 5,
+      "duration": 7,
+      "layout": "compare",
+      "visual_desc": "纯文字卡，用主题底纹",
+      "text_overlay": {
+        "main": "它不替代 IDE",
+        "sub": "编译断点 Profiler 用 Android Studio 对比 只想看一行日志用 quick-logcat",
+        "animation": "pop_in"
+      },
+      "transition": "slide_left",
+      "narration": "它不替代 Android Studio。要编译、断点、Profiler，还是用 IDE。",
+      "material_hints": [
+        "none"
+      ],
+      "bgm_mood": "explain"
+    },
+    {
+      "scene_id": "s06",
+      "order": 6,
+      "duration": 9,
+      "layout": "scroll",
+      "visual_desc": "GitHub 仓库页整页缓缓上滚，Star 按钮单独放大",
+      "text_overlay": {
+        "main": "已开源，MIT License",
+        "sub": "npx quick-logcat",
+        "animation": "pop_in"
+      },
+      "transition": "zoom_in",
+      "narration": "项目已开源，MIT License。GitHub 搜 quick logcat，顺手点个 Star。",
+      "material_hints": [
+        "local:videos/quick-logcat/assets/gh_full.png"
+      ],
+      "bgm_mood": "uplift",
+      "window": "github.com/lsm1103/quick_logcat",
+      "scroll": {
+        "end": 0.32,
+        "aspect": 1.25
+      },
+      "focus": [
+        {
+          "at": 1.6,
+          "rect": [
+            2612,
+            178,
+            210,
+            62
+          ],
+          "label": "顺手点个 Star",
+          "note": "MIT License，随便用"
+        }
+      ]
+    }
+  ],
+  "platform_metadata": {
+    "xiaohongshu": {
+      "title": "只想看一行日志，不用开 Android Studio",
+      "desc": "只是想确认一行报错，却要先启动 IDE、等加载、找 Logcat 面板、连设备、再筛日志。\n\n如果需求只是「快速看一下日志」：npx quick-logcat\n\n本地起个 Node 服务，浏览器直接打开，日志仍然走你本机的 adb，不上传第三方。真机模拟器随时切，关键字、Tag、包名、级别都能过滤。\n\n它不替代 Android Studio——要编译、断点、Profiler 还是用 IDE。\n\n开源 MIT：github.com/lsm1103/quick_logcat",
+      "tags": [
+        "Android开发",
+        "安卓开发",
+        "程序员工具",
+        "开源项目",
+        "效率工具"
+      ]
+    }
+  }
+}

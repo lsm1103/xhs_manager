@@ -11,7 +11,6 @@ from xhs_manager.video_pipeline.domain import (
     Platform,
     StageError,
     VideoPipelineError,
-    VideoType,
     next_stage,
 )
 from xhs_manager.video_pipeline.integrations.collectors import TrendItem, _as_int
@@ -21,7 +20,6 @@ from xhs_manager.video_pipeline.stages.stage1_trends import (
     _normalize_within_platform,
     _raw_weight,
 )
-
 
 # ── 状态机 ────────────────────────────────────────────────────────
 
@@ -265,6 +263,7 @@ def test_scheduler_rejects_invalid_hour(bad_hour):
 
 def test_crontab_line_uses_project_venv_python():
     from pathlib import Path
+
     from xhs_manager.video_pipeline.scheduler import render_crontab_line
     line = render_crontab_line(8, Path("/proj"))
     assert line.startswith("0 8 * * * ")
@@ -275,6 +274,7 @@ def test_crontab_line_uses_project_venv_python():
 def test_launchd_plist_is_well_formed_xml():
     import xml.etree.ElementTree as ET
     from pathlib import Path
+
     from xhs_manager.video_pipeline.scheduler import render_launchd_plist
     xml = render_launchd_plist(8, Path("/proj"))
     root = ET.fromstring(xml)
@@ -358,6 +358,7 @@ def test_stage6_xiaohongshu_uses_playwright_not_subprocess():
     """opencli 的 upload 依赖 fileChooser，对小红书隐藏 input 不可用；
     小红书路径必须走 Playwright，不能再调子进程。"""
     import inspect
+
     from xhs_manager.video_pipeline.stages import stage6_publish as m
     src = inspect.getsource(m._publish_xiaohongshu)
     assert "XhsPublisher" in src
@@ -397,6 +398,7 @@ def test_publisher_targets_custom_element_not_text():
     """<xhs-publish-btn> 用 closed shadow root 封装，textContent 为空，
     text= / get_by_role 都定位不到，必须走宿主元素坐标。"""
     import inspect
+
     from xhs_manager.video_pipeline.integrations import xhs_publisher as m
     src = inspect.getsource(m.XhsPublisher._click_submit)
     assert "xhs-publish-btn" in src
@@ -407,6 +409,7 @@ def test_publisher_targets_custom_element_not_text():
 def test_draft_and_publish_click_different_horizontal_positions():
     """草稿在左、发布在右，比例必须不同，否则会点错按钮。"""
     import inspect
+
     from xhs_manager.video_pipeline.integrations import xhs_publisher as m
     src = inspect.getsource(m.XhsPublisher._click_submit)
     assert "0.62" in src and "0.34" in src
@@ -415,6 +418,7 @@ def test_draft_and_publish_click_different_horizontal_positions():
 def test_wait_ready_checks_submit_disabled_attribute():
     """标题框出现只代表编辑器挂载；可提交的判据是 submit-disabled=false。"""
     import inspect
+
     from xhs_manager.video_pipeline.integrations import xhs_publisher as m
     src = inspect.getsource(m.XhsPublisher._wait_submit_ready)
     assert "submit-disabled" in src and "submit-loading" in src
@@ -424,6 +428,7 @@ def test_publish_clears_stale_error_on_retry_success():
     """失败记录重试成功后，必须清掉旧的 error_detail，
     否则 published 状态会挂着误导性的过期错误。"""
     import inspect
+
     from xhs_manager.video_pipeline.stages import stage6_publish as m
     src = inspect.getsource(m.publish_videos)
     i = src.index('pub.status = "published"')
@@ -443,6 +448,7 @@ def test_cdp_mode_never_closes_user_browser():
     """CDP 模式连的是用户自己的 Chrome，收尾只能断开连接，
     误调 context.close() 会关掉用户的浏览器。"""
     import inspect
+
     from xhs_manager.video_pipeline.integrations import xhs_publisher as m
     src = inspect.getsource(m.XhsPublisher._release)
     i = src.index("if self.cdp_url:")
@@ -453,6 +459,7 @@ def test_cdp_mode_never_closes_user_browser():
 
 def test_cdp_mode_opens_new_tab_instead_of_hijacking_current():
     import inspect
+
     from xhs_manager.video_pipeline.integrations import xhs_publisher as m
     src = inspect.getsource(m.XhsPublisher.publish_video)
     assert "ctx.new_page() if self.cdp_url" in src
@@ -580,7 +587,6 @@ def test_percentile_ranks_edge_cases():
 def test_classify_covers_every_mood():
     """打标后每个情绪都要有曲子，否则某些段会选不到音乐。"""
     from xhs_manager.video_pipeline.audio.library import Track, classify_library
-    from xhs_manager.video_pipeline.audio.moods import BgmMood
     tracks = [
         Track(path=f"/t{i}.mp3", duration=180, tempo=60 + i * 12,
               energy=0.1 + i * 0.08, brightness=400 + i * 90, moods=[], scores={})
@@ -851,10 +857,13 @@ def test_calibrated_scene_durations_survive_a_commit(session_factory):
 
     from xhs_manager.domain import new_id
     from xhs_manager.video_pipeline.audio.narration import (
-        SceneNarration, calibrate_scene_durations,
+        SceneNarration,
+        calibrate_scene_durations,
     )
     from xhs_manager.video_pipeline.models import (
-        VideoPipelineRun, VideoScript, VideoTopic,
+        VideoPipelineRun,
+        VideoScript,
+        VideoTopic,
     )
 
     raw = [
@@ -987,3 +996,231 @@ def test_opencli_parse_keeps_published_at():
     assert items[0].likes == 3713
     assert items[0].published_at is not None
     assert items[0].published_at.strftime("%Y-%m-%d") == "2026-08-11"
+
+
+# ── 本地素材（local: 提示）────────────────────────────────────────
+
+
+def _settings_with_dirs(*dirs):
+    from xhs_manager.video_pipeline.config import VideoPipelineSettings
+
+    return VideoPipelineSettings(local_material_dirs=[str(d) for d in dirs])
+
+
+def test_resolve_local_material_searches_configured_dirs(tmp_path):
+    from xhs_manager.video_pipeline.stages.stage3_materials import resolve_local_material
+
+    (tmp_path / "a").mkdir()
+    shot = tmp_path / "a" / "ui.png"
+    shot.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 40)
+
+    st = _settings_with_dirs(tmp_path / "nope", tmp_path / "a")
+    assert resolve_local_material("local:ui.png", st) == shot
+    assert resolve_local_material(f"local:{shot}", st) == shot   # 绝对路径
+
+
+def test_resolve_local_material_rejects_missing_and_unknown_types(tmp_path):
+    from xhs_manager.video_pipeline.stages.stage3_materials import resolve_local_material
+
+    (tmp_path / "notes.txt").write_text("x")
+    st = _settings_with_dirs(tmp_path)
+    assert resolve_local_material("local:notes.txt", st) is None   # 不是画面
+    assert resolve_local_material("local:gone.png", st) is None
+    assert resolve_local_material("local:", st) is None
+
+
+def test_local_hint_claims_the_scene_and_skips_portrait_guard(tmp_path, session, monkeypatch):
+    """点了名的本地素材直接入库，且不过人脸检测。
+
+    人脸检测防的是"搜索返回了什么我不知道"；local: 是运营自己挑的文件，
+    挑没挑对是他的决定。这里顺便确认它真的没被调用。
+    """
+    import struct
+
+    from xhs_manager.video_pipeline.models import VideoMaterial
+    from xhs_manager.video_pipeline.stages import stage3_materials
+
+    shot = tmp_path / "ui.png"
+    shot.write_bytes(
+        b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR"
+        + struct.pack(">II", 1533, 618) + b"\x08\x06\x00\x00\x00" + b"\x00" * 4
+    )
+
+    called = []
+    monkeypatch.setattr(
+        stage3_materials, "_reject_portrait_materials",
+        lambda mats: called.append(mats) or mats,
+    )
+
+    script = _ready_script(session, [{
+        "scene_id": "s01", "order": 1, "duration": 6,
+        "material_hints": ["local:ui.png", "search:fallback keywords"],
+    }])
+    out = tmp_path / "out"
+    out.mkdir()
+
+    n = stage3_materials._claim_local_materials(
+        session, script, out, _settings_with_dirs(tmp_path),
+    )
+
+    assert n == 1
+    assert called == []
+    mat = session.query(VideoMaterial).one()
+    assert mat.scene_id == "s01"
+    assert mat.source_tool == "manual" and mat.license_type == "local"
+    assert (mat.width, mat.height) == (1533, 618)   # 给 screenshot 版面换算比例用
+    assert Path(mat.local_path).exists()
+
+
+def test_local_hint_is_idempotent_across_reruns(tmp_path, session):
+    """重跑本阶段不该再认领一遍——素材已经在库里了。"""
+    from xhs_manager.video_pipeline.models import VideoMaterial
+    from xhs_manager.video_pipeline.stages import stage3_materials
+
+    shot = tmp_path / "ui.png"
+    shot.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 40)
+    script = _ready_script(session, [{
+        "scene_id": "s01", "order": 1, "duration": 6,
+        "material_hints": ["local:ui.png"],
+    }])
+    out = tmp_path / "out"
+    out.mkdir()
+    st = _settings_with_dirs(tmp_path)
+
+    assert stage3_materials._claim_local_materials(session, script, out, st) == 1
+    assert stage3_materials._claim_local_materials(session, script, out, st) == 0
+    assert session.query(VideoMaterial).count() == 1
+
+
+def test_missing_local_file_leaves_the_scene_to_search(tmp_path, session, caplog):
+    """路径写错不能静默：不然这个场景会悄悄退回去搜 Pexels，画面全不对。"""
+    from xhs_manager.video_pipeline.models import VideoMaterial
+    from xhs_manager.video_pipeline.stages import stage3_materials
+
+    script = _ready_script(session, [{
+        "scene_id": "s01", "order": 1, "duration": 6,
+        "material_hints": ["local:typo.png"],
+    }])
+    out = tmp_path / "out"
+    out.mkdir()
+
+    with caplog.at_level("WARNING"):
+        n = stage3_materials._claim_local_materials(
+            session, script, out, _settings_with_dirs(tmp_path),
+        )
+
+    assert n == 0
+    assert session.query(VideoMaterial).count() == 0
+    assert "typo.png" in caplog.text
+
+
+def _ready_script(session, scenes):
+    """建一条最小可用的 run → topic → script 链，返回 script。"""
+    from datetime import date as _date
+
+    from xhs_manager.video_pipeline.models import (
+        VideoPipelineRun,
+        VideoScript,
+        VideoTopic,
+    )
+
+    run = VideoPipelineRun(run_date=_date(2026, 1, 1), status="composing")
+    session.add(run)
+    session.flush()
+    topic = VideoTopic(
+        pipeline_run_id=run.id, rank=1, title="t", angle="a", why_now="w",
+        target_audience="x", video_type="explainer", estimated_duration=20,
+        scores={}, total_score=1.0, source_signal_ids=[], status="selected",
+    )
+    session.add(topic)
+    session.flush()
+    script = VideoScript(
+        topic_id=topic.id, version=1, total_duration=20, scenes=scenes,
+        bgm_style="", platform_metadata={}, generation_model="test",
+        generation_prompt_hash="h", status="ready",
+    )
+    session.add(script)
+    session.commit()
+    return script
+
+
+# ── 「这一幕不要背景图」（none 提示）──────────────────────────────
+
+
+def test_none_hint_is_recognised_case_insensitively():
+    from xhs_manager.video_pipeline.stages.stage3_materials import scene_wants_no_material
+
+    assert scene_wants_no_material({"material_hints": ["none"]})
+    assert scene_wants_no_material({"material_hints": [" NONE "]})
+    assert not scene_wants_no_material({"material_hints": ["local:a.png"]})
+    assert not scene_wants_no_material({})
+
+
+def test_none_hint_skips_local_claim(tmp_path, session):
+    """写了 none 就别再认领本地素材——两个都写是自相矛盾，运行期以 none 为准。"""
+    from xhs_manager.video_pipeline.models import VideoMaterial
+    from xhs_manager.video_pipeline.stages import stage3_materials
+
+    (tmp_path / "ui.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 40)
+    script = _ready_script(session, [{
+        "scene_id": "s01", "order": 1, "duration": 6,
+        "material_hints": ["none", "local:ui.png"],
+    }])
+    out = tmp_path / "out"
+    out.mkdir()
+
+    n = stage3_materials._claim_local_materials(
+        session, script, out, _settings_with_dirs(tmp_path),
+    )
+    assert n == 0
+    assert session.query(VideoMaterial).count() == 0
+
+
+def test_all_scenes_opting_out_is_not_a_collection_failure(session, tmp_path, monkeypatch):
+    """整条片子都是文字卡时 on_hand 本来就是 0，那是作者的选择，不是收集失败。"""
+    from xhs_manager.video_pipeline.models import VideoPipelineRun, VideoTopic
+    from xhs_manager.video_pipeline.stages import stage3_materials
+
+    script = _ready_script(session, [
+        {"scene_id": "s01", "order": 1, "duration": 6, "material_hints": ["none"]},
+        {"scene_id": "s02", "order": 2, "duration": 6, "material_hints": ["none"]},
+    ])
+    topic = session.get(VideoTopic, script.topic_id)
+    run = session.get(VideoPipelineRun, topic.pipeline_run_id)
+
+    # 不碰 MPT，也不让兜底链生成任何东西；断言它不会因为「零素材」抛错
+    monkeypatch.setattr(
+        stage3_materials, "MoneyPrinterTurbo",
+        lambda *a, **k: type("X", (), {"available": False})(),
+    )
+    out = stage3_materials.collect_materials(
+        session, run, _settings_with_dirs(tmp_path),
+    )
+    assert out["total_materials"] == 0
+
+
+def test_scene_that_wants_material_but_gets_none_still_fails(session, tmp_path, monkeypatch):
+    """有场景想要素材却一条都没拿到，仍然要报错——这是真的失败。"""
+    from xhs_manager.video_pipeline.domain import StageError
+    from xhs_manager.video_pipeline.models import VideoPipelineRun, VideoTopic
+    from xhs_manager.video_pipeline.stages import stage3_materials
+
+    script = _ready_script(session, [
+        {"scene_id": "s01", "order": 1, "duration": 6, "material_hints": ["none"]},
+        {"scene_id": "s02", "order": 2, "duration": 6,
+         "material_hints": ["search:something"]},
+    ])
+    topic = session.get(VideoTopic, script.topic_id)
+    run = session.get(VideoPipelineRun, topic.pipeline_run_id)
+
+    monkeypatch.setattr(
+        stage3_materials, "MoneyPrinterTurbo",
+        lambda *a, **k: type("X", (), {"available": False})(),
+    )
+    monkeypatch.setattr(
+        stage3_materials, "_generate_text_card", lambda *a, **k: None,
+    )
+    with pytest.raises(StageError):
+        stage3_materials.collect_materials(
+            session, run, _settings_with_dirs(tmp_path),
+        )

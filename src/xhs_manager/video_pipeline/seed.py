@@ -8,12 +8,14 @@
 
 import json
 import logging
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from xhs_manager.domain import new_id
+from xhs_manager.video_pipeline.composition.timeline import LAYOUTS
 from xhs_manager.video_pipeline.domain import VideoType
 from xhs_manager.video_pipeline.models import (
     VideoPipelineRun,
@@ -116,6 +118,26 @@ REQUIRED_SCENE_KEYS = (
 )
 
 
+def free_run_date(session: Session) -> date:
+    """找一个还没被占用的 run_date。
+
+    `video_pipeline_runs.run_date` 上有唯一约束——每天一次自动运行的设计。
+    手动起片一天可能起好几条，所以从今天往**过去**找空位：
+    往未来找会占掉后面几天定时任务的位置，往过去找只是借用没跑过的日子。
+    """
+    d = date.today()
+    for _ in range(3650):
+        exists = (
+            session.query(VideoPipelineRun.id)
+            .filter(VideoPipelineRun.run_date == d)
+            .first()
+        )
+        if not exists:
+            return d
+        d = d - timedelta(days=1)
+    raise RuntimeError("十年内找不到空闲的 run_date")
+
+
 def load_script_file(path: str | Path) -> dict[str, Any]:
     """读入一份手写的脚本 JSON 并做基本校验。
 
@@ -138,8 +160,151 @@ def load_script_file(path: str | Path) -> dict[str, Any]:
             raise ValueError(f"scenes[{i}] 的 duration 必须是正数")
         scene.setdefault("bgm_mood", "explain")
         scene.setdefault("material_hints", [])
+        _validate_hints(i, scene)
+        _validate_layout(i, scene)
+        _validate_focus(i, scene)
+        _validate_scroll(i, scene)
+        _validate_terminal(i, scene)
 
     return data
+
+
+def _validate_hints(i: int, scene: dict[str, Any]) -> None:
+    """素材提示的自洽性。
+
+    "none"（不要背景图）和其它提示同时出现是自相矛盾的：运行期会以 none 为准，
+    但作者显然不是这个意思，多半是改脚本时忘了删旧的那一行。
+    静默取其一的话，你要渲染完整片才发现背景图没了。
+    """
+    # 函数内 import：seed 是给 CLI 和测试用的轻量模块，
+    # 模块级依赖 stages 会把整条流水线的 import 链都拖进来。
+    from xhs_manager.video_pipeline.stages.stage3_materials import NO_MATERIAL_HINT
+
+    hints = scene.get("material_hints") or []
+    if not isinstance(hints, list):
+        raise ValueError(f"scenes[{i}] 的 material_hints 必须是数组")
+
+    texts = [h.strip() for h in hints if isinstance(h, str) and h.strip()]
+    if NO_MATERIAL_HINT in [t.lower() for t in texts] and len(texts) > 1:
+        others = [t for t in texts if t.lower() != NO_MATERIAL_HINT]
+        raise ValueError(
+            f"scenes[{i}] 同时写了 \"none\"（不要背景图）和 {others}，"
+            f"二选一"
+        )
+
+
+def _validate_layout(i: int, scene: dict[str, Any]) -> None:
+    """版面名拼错要当场报错。
+
+    infer_layout 的兜底是「不认识就当 statement」，对 LLM 产物来说这是对的
+    （宁可退化也不要炸掉整条流水线）；但手写脚本不一样：把 "screenshot" 写成
+    "screenshoot" 会安静地退回一屏纯文字，素材和高亮框全部不出，
+    而你要渲染完整片才看得出来。
+    """
+    layout = scene.get("layout")
+    if layout is None:
+        return
+    if layout not in LAYOUTS:
+        raise ValueError(
+            f"scenes[{i}] 的 layout 「{layout}」不认识，可选：{', '.join(LAYOUTS)}"
+        )
+
+
+def _validate_scroll(i: int, scene: dict[str, Any]) -> None:
+    """滚动配置的取值范围。
+
+    end 超出 (0, 1] 最坑：_plan_scroll 会当它没给、改成走到底，
+    你以为只滚三分之一，成片里整页刷到了底。
+    """
+    scroll = scene.get("scroll")
+    if scroll is None:
+        return
+    if not isinstance(scroll, dict):
+        raise ValueError(f"scenes[{i}] 的 scroll 必须是对象")
+
+    end = scroll.get("end")
+    if end is not None:
+        if not isinstance(end, (int, float)) or not 0 < float(end) <= 1:
+            raise ValueError(
+                f"scenes[{i}] 的 scroll.end 要在 (0, 1] 之间"
+                f"（图片自身高度的比例），现在是 {end!r}"
+            )
+    aspect = scroll.get("aspect")
+    if aspect is not None and (
+        not isinstance(aspect, (int, float)) or float(aspect) <= 0
+    ):
+        raise ValueError(f"scenes[{i}] 的 scroll.aspect 必须是正数，现在是 {aspect!r}")
+
+    has_media = any(
+        isinstance(h, str) and h.startswith("local:")
+        for h in scene.get("material_hints", [])
+    )
+    if not has_media:
+        logger.warning(
+            "scenes[%d] 是滚动版面却没有 local: 素材提示——"
+            "滚动的会是一张搜索来的素材，多半不是你想要的", i,
+        )
+
+
+def _validate_terminal(i: int, scene: dict[str, Any]) -> None:
+    """终端配置。命令为空时版面会整个退化成纯文字，必须拦住。"""
+    term = scene.get("terminal")
+    if term is None:
+        return
+    if not isinstance(term, dict):
+        raise ValueError(f"scenes[{i}] 的 terminal 必须是对象")
+
+    overlay = scene.get("text_overlay") or {}
+    if isinstance(overlay, str):
+        overlay = {"main": overlay}
+    command = str(term.get("command") or overlay.get("main") or "").strip()
+    if not command:
+        raise ValueError(
+            f"scenes[{i}] 的 terminal 没有命令：要么给 terminal.command，"
+            f"要么在 text_overlay.main 里写"
+        )
+
+    out = term.get("output")
+    if out is not None and not isinstance(out, (list, str)):
+        raise ValueError(f"scenes[{i}] 的 terminal.output 必须是字符串或字符串数组")
+
+
+def _validate_focus(i: int, scene: dict[str, Any]) -> None:
+    """截图特写框的基本形状校验。
+
+    同理：_plan_focus 会静默丢掉不合法的条目，那对手写脚本是最坏的反馈方式。
+    """
+    focus = scene.get("focus")
+    if focus is None:
+        return
+    if not isinstance(focus, list) or not focus:
+        raise ValueError(f"scenes[{i}] 的 focus 必须是非空数组")
+
+    for j, item in enumerate(focus):
+        where = f"scenes[{i}].focus[{j}]"
+        if not isinstance(item, dict):
+            raise ValueError(f"{where} 必须是对象")
+        rect = item.get("rect")
+        if not (isinstance(rect, (list, tuple)) and len(rect) == 4):
+            raise ValueError(f"{where} 缺 rect，或 rect 不是 [x, y, w, h] 四个数")
+        try:
+            vals = [float(v) for v in rect]
+        except (TypeError, ValueError):
+            raise ValueError(f"{where} 的 rect 里有非数字") from None
+        if vals[2] <= 0 or vals[3] <= 0:
+            raise ValueError(f"{where} 的 rect 宽高必须为正")
+
+    has_local = any(
+        isinstance(h, str) and h.startswith("local:")
+        for h in scene.get("material_hints", [])
+    )
+    if not has_local:
+        # 不是硬错误：素材也可能由别的途径进库（比如手工登记）。
+        # 但 95% 的情况下这就是忘了写素材，而后果是框贴在一张 Pexels 素材上。
+        logger.warning(
+            "scenes[%d] 给了 focus 却没有 local: 素材提示——"
+            "高亮框会贴到搜索来的素材上，多半不是你想要的", i,
+        )
 
 
 def seed_topic_and_script(

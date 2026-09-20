@@ -114,6 +114,11 @@ class VideoPipelineSettings(BaseSettings):
     # ── 输出目录 ──
     output_base_dir: str = "data/video_pipeline"
 
+    # 脚本里 "local:xxx.png" 的相对路径按这些目录依次找。
+    # 介绍自己做的工具时素材是手头现成的截图和录屏，不该去 Pexels 搜——
+    # 搜不到对的东西，搜到了也不是你的产品。
+    local_material_dirs: list[str] = Field(default_factory=lambda: ["."])
+
     @property
     def pixelle_available(self) -> bool:
         return bool(self.pixelle_path)

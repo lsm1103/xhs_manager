@@ -136,6 +136,52 @@
 - 素材文件存储在 `data/video_assets/{pipeline_run_id}/{video_id}/` 下
 - 素材元数据（来源、许可证、路径）存入 `video_materials` 表
 
+#### 自带素材：`local:` 提示
+
+搜索路径解决的是「我需要一个画面来表达某个抽象概念」。但有一类片子不是这样：
+**介绍自己做的工具**时，画面必须是你自己的产品截图和录屏——去 Pexels 搜不到，
+搜到了也不是你的东西。
+
+脚本里把素材提示写成 `local:` 就能点名本地文件：
+
+```json
+"material_hints": ["local:videos/quick-logcat/assets/ui_full.png"]
+```
+
+- 相对路径按 `XHS_VIDEO_LOCAL_MATERIAL_DIRS`（默认 `["."]`）依次找，绝对路径直接用。
+- 认领发生在**所有搜索之前**。点了名的场景后续一律跳过，不会白调一次 MPT。
+- 图片会顺手探出像素尺寸写进 `video_materials.width/height`，
+  截图特写版面靠它把像素框换算成比例框。
+- 文件找不到会打 WARNING 并退回搜索路径。不静默是故意的：
+  路径写错的后果是画面悄悄变成一段不相干的 Pexels 素材，只看日志才查得出来。
+
+**这里不跑人脸检测**，和搜索路径不同。那一层防的是「搜索返回了什么我不知道」——
+Pexels 的免版权授权不覆盖被拍摄者的肖像权，所以结果侧必须兜底（见
+`portrait_guard.py`）。`local:` 指的是运营自己挑的文件，挑没挑对是他的判断，
+不该由这一层替他否决。
+
+`local:` 只在**手写脚本**里用（`cli seed --script`）——LLM 不可能知道你机器上
+有哪些文件，所以 Stage 2 的 prompt 里没有这个前缀。
+
+#### 不要背景图：`"none"` 提示
+
+```json
+"material_hints": ["none"]
+```
+
+hook / bullets / compare 这类版面把素材当**全幅底图**。Pexels 那种柔焦素材适合
+这么用，UI 截图不适合：截图里的小字和大标题叠在一起，谁都看不清。这类场景要的
+是主题的渐变底纹，而不是「随便找张图垫着」。
+
+- 拦在 Stage 3 而不是 Stage 4。兜底链最后一定会生成一张文字卡片，
+  只靠组合阶段跳过的话，那张卡片还是白生成了一遍。
+- 弃权的场景**不进 pending**。进了会在补位那一步被别处的余料顶上，
+  等于绕过了这个声明。
+- 「一条素材都没收到」的失败判据会扣掉弃权的场景：整条片子都是文字卡时
+  `on_hand` 本来就是 0，那是作者的选择，不是收集失败。
+- `"none"` 和其它提示同时出现，`seed.load_script_file` 直接拒收——
+  运行期虽然以 `none` 为准，但作者显然不是这个意思，多半是改脚本时忘了删旧的那行。
+
 ### Stage 4: HTML 动态构建 (`compose_html`)
 
 **输入**: 分镜脚本 + 素材文件
@@ -181,7 +227,8 @@
   这是逐帧截图渲染能正确出片的前提——CSS 动画默认走墙钟，
   而两帧之间的真实耗时不确定，不锁住就会渲染出「动画瞬间结束」的画面。
 - **版面模板**（`layouts.py`）：hook / statement / stat / quote / bullets /
-  compare / outro，按内容特征自动推断，也可由脚本显式指定 `layout`。
+  compare / screenshot / scroll / terminal / outro，按内容特征自动推断，
+  也可由脚本显式指定 `layout`。
 - **贯穿外壳**（`builder.py`）：品牌条、章节角标、分段进度条、字幕带、
   水印、颗粒 + 暗角；按平台 UI 留安全区。
 - **主题**（`theme.py`）：tech_night / warm_paper / electric，颜色字阶集中一处。
@@ -190,6 +237,101 @@
 
 **预览**：`python -m xhs_manager.video_pipeline.composition.preview`，
 不跑流水线就能看版面；浏览器打开加 `#preview` 才自动播放。
+
+#### `screenshot` 版面：界面特写
+
+给「介绍自己做的工具」用。问题很具体：横向的界面截图缩到竖屏宽度后只有
+1080×435，界面上那个要讲的控件只剩十几像素高——整图放上去等于什么都没给看清。
+所以这个版面是**整图 + 高亮框 + 局部放大卡**三件套：
+
+```json
+{
+  "layout": "screenshot",
+  "material_hints": ["local:videos/quick-logcat/assets/ui_full.png"],
+  "focus": [
+    {"at": 1.2, "rect": [6, 6, 280, 32],
+     "label": "真机 / 模拟器 随时切", "note": "设备下拉里选，连上就开始收"},
+    {"at": 4.4, "rect": [8, 44, 240, 26], "label": "级别过滤"}
+  ]
+}
+```
+
+- `rect` 是 `[x, y, w, h]`，**按源截图的像素**量——这是量坐标时最自然的单位。
+  编译时用素材的真实尺寸换算成比例，所以换画布尺寸不用改脚本。
+  四个数全 ≤ 1 时按比例解释（探不出源图尺寸时的退路）。
+- `at` 不给就按时长均分；`hold` 不给就停到**下一个特写出现**为止，
+  最后一个停到场景结束前。旁白改了导致场景时长变化时，特写会自己跟着伸缩——
+  Stage 3 会按真实语音时长回写 `duration`，硬编码 hold 就会错位。
+- 放大倍数默认由框宽推出来（让这块正好铺满放大卡），夹在 1.5–8 倍之间；
+  要手动指定就给 `zoom`。
+- 放大卡的定位没有任何像素计算：`left/top:50%` 定锚点，
+  `transform: translate(-cx%, -cy%)` 的百分比参照 img 自身尺寸，
+  于是「把框心挪到卡片正中」就是一句 translate。
+- 背景不再走 Ken Burns，改成同一张图糊开当底纹——前景已经有一张完整静态截图了，
+  背景再动就是两张同样的图在打架。
+
+写错了会当场报错而不是静默退化：`layout` 拼错、`rect` 少一个数、宽高为 0，
+`seed.load_script_file` 都会拒收。手写脚本和 LLM 产物在这点上要求相反——
+LLM 产物宁可退化也别炸掉整条流水线，手写脚本则必须早报错，
+不然你要渲染完整片才发现高亮框一个都没出。
+
+#### `scroll` 版面：长截图滚动
+
+网页整页、长文档、README ——一张 2880×9074 的长截图塞进竖屏只能看到顶部一条。
+这个版面把它放进定高视窗里缓缓上移。
+
+```json
+{
+  "layout": "scroll",
+  "window": "github.com/lsm1103/quick_logcat",
+  "material_hints": ["local:videos/quick-logcat/assets/gh_full.png"],
+  "scroll": {"end": 0.32, "aspect": 1.25},
+  "focus": [{"at": 1.6, "rect": [2612, 178, 210, 62], "label": "顺手点个 Star"}]
+}
+```
+
+- `scroll.end` 是**图片自身高度的比例**：0.32 = 整张图上移了自身高度的 32%。
+  选这个单位是因为拿图片高度一除就能估出来，不用先知道视窗多大。
+  不给就走到底。
+- 行程会被**夹在可见范围内**，滚不出底边。可见比例 = `imgW / (aspect × imgH)`，
+  剩下的才是能滚的。滚过头的画面是一整屏空白，比少滚难看得多。
+- `aspect` 是视窗宽高比，由 Python 写进 inline style —— 只有这一个出处。
+  CSS 里再写一份的话，两边对不上就会滚过头或滚不到底。
+- 整段滚动就是一条 `translateY` 动画，起止由 `--travel` 决定，进度照旧由 `--t` 驱动。
+- **滚动时长跟着场景走**，而场景时长由 Stage 3 按真实语音回写。旁白改短了，
+  滚动会自己跟着加快，不需要回来改脚本。
+- `focus` 在这里只出放大卡、不出高亮框：画面一直在动，框要跟上就得逐帧算位置，
+  那就不是纯 CSS 了。
+
+#### `terminal` 版面：命令打字机
+
+```json
+{
+  "layout": "terminal",
+  "text_overlay": {"main": "npx quick-logcat", "sub": "本地起个 Node 服务。"},
+  "terminal": {"prompt": "$", "output": [
+    "[server] http://localhost:5174",
+    "[adb] 1 device connected"
+  ]}
+}
+```
+
+命令逐字敲出来，敲完之后输出一行行出现。「一条命令就能跑」这件事，
+演一遍比写在标题里有说服力——观众看到的是命令有多短，而不是一句"很简单"。
+
+- `command` 不给就用 `text_overlay.main`，绝大多数时候这俩就是同一句话。
+- 打字速度按字数算（0.075 秒/字符，夹在 0.5–2 秒），短命令不会被拖满整个场景。
+- 光标闪烁和背景漂移同理，必须由 `--t` 驱动。漏掉的话它会按截图速度闪，
+  同一时间点两次渲染画面不一致。
+
+`screenshot` / `scroll` / `terminal` 三个版面的前景都自带一张主体卡片，
+所以背景里的同一张图只当底纹：糊开、压暗、不推拉（`BLURRED_BACKDROP_LAYOUTS`）。
+压暗要够狠——blur 半径是屏幕像素，而一张长截图被 cover 到竖屏时只露出很小一块、
+放得极大，同样的半径相对它微不足道，白底网页照样能看清字，前景文字就全糊在上面。
+
+`window` 字段（三个版面通用）会画一条假的浏览器/终端标题栏。它一眼说明
+「这东西跑在哪」——是浏览器里的 localhost:5174，还是 github.com 上的仓库页，
+光一张截图说不清这件事。
 
 ### Stage 5: 录制视频 (`render_video`)
 
@@ -485,6 +627,7 @@ XHS_VIDEO_TRENDS_PER_PLATFORM=20
 XHS_PIXELLE_PATH=                      # Pixelle-Video 安装路径
 XHS_MONEYPRINTER_PATH=                 # MoneyPrinterTurbo 安装路径
 XHS_PEXELS_API_KEY=                    # Pexels API Key（MoneyPrinterTurbo 使用）
+XHS_VIDEO_LOCAL_MATERIAL_DIRS=["."]    # 脚本里 local: 相对路径的查找目录
 
 # LLM
 XHS_CLAUDE_API_KEY=                    # Claude API Key
