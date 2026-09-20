@@ -12,9 +12,9 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from xhs_manager.domain import new_id, utcnow
+from xhs_manager.video_pipeline import manual_publish
 from xhs_manager.video_pipeline.config import VideoPipelineSettings
 from xhs_manager.video_pipeline.domain import (
-    PLATFORM_LIMITS,
     PLATFORM_PUBLISH_METHOD,
     Platform,
     PublishMethod,
@@ -92,24 +92,14 @@ def publish_videos(
                 continue
 
             try:
-                # 获取平台适配的元数据
-                platform_meta = script.platform_metadata.get(platform_name, {})
-                limits = PLATFORM_LIMITS.get(platform, {})
-
-                title = platform_meta.get("title", topic.title)
-                title = title[:limits.get("title_max", 100)]
-
-                desc = platform_meta.get("desc", platform_meta.get("description", ""))
-                desc_max = limits.get("desc_max", 1000)
-                if desc_max > 0:
-                    desc = desc[:desc_max]
-
-                tags = platform_meta.get("tags", platform_meta.get("hashtags", []))
-                tags_max = limits.get("tags_max", 10)
-                tags = tags[:tags_max]
-
-                # 获取平台封面
-                cover_path = render.covers.get(platform_name, render.cover_path)
+                # 平台字段的算法和人工发布共用一份，免得两处算出不同的标题
+                fields = manual_publish.platform_fields(
+                    script, topic, render, platform,
+                )
+                title = fields["title"]
+                desc = fields["description"]
+                tags = fields["tags"]
+                cover_path = fields["cover_path"]
 
                 # 创建发布记录
                 pub = existing or VideoPublication(
@@ -117,18 +107,18 @@ def publish_videos(
                     render_id=render.id,
                     topic_id=topic.id,
                     platform=platform_name,
-                    title=title,
-                    description=desc,
-                    tags=tags,
-                    cover_path=cover_path,
                     publish_method=PLATFORM_PUBLISH_METHOD.get(
                         platform, PublishMethod.EGO_BROWSER
                     ).value,
                     status="uploading",
+                    **fields,
                 )
                 if not existing:
                     session.add(pub)
-                session.flush()
+                # 提交而不是 flush：下面的上传要占着浏览器跑好几分钟，
+                # flush 会让 SQLite 的写锁一直握在这个连接上，
+                # worker 心跳续租只能等到 busy_timeout 然后报 database is locked。
+                session.commit()
 
                 if _is_manual(platform, settings):
                     # 人工发布：文案和成片都已经备好，剩下的交给人。
@@ -142,6 +132,7 @@ def publish_videos(
                         "status": pub.status, "url": None, "error": None,
                     })
                     logger.info("等待人工发布: %s / %s", platform_name, title[:24])
+                    session.commit()
                     continue
 
                 publish_result = _publish_to_platform(
@@ -174,6 +165,9 @@ def publish_videos(
                     "url": pub.external_url,
                     "error": pub.error_detail,
                 })
+                # 上传结束才回填结果——又是一次短事务。
+                # 必须赶在下面的平台间隔 sleep 之前提交。
+                session.commit()
 
                 # 平台间发布间隔：只在**成功发布后**等待，失败立即返回。
                 if pub.status == "published" and settings.publish_delay_minutes > 0:
@@ -200,16 +194,8 @@ def publish_videos(
     }
 
 
-def _is_manual(platform: Platform, settings: VideoPipelineSettings) -> bool:
-    """这个平台是不是走人工发布。
-
-    目前只有小红书有自动化实现，也只有它有这个开关；
-    其余平台的自动发布根本没实现，一律按人工处理，
-    好过让它们在队列里反复失败。
-    """
-    if platform is Platform.XIAOHONGSHU:
-        return settings.xhs_publish_mode not in ("draft", "publish")
-    return platform is not Platform.XIAOHONGSHU
+#: 人工模式判定和「跳过审批直接备清单」用的是同一条规则，共用一份实现。
+_is_manual = manual_publish.is_manual
 
 
 def _publish_to_platform(

@@ -1167,9 +1167,86 @@ def test_retry_will_not_quietly_wipe_a_published_record(client, publication):
     assert forced.status_code == 200 and forced.json()["was"] == "published"
 
 
+def test_a_rendered_video_can_be_closed_out_without_any_approval(
+    client, session_factory, video_task
+):
+    """人工模式下渲染完就能收尾：没有发布记录就现场补一条。
+
+    审批排期那道闸门是给「自动驱动浏览器发真实账号」设的。人工发布这条路
+    上没有任何东西会被推出去，先走一遍审批只是让按钮没地方落。
+    """
+    from xhs_manager.video_pipeline.models import VideoPublication
+
+    c = client.get(f"/console/api/tasks/{video_task['topic']}").json()["checklist"]
+    assert c["publication_id"] is None and c["manual"] is True
+
+    resp = client.post(
+        f"/console/api/tasks/{video_task['topic']}/mark-published",
+        json={"url": "https://www.xiaohongshu.com/explore/abc123"}, headers=HEADERS,
+    )
+    assert resp.status_code == 200 and resp.json()["status"] == "published"
+
+    with session_factory() as s:
+        pub = s.get(VideoPublication, resp.json()["publication_id"])
+        assert pub.platform == "xiaohongshu"
+        assert pub.publish_method == "manual"
+        assert pub.title == "测试选题"          # 脚本没写平台文案，退回选题标题
+        assert pub.external_url.endswith("abc123")
+
+    row = next(t for t in client.get("/console/api/tasks").json()["tasks"]
+               if t["id"] == video_task["topic"])
+    assert (row["state"], row["bucket"]) == ("published", "done")
+
+
+def test_closing_out_twice_does_not_create_a_second_record(client, video_task):
+    """补记录是幂等的——连点两下不该在清单上多出一份。"""
+    first = client.post(f"/console/api/tasks/{video_task['topic']}/mark-published",
+                        json={}, headers=HEADERS).json()
+    second = client.post(f"/console/api/tasks/{video_task['topic']}/mark-published",
+                         json={}, headers=HEADERS).json()
+    assert first["publication_id"] == second["publication_id"]
+
+
+def test_closing_out_reuses_the_record_left_by_a_failed_auto_publish(
+    client, video_task, publication
+):
+    """自动发布失败留下的那条就是人接手要发的那支片子，不另造一条。"""
+    out = client.post(f"/console/api/tasks/{video_task['topic']}/mark-published",
+                      json={}, headers=HEADERS).json()
+    assert out["publication_id"] == publication
+
+
+def test_closing_out_needs_a_finished_render(client, session_factory, video_task):
+    """没有成片就没有「已发布」可言。"""
+    from xhs_manager.video_pipeline.models import VideoRender
+
+    with session_factory() as s:
+        s.get(VideoRender, video_task["render"]).status = "rendering"
+        s.commit()
+    resp = client.post(f"/console/api/tasks/{video_task['topic']}/mark-published",
+                       json={}, headers=HEADERS)
+    assert resp.status_code == 409
+
+
+def test_closing_out_is_refused_when_publishing_is_automated(
+    client, video_task, monkeypatch
+):
+    """自动模式下这条直路要关上——那边是真的会把片子推出去的。"""
+    from xhs_manager.console import app as console_app
+    from xhs_manager.video_pipeline.config import get_video_settings
+
+    auto = get_video_settings().model_copy(update={"xhs_publish_mode": "publish"})
+    monkeypatch.setattr(console_app, "get_video_settings", lambda: auto)
+    resp = client.post(f"/console/api/tasks/{video_task['topic']}/mark-published",
+                       json={}, headers=HEADERS)
+    assert resp.status_code == 409
+    assert "自动发布模式" in resp.json()["detail"]
+
+
 @pytest.mark.parametrize("path", [
     "/console/api/publications/x/retry",
     "/console/api/publications/x/mark-published",
+    "/console/api/tasks/x/mark-published",
 ])
 def test_publication_writes_need_the_console_header(client, path):
     assert client.post(path, json={}).status_code == 403

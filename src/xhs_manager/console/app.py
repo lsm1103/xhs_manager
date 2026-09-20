@@ -354,24 +354,11 @@ def create_console_router(get_session: Callable[[], Iterator[Session]]) -> APIRo
             )
         return {"publication_id": pub.id, "status": pub.status, "was": was}
 
-    @router.post("/api/publications/{pub_id}/mark-published",
-                 dependencies=[Depends(_guard_write)])
-    def api_mark_published(
-        pub_id: str,
-        body: dict | None = None,
-        session: Session = Depends(get_session),
-    ) -> dict:
-        """记下「我已经自己发过了」。
+    def _mark_published(session: Session, pub, body: dict) -> dict:
+        """把一条发布记录标成「已发布」。
 
-        这是记录事实，不是执行发布——这个接口一行浏览器代码都不碰。
+        这是记录事实，不是执行发布——这里一行浏览器代码都不碰。
         """
-        from xhs_manager.video_pipeline.models import VideoPublication
-
-        body = body or {}
-        pub = session.get(VideoPublication, pub_id)
-        if pub is None:
-            raise HTTPException(status_code=404, detail="发布记录不存在")
-
         url = (body.get("url") or "").strip()
         if url and not url.startswith(("http://", "https://")):
             raise HTTPException(status_code=400, detail="链接要以 http:// 或 https:// 开头")
@@ -391,6 +378,48 @@ def create_console_router(get_session: Callable[[], Iterator[Session]]) -> APIRo
         return {"publication_id": pub.id, "status": pub.status,
                 "url": pub.external_url,
                 "published_at": pub.published_at.isoformat()}
+
+    @router.post("/api/publications/{pub_id}/mark-published",
+                 dependencies=[Depends(_guard_write)])
+    def api_mark_published(
+        pub_id: str,
+        body: dict | None = None,
+        session: Session = Depends(get_session),
+    ) -> dict:
+        """记下「我已经自己发过了」。"""
+        from xhs_manager.video_pipeline.models import VideoPublication
+
+        pub = session.get(VideoPublication, pub_id)
+        if pub is None:
+            raise HTTPException(status_code=404, detail="发布记录不存在")
+        return _mark_published(session, pub, body or {})
+
+    @router.post("/api/tasks/{task_id}/mark-published",
+                 dependencies=[Depends(_guard_write)])
+    def api_mark_task_published(
+        task_id: str,
+        body: dict | None = None,
+        session: Session = Depends(get_session),
+    ) -> dict:
+        """人工模式下直接收尾：没有发布记录就现场补一条，再标成已发布。
+
+        人工发布不经审批排期——闸门是给「自动驱动浏览器操作真实账号」设的，
+        而这条路上没有任何东西会被推出去。让它也去等一个时间点，等来的
+        只是同一份清单。
+        """
+        from xhs_manager.video_pipeline import manual_publish
+        from xhs_manager.video_pipeline.models import VideoTopic
+
+        topic = session.get(VideoTopic, task_id)
+        if topic is None:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        try:
+            pub = manual_publish.ensure_manual_publication(
+                session, topic, get_video_settings(),
+            )
+        except manual_publish.ManualPublishError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        return _mark_published(session, pub, body or {})
 
     @router.post("/api/plans/{plan_id}/cancel", dependencies=[Depends(_guard_write)])
     def api_cancel_plan(

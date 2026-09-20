@@ -21,7 +21,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from xhs_manager.models import Account, ContentTask
-from xhs_manager.video_pipeline.domain import PIPELINE_STAGE_ORDER, PipelineStatus
+from xhs_manager.video_pipeline import manual_publish
+from xhs_manager.video_pipeline.config import get_video_settings
+from xhs_manager.video_pipeline.domain import (
+    PIPELINE_STAGE_ORDER,
+    PipelineStatus,
+    Platform,
+)
 from xhs_manager.video_pipeline.models import (
     VideoComposition,
     VideoMaterial,
@@ -487,6 +493,11 @@ def _checklist(b: _VideoBundle) -> dict[str, Any] | None:
     return {
         "publication_id": pub.id if pub else None,
         "status": pub.status if pub else None,
+        # 人工模式下不需要发布记录也能收尾：没有记录时按任务补一条。
+        # 界面靠这个标志决定要不要长出「我已发布」。
+        "manual": manual_publish.is_manual(
+            Platform.XIAOHONGSHU, get_video_settings(),
+        ),
         "title": title,
         "title_len": len(title),
         "desc": desc,

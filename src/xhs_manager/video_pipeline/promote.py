@@ -57,14 +57,14 @@ class Promotion:
     created: bool
 
 
-def _latest_script(session: Session, topic_id: str) -> VideoScript | None:
+def latest_script(session: Session, topic_id: str) -> VideoScript | None:
     return session.scalar(
         select(VideoScript).where(VideoScript.topic_id == topic_id)
         .order_by(VideoScript.version.desc())
     )
 
 
-def _render_for(session: Session, script: VideoScript) -> VideoRender | None:
+def render_for(session: Session, script: VideoScript) -> VideoRender | None:
     comp = session.scalar(
         select(VideoComposition).where(VideoComposition.script_id == script.id)
     )
@@ -122,7 +122,7 @@ def _ensure_content_version(
     xhs = meta.get("xiaohongshu") or {}
     titles = [m.get("title") for m in meta.values()
               if isinstance(m, dict) and m.get("title")]
-    render = _render_for(session, script)
+    render = render_for(session, script)
 
     assets = []
     if render is not None:
@@ -180,11 +180,11 @@ def promote_for_approval(session: Session, topic_id: str, *,
     if task is None:
         raise PromoteError(f"内容任务不存在: {topic.task_id}")
 
-    script = _latest_script(session, topic.id)
+    script = latest_script(session, topic.id)
     if script is None:
         raise PromoteError("这个选题还没有脚本")
 
-    render = _render_for(session, script)
+    render = render_for(session, script)
     if render is None or render.status != "completed":
         raise PromoteError("成片还没渲染完，不能提交发布审批")
 
@@ -335,7 +335,7 @@ def cancel_plan(session: Session, plan_id: str, *, actor_id: str = "console",
 
 def plan_for_topic(session: Session, topic: VideoTopic) -> PublicationPlan | None:
     """这支片子有没有一条已批准的发布计划。"""
-    script = _latest_script(session, topic.id)
+    script = latest_script(session, topic.id)
     if script is None or not script.content_version_id:
         return None
     return session.scalar(

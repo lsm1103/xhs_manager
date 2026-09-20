@@ -145,6 +145,9 @@ class TextAnimation(str, Enum):
 
 
 class PublishMethod(str, Enum):
+    # 人工：系统只备好清单，发是人自己去发。这个值早就散在各处用了，
+    # 把它收进枚举，免得再有人拼错一个字符串。
+    MANUAL = "manual"
     OPENCLI = "opencli"
     EGO_BROWSER = "ego_browser"
     API = "api"

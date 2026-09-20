@@ -238,7 +238,7 @@ function renderChecklist(t) {
     Math.round(c.duration % 60)).padStart(2, "0")}` : "";
 
   return `<section class="block checklist"><h3>人工发布清单</h3>
-    <p class="prose dim">这一步不碰浏览器。把下面几项复制到小红书，发完回来点「我已发布」。</p>
+    <p class="prose dim">这一步不碰浏览器，也不用等审批排期。把下面几项复制到小红书，发完回来点「我已发布」。</p>
     ${failed ? `<div class="banner"><div>
         <div class="t">上次自动发布失败</div>
         <div class="d">${esc((pub.error || "").slice(0, 260))}</div>
@@ -268,11 +268,11 @@ function renderChecklist(t) {
       </div>
       <div class="cval mono">${esc(c.cover_path)}</div></div>` : ""}
 
-    ${c.publication_id ? `<div class="sched">
+    ${c.publication_id || c.manual ? `<div class="sched">
         <label>发布后的链接（可不填）
           <input id="pub-url" placeholder="https://www.xiaohongshu.com/explore/..."></label>
       </div>
-      <div class="acts" data-pub="${esc(c.publication_id)}">
+      <div class="acts"${c.publication_id ? ` data-pub="${esc(c.publication_id)}"` : ""}>
         ${act("published", "我已发布", "primary", "确认已发布？")}
         ${failed ? act("retry", "清掉失败记录", "", "确认清掉？") : ""}
       </div>`
@@ -312,7 +312,8 @@ function renderApproval(t) {
         : "批准之后，worker 会在排期时间把这支片子发出去。"}
         窗口过了就不发——宁可晚一天，也不半夜推出去。</p>
       <div class="sched">
-        <label>发布时间<input type="datetime-local" id="sched-at" value="${dflt}"></label>
+        <label>发布时间<input type="datetime-local" id="sched-at" value="${dflt}">
+          <button class="btn tiny" id="sched-now" type="button">现在</button></label>
         <label>窗口<select id="sched-win">
           <option value="1">1 小时</option>
           <option value="2" selected>2 小时</option>
@@ -836,9 +837,13 @@ async function runAction(btn) {
     path = `/console/api/tasks/${taskId}/rerun`;
     body.stage = btn.dataset.stage;
   } else if (kind === "published" || kind === "retry" || kind === "unpublish") {
-    const pid = btn.closest("[data-pub]").dataset.pub;
+    const pubBox = btn.closest("[data-pub]");
+    const pid = pubBox && pubBox.dataset.pub;
     if (kind === "published") {
-      path = `/console/api/publications/${pid}/mark-published`;
+      // 人工模式下可能还没有发布记录——那就按任务收尾，后端现场补一条。
+      // 这条路上没有任何东西会被推出去，不值得为它先走一遍审批排期。
+      path = pid ? `/console/api/publications/${pid}/mark-published`
+                 : `/console/api/tasks/${taskId}/mark-published`;
       const u = document.getElementById("pub-url");
       if (u && u.value.trim()) body.url = u.value.trim();
     } else {
@@ -944,6 +949,15 @@ document.getElementById("main").addEventListener("click", (e) => {
   }
   if (e.target.id === "tts-go") return generateTts();
   if (e.target.id === "tts-refresh") { cache.tts = null; return render(); }
+
+  /* 「现在」：datetime-local 只到分钟，填当前时刻等于往前取整几十秒。
+     排到过去没问题——闸门判的是「现在有没有进窗口」，过去就是已经进了，
+     worker 下一轮（2s）就领走。 */
+  if (e.target.id === "sched-now") {
+    const at = document.getElementById("sched-at");
+    if (at) at.value = localInput(new Date());
+    return;
+  }
 
   const action = e.target.closest("[data-act]");
   if (action) {
