@@ -13,7 +13,9 @@ database is locked。用户在控制台点一下「我已发布」就直接报�
 本文件覆盖的两个阶段都不在那条线上（materialize / render 的租约都是 1800 秒，
 实际持锁 500 秒以内）——它们守的是上面那条「持锁期间整个系统写不进去」。
 真正贴着租约的是 stage2 选题（3 个选题 × 90 秒 vs 300 秒租约）和 stage6 发布
-（平台间 sleep 默认 5 分钟，两个平台顶满 600 秒租约），那两处目前没有测试。
+（平台间 sleep 默认 5 分钟，两个平台顶满 600 秒租约）。stage2 本文件末尾已经守住；
+stage6 还没有——那条路径上 commit 必须留在平台间 sleep 之前，谁整理代码时把它
+挪到 sleep 下面，锁就被攥着睡过去了，而这种改动在 review 里看着完全无辜。
 
 规矩不变：阶段里的写只在真正写的那一瞬间持锁，长活（渲染、下载、claude -p、
 上传、sleep）一律在事务外面跑。
@@ -496,4 +498,140 @@ def test_narration_phase_releases_the_lock_before_the_fallback_loop(
         stage3_materials.collect_materials(session, run, mpt_settings)
         session.commit()
 
+    _assert_lock_was_free(probe)
+
+
+# ── Stage 2：选题 + 脚本 ──────────────────────────────────────────
+#
+# 这是目前唯一一个持锁时长真的能逼近租约的阶段：video_select 的租约是 300 秒，
+# 而每个选题要走一次 claude -p 生成脚本，60~120 秒一次，3 个选题就 270 秒。
+# 其余阶段的租约（materialize / render 都是 1800）离实际持锁还很远。
+
+
+def _seed_signals(session_factory, run_id: str, n: int = 3) -> None:
+    from xhs_manager.video_pipeline.models import VideoTrendSignal
+
+    with session_factory() as s:
+        for i in range(n):
+            s.add(VideoTrendSignal(
+                id=new_id(), pipeline_run_id=run_id, platform="bilibili",
+                source_url=f"https://example.invalid/{i}",
+                title=f"信号 {i}", summary="摘要",
+                content_digest=f"digest-{i}", heat_score=90 - i,
+            ))
+        s.commit()
+
+
+def _seed_run_for_selection(session_factory) -> str:
+    with session_factory() as s:
+        run = VideoPipelineRun(
+            id=new_id(), run_date=date(2026, 9, 22),
+            status=PipelineStatus.SELECTING.value, trigger_type="manual",
+        )
+        s.add(run)
+        s.commit()
+        run_id = run.id
+    _seed_signals(session_factory, run_id)
+    return run_id
+
+
+def _fake_llm(topics: int, on_call):
+    """替掉 claude -p 通道。
+
+    第一次调用是选题评分，之后每个选题一次脚本生成。on_call 收到的是
+    「这是第几次调用」，探针靠它挑时机。
+    """
+    calls = {"n": 0}
+
+    def call_structured(prompt, schema, **kw):
+        calls["n"] += 1
+        on_call(calls["n"])
+        if calls["n"] == 1:
+            return {"topics": [
+                {
+                    "rank": i + 1, "title": f"选题 {i + 1}", "angle": "角度",
+                    "why_now": "时机", "target_audience": "受众",
+                    "estimated_duration": 60,
+                    "scores": {"heat": 8, "uniqueness": 8, "visual": 8,
+                               "timeliness": 8, "platform_fit": 8},
+                    "source_signal_ids": [],
+                }
+                for i in range(topics)
+            ]}
+        return {
+            "total_duration": 60,
+            "scenes": [{"scene_id": "s01", "order": 1, "duration": 60}],
+            "bgm_style": "",
+            "platform_metadata": {},
+        }
+
+    return call_structured
+
+
+@pytest.fixture
+def select_settings(tmp_path) -> VideoPipelineSettings:
+    return VideoPipelineSettings(
+        output_base_dir=str(tmp_path / "out"),
+        topics_per_run=2,
+    )
+
+
+def test_topic_insert_is_committed_before_the_first_script_call(
+    session_factory, select_settings, monkeypatch
+):
+    """选题插完之后、第一次生成脚本之前，锁必须已经放开。
+
+    守 select_topics 里那条「提交而不是 flush」。第 2 次 call_structured 是
+    第一个选题的脚本生成——现实中它要跑 60~120 秒，锁攥着的话整个系统写不进去。
+    """
+    probe: dict = {}
+    run_id_box: dict = {}
+
+    def on_call(n):
+        if n == 2 and run_id_box:
+            probe.update(_probe_another_connection(session_factory, run_id_box["id"]))
+
+    from xhs_manager.video_pipeline.stages import stage2_topics
+
+    run_id = _seed_run_for_selection(session_factory)
+    run_id_box["id"] = run_id
+    monkeypatch.setattr(stage2_topics, "call_structured", _fake_llm(2, on_call))
+
+    with session_factory() as session:
+        run = session.get(VideoPipelineRun, run_id)
+        result = stage2_topics.select_topics(session, run, select_settings)
+        session.commit()
+
+    assert result["scripts_created"] == 2
+    _assert_lock_was_free(probe)
+
+
+def test_each_script_is_committed_before_the_next_llm_call(
+    session_factory, select_settings, monkeypatch
+):
+    """每个脚本落库之后、下一次 claude -p 之前，锁必须已经放开。
+
+    守脚本生成循环末尾那条 commit。第 3 次 call_structured 是第二个选题的
+    脚本生成，那一刻第一个选题的脚本已经入库——3 个选题就是 3 次这样的等待，
+    加起来 270 秒，贴着 video_select 那 300 秒的租约。
+    """
+    probe: dict = {}
+    run_id_box: dict = {}
+
+    def on_call(n):
+        if n == 3 and run_id_box:
+            probe.update(_probe_another_connection(session_factory, run_id_box["id"]))
+
+    from xhs_manager.video_pipeline.stages import stage2_topics
+
+    run_id = _seed_run_for_selection(session_factory)
+    run_id_box["id"] = run_id
+    monkeypatch.setattr(stage2_topics, "call_structured", _fake_llm(2, on_call))
+
+    with session_factory() as session:
+        run = session.get(VideoPipelineRun, run_id)
+        result = stage2_topics.select_topics(session, run, select_settings)
+        session.commit()
+
+    assert result["scripts_created"] == 2
     _assert_lock_was_free(probe)
