@@ -116,6 +116,23 @@ body {
   from { transform: scale(1.02) translate3d(0, 0, 0); }
   to   { transform: scale(1.16) translate3d(-2.2%, -1.6%, 0); }
 }
+/* 截图版面专用：同一张图糊开当底纹，不推拉。
+   前景已经有一张完整的静态截图卡片了，背景再动就是两张图在打架。 */
+.still.is-blurred {
+  transform: scale(1.3);
+  filter: blur(60px) saturate(0.7);
+}
+/* 糊底压暗必须够狠。blur 的半径是屏幕像素，而底图可能是一张 2880×9074 的
+   长截图——它被 cover 到 1080×1920 时只露出很小一块、放得极大，
+   同样的 blur 半径相对它就微不足道，白底网页照样能看清字，
+   前景的标题和说明就全糊在上面了。所以靠一层实打实的暗罩兜底，
+   白底黑底一视同仁。 */
+.layout-screenshot .scene-scrim,
+.layout-scroll .scene-scrim,
+.layout-terminal .scene-scrim {
+  background: rgba(0, 0, 0, 0.74);
+}
+
 .still.m-kenburns-alt { animation-name: kenBurnsAlt; }
 @keyframes kenBurnsAlt {
   from { transform: scale(1.16) translate3d(1.8%, 1.2%, 0); }
@@ -317,6 +334,173 @@ body {
 }
 
 /* outro：收尾行动号召 */
+/* screenshot：整图 + 高亮框 + 局部放大卡。
+   给「介绍自己做的工具」用——横向界面截图缩进竖屏后控件只有十几像素高，
+   光有整图等于没给观众看清任何东西，所以必须配放大卡。 */
+.layout-screenshot .scene-content { justify-content: center; }
+.shot { margin-top: 30px; display: flex; flex-direction: column; }
+
+.shot-frame {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 26px 70px rgba(0,0,0,0.46);
+}
+.shot-pane { position: relative; }
+.shot-pane img { display: block; width: 100%; height: auto; }
+
+/* 假的浏览器/终端标题栏。一眼说明这东西跑在哪——
+   是浏览器里的 localhost，还是 github.com 上的仓库页。 */
+.win-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 24px;
+  background: color-mix(in srgb, var(--bg-alt) 88%, #000);
+  border-bottom: 2px solid rgba(255,255,255,0.08);
+}
+.win-dot {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.22);
+}
+.win-dot:first-child { background: #FF5F57; }
+.win-dot:nth-child(2) { background: #FEBC2E; }
+.win-dot:nth-child(3) { background: #28C840; }
+.win-url {
+  flex: 1;
+  margin-left: 10px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: calc(${size_caption}px * 0.9);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 高亮框用百分比定位，贴在图上。图怎么缩放，框就怎么跟着缩放，
+   所以同一份脚本换画布尺寸不用改坐标。 */
+.shot-ring {
+  position: absolute;
+  border: 4px solid var(--accent-2);
+  border-radius: 8px;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent-2) 26%, transparent);
+}
+
+/* 高度写死而不是 flex 撑开：放大卡是绝对定位的（同一时刻只亮一张，
+   全叠在一起），不给容器高度的话它会塌成 0，整组的垂直居中就算错了。 */
+/* scroll：长截图在定高视窗里缓缓上移。
+   视窗靠 aspect-ratio 定高，比例由 Python 写进 inline style —— 只有一个出处，
+   因为滚动行程要按同一个比例算，两边对不上就会滚过头或滚不到底。 */
+.scroll-pane { position: relative; overflow: hidden; }
+.scroll-pane img {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: auto;
+  max-width: none;
+}
+/* 缓入缓出：起步和收尾都慢一点，像人在读，而不是匀速刷过去 */
+.m-scroll {
+  animation-name: scrollUp;
+  animation-timing-function: cubic-bezier(0.45, 0, 0.35, 1);
+}
+@keyframes scrollUp {
+  from { transform: translateY(0); }
+  to   { transform: translateY(var(--travel, -50%)); }
+}
+
+.shot-insets { position: relative; margin-top: 34px; min-height: 330px; }
+/* 同一时刻只亮一张，所以全部叠在同一个位置 */
+.shot-inset { position: absolute; left: 0; right: 0; top: 0; }
+
+.shot-zoom {
+  position: relative;
+  height: 190px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--bg-alt);
+  border: 4px solid var(--accent-2);
+  box-shadow: 0 22px 54px rgba(0,0,0,0.40);
+}
+/* left/top 50% 把卡片中心当锚点，translate 的百分比参照 img 自身尺寸，
+   于是「把框心挪到卡片正中」就是一句 translate(-cx%, -cy%)，不需要知道像素。 */
+.shot-zoom img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: none;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+.shot-label { margin-top: 22px; }
+.shot-label b {
+  display: block;
+  font-size: ${size_body}px;
+  font-weight: 800;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+}
+.shot-label small {
+  display: block;
+  margin-top: 8px;
+  font-size: calc(${size_caption}px * 0.94);
+  font-weight: 500;
+  color: var(--ink-muted);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.65);
+}
+
+/* terminal：一条命令逐字敲出来。
+   「一条命令就能跑」这件事，演一遍比写在标题里有说服力——
+   观众看到的是命令有多短，而不是一句"很简单"。 */
+.layout-terminal .scene-content { justify-content: center; }
+.term-win {
+  border-radius: 22px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg) 82%, #000);
+  box-shadow: 0 28px 74px rgba(0,0,0,0.5);
+}
+.term-body { padding: 44px 46px 50px; }
+.term-line {
+  display: flex;
+  align-items: baseline;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: calc(${size_title}px * 0.82);
+  font-weight: 700;
+  color: var(--accent-2);
+  white-space: nowrap;
+}
+.term-prompt { color: var(--ink-muted); margin-right: 18px; }
+.term-caret {
+  display: inline-block;
+  width: 18px;
+  height: calc(${size_title}px * 0.82);
+  margin-left: 6px;
+  background: var(--accent-2);
+  vertical-align: bottom;
+  /* 和背景漂移同理：光标闪烁也必须由 --t 驱动，
+     否则它会按截图速度闪，同一时间点两次渲染画面不一致。 */
+  animation-name: caretBlink;
+  animation-duration: 1s;
+  animation-iteration-count: infinite;
+  animation-timing-function: steps(2, end);
+  animation-delay: calc(var(--t) * -1s);
+  animation-play-state: paused;
+}
+@keyframes caretBlink { from { opacity: 1; } to { opacity: 0.1; } }
+.term-out {
+  margin-top: 20px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: calc(${size_caption}px * 0.96);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.layout-terminal .body { margin-top: 36px; }
+
 .layout-outro .scene-content { justify-content: center; align-items: center; text-align: center; }
 .outro-cta {
   margin-top: 40px;
@@ -334,6 +518,9 @@ body {
 .m-fade-in  { animation-name: fadeIn; }
 .m-highlight{ animation-name: markGrow; }
 .m-counter  { animation-name: counterIn; }
+/* 进场 + 停留 + 退场做在同一条动画里：--d 就是这一项"从出现到消失"的总时长。
+   拆成两条的话，退场那条要另算一个 --s，改一次停留时间得同时改两个数。 */
+.m-focus    { animation-name: focusLife; animation-timing-function: ease-out; }
 
 @keyframes popIn {
   from { opacity: 0; transform: scale(0.86) translateY(18px); }
@@ -344,6 +531,12 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes focusLife {
+  0%   { opacity: 0; transform: translateY(20px); }
+  14%  { opacity: 1; transform: translateY(0); }
+  86%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
 @keyframes counterIn {
   from { opacity: 0; transform: scale(0.7); filter: blur(10px); }
   to   { opacity: 1; transform: scale(1); filter: blur(0); }

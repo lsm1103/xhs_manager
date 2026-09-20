@@ -513,3 +513,243 @@ def test_detect_chrome_prefers_env_override(monkeypatch):
 
     monkeypatch.setenv("XHS_CHROME_PATH", "/custom/chrome")
     assert renderer.detect_chrome_path() == "/custom/chrome"
+
+
+# ── 截图特写版面 ──────────────────────────────────────────────────
+
+
+def _png(path: Path, width: int, height: int) -> Path:
+    """写一个只有头部合法的最小 PNG——probe 只读前 24 字节，够用。"""
+    import struct
+    ihdr = struct.pack(">II", width, height) + b"\x08\x06\x00\x00\x00"
+    path.write_bytes(
+        b"\x89PNG\r\n\x1a\n"
+        + struct.pack(">I", 13) + b"IHDR" + ihdr + b"\x00\x00\x00\x00"
+    )
+    return path
+
+
+def test_probe_image_size_reads_png_header(tmp_path):
+    from xhs_manager.video_pipeline.composition.media import probe_image_size
+
+    assert probe_image_size(_png(tmp_path / "a.png", 1533, 618)) == (1533, 618)
+
+
+def test_probe_image_size_returns_none_for_non_image(tmp_path):
+    from xhs_manager.video_pipeline.composition.media import probe_image_size
+
+    junk = tmp_path / "a.png"
+    junk.write_bytes(b"not an image at all, but long enough to read 32 bytes ok")
+    assert probe_image_size(junk) is None
+    assert probe_image_size(tmp_path / "missing.png") is None
+
+
+def test_classify_media_carries_image_size(tmp_path):
+    media = classify_media(_png(tmp_path / "shot.png", 800, 400))
+    assert (media.width, media.height) == (800, 400)
+
+
+def test_focus_makes_it_a_screenshot_scene():
+    """作者量好了要框哪块，就是明确要截图特写——比"它排第几个"更能说明意图。"""
+    scene = _scene(focus=[{"at": 1, "rect": [0, 0, 10, 10]}])
+    assert infer_layout(scene, 0, 3) == "screenshot"     # 首个场景也不再当 hook
+    assert infer_layout(scene, 2, 3) == "screenshot"     # 末个场景也不再当 outro
+
+
+def test_focus_holds_until_the_next_one():
+    """只给 at 不给 hold 时，停留到下一个特写出现；最后一个停到场景结束前。"""
+    tl = plan_timeline([_scene(
+        duration=10, layout="screenshot",
+        focus=[{"at": 1, "rect": [0, 0, 10, 10]}, {"at": 4, "rect": [0, 0, 10, 10]}],
+    )])
+    f1, f2 = tl.scenes[0].focus
+    assert (f1.at, f1.duration) == (1.0, 3.0)
+    assert f2.at == 4.0 and f2.duration == pytest.approx(5.7)
+
+
+def test_focus_entries_are_sorted_and_bad_ones_dropped():
+    tl = plan_timeline([_scene(
+        duration=9, layout="screenshot",
+        focus=[
+            {"at": 5, "rect": [0, 0, 10, 10]},
+            {"at": 1, "rect": [0, 0, 10, 10]},
+            {"at": 2, "rect": [0, 0, 0, 10]},     # 宽度 0
+            {"at": 3, "rect": [1, 2, 3]},         # 少一个数
+            {"at": 4},                            # 没有 rect
+            "不是字典",
+        ],
+    )])
+    assert [f.at for f in tl.scenes[0].focus] == [1.0, 5.0]
+
+
+def test_screenshot_layout_draws_rings_and_zoom_cards(tmp_path):
+    media = classify_media(_png(tmp_path / "ui.png", 1000, 500))
+    scenes = [_scene(
+        duration=8, layout="screenshot",
+        focus=[{"at": 1, "rect": [100, 50, 200, 25], "label": "设备", "note": "下拉切"}],
+    )]
+    html, _ = build_composition_html(scenes, media_lookup=lambda sid: media)
+
+    # 高亮框按比例贴在图上：100/1000=10%，50/500=10%，200/1000=20%，25/500=5%
+    assert 'left:10.000%;top:10.000%;width:20.000%;height:5.000%' in html
+    # 放大倍数由框宽决定（1/0.2=5 倍），框心平移到卡片正中
+    assert "width:500.000%" in html
+    assert "translate(-20.000%,-12.500%)" in html
+    assert "设备" in html and "下拉切" in html
+    # 同一张图已经在前景完整出现，背景只做糊底，不再 Ken Burns。
+    # 断言 class 属性而不是裸类名：内联 CSS 里有同名选择器，裸类名永远命中。
+    assert 'class="still is-blurred"' in html
+    assert 'class="still m m-kenburns' not in html
+
+
+def test_screenshot_layout_accepts_fractions_without_image_size():
+    """探不出源图尺寸时，比例写法仍然成立——这是像素写法失效后的退路。"""
+    scenes = [_scene(
+        duration=6, layout="screenshot",
+        focus=[{"at": 1, "rect": [0.1, 0.2, 0.3, 0.05], "label": "框"}],
+    )]
+    html, _ = build_composition_html(
+        scenes, media_lookup=lambda sid: SceneMedia("ui.png", "image"),
+    )
+    assert 'left:10.000%;top:20.000%;width:30.000%;height:5.000%' in html
+
+
+def test_screenshot_layout_drops_pixel_focus_without_image_size():
+    """像素框 + 尺寸未知 = 没有参照系，只能丢掉，不能瞎画。"""
+    scenes = [_scene(
+        duration=6, layout="screenshot",
+        focus=[{"at": 1, "rect": [100, 50, 200, 25], "label": "框"}],
+    )]
+    html, _ = build_composition_html(
+        scenes, media_lookup=lambda sid: SceneMedia("ui.png", "image"),
+    )
+    assert 'class="shot-ring' not in html
+    assert 'class="shot-frame' in html      # 整图还是要出
+
+
+def test_screenshot_layout_without_media_falls_back_to_statement():
+    scenes = [_scene(layout="screenshot", focus=[{"at": 1, "rect": [0, 0, 1, 1]}])]
+    html, _ = build_composition_html(scenes, media_lookup=lambda sid: None)
+    assert 'class="shot-frame' not in html
+    assert "主标题" in html
+
+
+# ── 长截图滚动 ────────────────────────────────────────────────────
+
+
+def test_scroll_key_makes_it_a_scroll_scene():
+    assert infer_layout(_scene(scroll={"end": 0.4}), 1, 3) == "scroll"
+
+
+def test_scroll_travel_stops_at_the_bottom_edge():
+    """行程要按可见比例夹住，不能滚出底边——滚过头是一整屏空白。"""
+    from xhs_manager.video_pipeline.composition.layouts import scroll_travel
+    from xhs_manager.video_pipeline.composition.timeline import ScrollSpec
+
+    # 视窗 aspect=2，图 1000x4000：可见 = 1000/(2*4000) = 12.5%，最多走 87.5%
+    media = SceneMedia("a.png", "image", width=1000, height=4000)
+    assert scroll_travel(media, ScrollSpec(aspect=2.0)) == pytest.approx(0.875)
+    assert scroll_travel(media, ScrollSpec(end=0.4, aspect=2.0)) == pytest.approx(0.4)
+    assert scroll_travel(media, ScrollSpec(end=0.99, aspect=2.0)) == pytest.approx(0.875)
+
+
+def test_scroll_travel_falls_back_without_image_size():
+    from xhs_manager.video_pipeline.composition.layouts import (
+        SCROLL_FALLBACK_END,
+        scroll_travel,
+    )
+    from xhs_manager.video_pipeline.composition.timeline import ScrollSpec
+
+    blind = SceneMedia("a.png", "image")
+    assert scroll_travel(blind, ScrollSpec()) == SCROLL_FALLBACK_END
+    assert scroll_travel(blind, ScrollSpec(end=0.3)) == pytest.approx(0.3)
+
+
+def test_scroll_layout_emits_travel_and_window_chrome(tmp_path):
+    media = classify_media(_png(tmp_path / "page.png", 1000, 4000))
+    scenes = [_scene(
+        duration=9, layout="scroll", window="github.com/lsm1103/quick_logcat",
+        scroll={"end": 0.4, "aspect": 2.0},
+    )]
+    html, _ = build_composition_html(scenes, media_lookup=lambda sid: media)
+
+    assert "--travel:-40.000%" in html
+    assert 'aspect-ratio:2.0000' in html
+    assert "github.com/lsm1103/quick_logcat" in html
+    assert 'class="win-bar"' in html
+    # 画面一直在动，高亮框跟不上，所以滚动版面不出框
+    assert 'class="shot-ring' not in html
+
+
+def test_scroll_layout_shows_zoom_cards_but_no_rings(tmp_path):
+    media = classify_media(_png(tmp_path / "page.png", 1000, 4000))
+    scenes = [_scene(
+        duration=9, layout="scroll", scroll={"end": 0.4},
+        focus=[{"at": 1.5, "rect": [100, 200, 200, 50], "label": "点个 Star"}],
+    )]
+    html, _ = build_composition_html(scenes, media_lookup=lambda sid: media)
+    assert 'class="shot-inset' in html and "点个 Star" in html
+    assert 'class="shot-ring' not in html
+
+
+def test_scroll_layout_without_media_falls_back_to_statement():
+    scenes = [_scene(layout="scroll", scroll={"end": 0.4})]
+    html, _ = build_composition_html(scenes, media_lookup=lambda sid: None)
+    assert 'class="shot-frame' not in html and "主标题" in html
+
+
+# ── 终端 ──────────────────────────────────────────────────────────
+
+
+def test_terminal_key_makes_it_a_terminal_scene():
+    assert infer_layout(_scene(terminal={"output": ["ok"]}), 1, 3) == "terminal"
+
+
+def test_terminal_command_defaults_to_the_main_text():
+    tl = plan_timeline([_scene(
+        layout="terminal", text_overlay={"main": "npx quick-logcat", "sub": ""},
+    )])
+    assert tl.scenes[0].terminal.command == "npx quick-logcat"
+    assert tl.scenes[0].terminal.prompt == "$"
+
+
+def test_terminal_layout_types_the_command_then_prints_output():
+    scenes = [_scene(
+        duration=8, layout="terminal",
+        text_overlay={"main": "npx quick-logcat", "sub": "本地起个 Node 服务。"},
+        terminal={"output": ["[server] http://localhost:5174"]},
+    )]
+    html, tl = build_composition_html(scenes, media_lookup=lambda sid: None)
+
+    assert "m-typewriter" in html
+    assert "--steps:16" in html            # 命令 16 个字符，按字数走 steps
+    assert 'class="term-caret"' in html
+    assert "[server] http://localhost:5174" in html
+    # 输出必须等命令敲完才出现，否则像是命令还没打完就有了回显
+    out_at = float(re.search(r'class="term-out[^"]*"\s+style="--s:([\d.]+)', html).group(1))
+    cmd_at = float(re.search(r'class="m m-typewriter"\s+style="--s:([\d.]+)', html).group(1))
+    assert out_at > cmd_at
+
+
+def test_terminal_layout_without_a_command_falls_back_to_statement():
+    scenes = [_scene(
+        layout="terminal", text_overlay={"main": "", "sub": "只有副标题"},
+        terminal={"output": ["ok"]},
+    )]
+    html, _ = build_composition_html(scenes, media_lookup=lambda sid: None)
+    assert 'class="term-win' not in html
+
+
+def test_blurred_backdrop_covers_all_card_layouts(tmp_path):
+    """这几个版面前景都有主体卡片，背景里的图只当底纹，不能再 Ken Burns。"""
+    media = classify_media(_png(tmp_path / "a.png", 900, 500))
+    for layout, extra in [
+        ("screenshot", {"focus": [{"at": 1, "rect": [0, 0, 10, 10]}]}),
+        ("scroll", {"scroll": {"end": 0.3}}),
+        ("terminal", {"terminal": {"command": "ls"}}),
+    ]:
+        html, _ = build_composition_html(
+            [_scene(layout=layout, **extra)], media_lookup=lambda sid: media,
+        )
+        assert 'class="still is-blurred"' in html, layout
+        assert 'class="still m m-kenburns' not in html, layout

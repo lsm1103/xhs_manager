@@ -7,41 +7,26 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from html import escape
-from pathlib import Path
 from typing import Any, Callable
 
 from xhs_manager.video_pipeline.composition.layouts import render_layout
+from xhs_manager.video_pipeline.composition.media import (  # noqa: F401  (对外仍从 builder 导出)
+    DEFAULT_TRANSITION_DURATION,
+    IMAGE_SUFFIXES,
+    TRANSITION_DURATION,
+    VIDEO_SUFFIXES,
+    SceneMedia,
+    classify_media,
+    probe_image_size,
+)
 from xhs_manager.video_pipeline.composition.styles import build_css
 from xhs_manager.video_pipeline.composition.theme import Theme, resolve_theme
 from xhs_manager.video_pipeline.composition.timeline import PlannedScene, Timeline, plan_timeline
 
-VIDEO_SUFFIXES = (".mp4", ".webm", ".mov", ".m4v")
-IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".avif")
-
-# 转场时长（秒）。glitch 短促才有冲击力，其余统一 0.6。
-TRANSITION_DURATION = {"glitch": 0.4, "none": 0.0}
-DEFAULT_TRANSITION_DURATION = 0.6
-
-
-@dataclass(frozen=True)
-class SceneMedia:
-    """一个场景的背景素材。filename 是 assets/ 下的文件名。"""
-
-    filename: str
-    kind: str  # "video" | "image"
-
-
-def classify_media(path: str | Path) -> SceneMedia | None:
-    """按扩展名判断素材类型。不认识的扩展名返回 None（回落到纯色背景）。"""
-    p = Path(path)
-    suffix = p.suffix.lower()
-    if suffix in VIDEO_SUFFIXES:
-        return SceneMedia(filename=p.name, kind="video")
-    if suffix in IMAGE_SUFFIXES:
-        return SceneMedia(filename=p.name, kind="image")
-    return None
+# 这些版面的前景自带一张主体卡片（截图 / 长图 / 终端窗），
+# 背景里的同一张图只当底纹：糊开、压暗、不推拉。
+BLURRED_BACKDROP_LAYOUTS = frozenset({"screenshot", "scroll", "terminal"})
 
 
 def transition_duration(name: str) -> float:
@@ -60,6 +45,14 @@ def _media_html(scene: PlannedScene, media: SceneMedia | None) -> str:
         inner = (
             f'<video src="assets/{escape(media.filename)}" '
             f'muted playsinline preload="auto"></video>'
+        )
+    elif scene.layout in BLURRED_BACKDROP_LAYOUTS:
+        # 这几个版面的主体是前景那张卡片（截图/长图/终端窗）。
+        # 背景再来一次 Ken Burns，等于同一张图一动一静叠在一起，很晃。
+        # 这里只把它糊开当底纹，负责填满画面、定住色调。
+        inner = (
+            f'<div class="still is-blurred" '
+            f'style="background-image:url(\'assets/{escape(media.filename)}\')"></div>'
         )
     else:
         # 奇偶交替推进/拉远，相邻的图片场景不会看起来是同一个运镜
@@ -86,7 +79,7 @@ def _scene_html(scene: PlannedScene, media: SceneMedia | None, z: int) -> str:
     <div class="scene-scrim"></div>
     <div class="scene-tint"></div>
     <div class="scene-content">
-{render_layout(scene)}
+{render_layout(scene, media)}
     </div>
   </section>"""
 

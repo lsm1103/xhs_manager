@@ -18,6 +18,9 @@ LAYOUTS = (
     "quote",      # 引用：引号 + 出处
     "bullets",    # 要点列表：逐条入场
     "compare",    # 对比：左右分屏 A vs B
+    "screenshot", # 截图特写：整图 + 高亮框 + 局部放大卡
+    "scroll",     # 长截图滚动：网页/文档整页在视窗里缓缓上移
+    "terminal",   # 终端：命令逐字敲出来，输出随后出现
     "outro",      # 收尾：行动号召
 )
 
@@ -43,6 +46,49 @@ class CaptionCue:
 
 
 @dataclass
+class FocusSpec:
+    """截图上的一个特写点：框住哪块、什么时候出现、配什么说明。
+
+    rect 是 (x, y, w, h)。作者按截图量出来的像素值最省事，所以这里原样留着，
+    换算成比例要等到版面拿到素材真实尺寸的时候——只有那时才知道除以多少。
+    四个数全都 <= 1 时视为已经是比例，不再换算（素材尺寸探不出来时的退路）。
+    """
+
+    at: float                      # 绝对秒
+    duration: float                # 停留时长（含进出场）
+    rect: tuple[float, float, float, float]
+    label: str = ""
+    note: str = ""
+    zoom: float | None = None      # 不给就按框宽自动算，让框正好铺满放大卡
+
+    @property
+    def is_fraction(self) -> bool:
+        return all(0.0 <= v <= 1.0 for v in self.rect)
+
+
+@dataclass
+class ScrollSpec:
+    """长截图在视窗里走多远。
+
+    end 是**图片自身高度的比例**：0.45 = 整张图上移了自身高度的 45%。
+    选这个单位是因为它不依赖视窗多大，作者拿图片高度一除就能估出来。
+    不给就走到底（图片底边对齐视窗底边）。
+    """
+
+    end: float | None = None
+    aspect: float = 1.45      # 视窗宽高比，同时写进 inline style，只有这一个出处
+
+
+@dataclass
+class TerminalSpec:
+    """终端画面：提示符 + 敲出来的命令 + 随后出现的输出。"""
+
+    prompt: str = "$"
+    command: str = ""
+    output: list[str] = field(default_factory=list)
+
+
+@dataclass
 class PlannedScene:
     """编译后的场景：所有时间都是绝对秒。"""
 
@@ -62,6 +108,10 @@ class PlannedScene:
     compare: tuple[str, str] | None = None
     stat_value: str = ""
     stat_unit: str = ""
+    focus: list[FocusSpec] = field(default_factory=list)
+    window: str = ""                       # 画成浏览器/窗口标题栏的那行字，空则不画
+    scroll: ScrollSpec | None = None
+    terminal: TerminalSpec | None = None
     captions: list[CaptionCue] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -251,6 +301,14 @@ def infer_layout(scene: dict[str, Any], index: int, total: int) -> str:
     main = (overlay.get("main") or "").strip()
     sub = (overlay.get("sub") or "").strip()
 
+    # focus 是硬信号：作者已经量好了要框哪块，比"它排在第几个"更能说明意图。
+    # 所以它排在首尾规则前面——开场用一张截图特写钩人是很常见的写法。
+    if scene.get("focus"):
+        return "screenshot"
+    if scene.get("scroll"):
+        return "scroll"
+    if scene.get("terminal"):
+        return "terminal"
     if index == 0:
         return "hook"
     if index == total - 1:
@@ -281,6 +339,93 @@ def _split_compare(main: str, sub: str) -> tuple[tuple[str, str], str] | None:
         if len(parts) == 2:
             return (parts[0], parts[1]), source
     return None
+
+
+def _plan_scroll(raw: Any) -> ScrollSpec:
+    """解析滚动配置。给了非法值就退回默认，不炸——手写脚本的硬校验在 seed 那边做。"""
+    spec = ScrollSpec()
+    if not isinstance(raw, dict):
+        return spec
+    end = raw.get("end")
+    if isinstance(end, (int, float)) and 0 < float(end) <= 1:
+        spec.end = float(end)
+    aspect = raw.get("aspect")
+    if isinstance(aspect, (int, float)) and float(aspect) > 0:
+        spec.aspect = float(aspect)
+    return spec
+
+
+def _plan_terminal(raw: Any, fallback_command: str) -> TerminalSpec:
+    """解析终端配置。命令不给就用主标题——绝大多数时候这俩就是同一句话。"""
+    spec = TerminalSpec(command=fallback_command)
+    if not isinstance(raw, dict):
+        return spec
+    spec.prompt = str(raw.get("prompt") or "$").strip() or "$"
+    cmd = raw.get("command")
+    if cmd:
+        spec.command = str(cmd).strip()
+    out = raw.get("output")
+    if isinstance(out, list):
+        spec.output = [str(x) for x in out if str(x).strip()]
+    elif isinstance(out, str) and out.strip():
+        spec.output = [out.strip()]
+    return spec
+
+
+def _plan_focus(
+    raw: list[Any] | None, start: float, duration: float,
+) -> list[FocusSpec]:
+    """把场景里的 focus 列表编译成绝对时间的特写点。
+
+    只给 at、不给 hold 时，停留到**下一个特写点出现**为止；最后一个停到场景结束前
+    0.3 秒。这样作者只要排好出现顺序就行，不用手算每个框停多久——
+    改一句旁白导致场景变长时，最后一个特写会自己跟着延长。
+    """
+    if not raw:
+        return []
+
+    items: list[dict[str, Any]] = []
+    for it in raw:
+        if not isinstance(it, dict):
+            continue
+        rect = it.get("rect")
+        if not (isinstance(rect, (list, tuple)) and len(rect) == 4):
+            continue
+        try:
+            rect_f = tuple(float(v) for v in rect)
+        except (TypeError, ValueError):
+            continue
+        if rect_f[2] <= 0 or rect_f[3] <= 0:
+            continue
+        items.append({"raw": it, "rect": rect_f})
+
+    if not items:
+        return []
+
+    # 没给 at 就按剩余时长均分，保证先来后到
+    n = len(items)
+    for i, it in enumerate(items):
+        at = it["raw"].get("at")
+        it["at"] = float(at) if at is not None else (duration * 0.18) + i * (
+            duration * 0.72 / n
+        )
+    items.sort(key=lambda x: x["at"])
+
+    out: list[FocusSpec] = []
+    for i, it in enumerate(items):
+        nxt = items[i + 1]["at"] if i + 1 < n else max(duration - 0.3, it["at"] + 0.6)
+        hold = it["raw"].get("hold")
+        span = float(hold) if hold is not None else max(0.6, nxt - it["at"])
+        zoom = it["raw"].get("zoom")
+        out.append(FocusSpec(
+            at=start + it["at"],
+            duration=span,
+            rect=it["rect"],  # type: ignore[arg-type]
+            label=str(it["raw"].get("label") or "").strip(),
+            note=str(it["raw"].get("note") or "").strip(),
+            zoom=float(zoom) if zoom else None,
+        ))
+    return out
 
 
 def _split_stat(main: str) -> tuple[str, str]:
@@ -327,6 +472,7 @@ def plan_timeline(scenes: list[dict[str, Any]]) -> Timeline:
             captions=build_captions(
                 narration, cursor, duration, scene.get("speech_marks"),
             ),
+            window=str(scene.get("window") or "").strip(),
             raw=scene,
         )
 
@@ -340,6 +486,15 @@ def plan_timeline(scenes: list[dict[str, Any]]) -> Timeline:
                 ps.compare, source = found
                 # 标题取「没被拆成卡片」的那一半，避免同一句话出现三次
                 ps.text_main = sub if source == "main" else main
+        elif layout == "screenshot":
+            ps.focus = _plan_focus(scene.get("focus"), cursor, duration)
+        elif layout == "scroll":
+            ps.scroll = _plan_scroll(scene.get("scroll"))
+            # 滚动版面也吃 focus，但只出放大卡不出高亮框：
+            # 画面一直在动，框跟不上（要跟就得逐帧算位置，那就不是纯 CSS 了）
+            ps.focus = _plan_focus(scene.get("focus"), cursor, duration)
+        elif layout == "terminal":
+            ps.terminal = _plan_terminal(scene.get("terminal"), main)
         elif layout == "stat":
             ps.stat_value, ps.stat_unit = _split_stat(main)
             # stat 版面的巨号字是给数字用的。硬塞一整句中文进去会撑破版心，
