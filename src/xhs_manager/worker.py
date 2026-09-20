@@ -139,25 +139,44 @@ class Worker:
         """
         stop = threading.Event()
         interval = max(1.0, min(lease_seconds, self.lease_seconds) / 3)
+        # 当前租约的到期时刻。每续成功一次就往后推一个租约周期。
+        deadline = time.monotonic() + lease_seconds
 
         def beat() -> None:
+            nonlocal deadline
             misses = 0
             while not stop.wait(interval):
                 try:
                     self._renew(work_item_id, lease_seconds)
+                    if misses:
+                        logger.info("续租恢复（连续失败 %d 次之后）: %s", misses, work_item_id)
                     misses = 0
+                    deadline = time.monotonic() + lease_seconds
                 except ConflictError:
                     # 租约真的丢了（被别人接管），继续续没有意义
                     logger.warning("租约已被接管，停止心跳: %s", work_item_id)
                     return
                 except Exception as exc:
-                    # SQLite 在长写事务期间会短暂锁库，这类是瞬时错误，
-                    # 不该让心跳永久停摆——连续失败到租约快没了才放弃。
+                    # 这里几乎只有一种错误：SQLite 全库一把写锁，别处的长事务
+                    # 占着它，续租的 UPDATE 只能等到 busy_timeout 然后报
+                    # database is locked。它是瞬时的，重试就能过。
+                    #
+                    # 按固定失败次数放弃是最坏的选择：心跳一停，租约到期后这个
+                    # 工作项就会被 claim_next 当成「过期」重新领走，同一支片子
+                    # 渲两遍。租约只要还挂在自己名下就一直重试——真被别人接管了
+                    # 会走上面的 ConflictError 分支，那才是该退出的时候。
                     misses += 1
-                    logger.warning("续租失败（第 %d 次）: %s", misses, exc)
-                    if misses >= 3:
-                        logger.error("连续续租失败，停止心跳: %s", work_item_id)
-                        return
+                    remaining = deadline - time.monotonic()
+                    if remaining > 0:
+                        logger.warning(
+                            "续租失败（第 %d 次，租约还剩 %.0f 秒）: %s",
+                            misses, remaining, exc,
+                        )
+                    else:
+                        logger.error(
+                            "续租失败（第 %d 次，租约已过期 %.0f 秒，随时可能被其它 worker 接管）: %s",
+                            misses, -remaining, exc,
+                        )
 
         threading.Thread(target=beat, name=f"lease-{work_item_id[:8]}", daemon=True).start()
         return stop
