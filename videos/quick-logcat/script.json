@@ -1,0 +1,15 @@
+{
+  "voice": "zh-CN-YunxiNeural",
+  "rate": "+12%",
+  "gap": 0.24,
+  "lines": [
+    {"id": "s1", "text": "只是想确认一行报错，却要先打开整个 Android Studio。"},
+    {"id": "s2", "text": "等 IDE 加载、找到 Logcat 面板、连设备、筛日志，四步之后才看到那一行。"},
+    {"id": "s3", "text": "其实你只需要一条命令：npx quick logcat。"},
+    {"id": "s4", "text": "本地起一个 Node 服务，自动打开浏览器；日志走你本机的 adb，不上传第三方。"},
+    {"id": "s5", "text": "真机模拟器随时切换，关键字、Tag、包名、级别都能过滤；暂停、清空、导出、自动重连都有。"},
+    {"id": "s6", "text": "它不替代 Android Studio。要编译、断点、Profiler，还是用 IDE。"},
+    {"id": "s7", "text": "但你只是想马上看一眼日志，它更轻，也更直接。"},
+    {"id": "s8", "text": "项目已开源，MIT License。GitHub 搜 quick logcat，顺手点个 Star。"}
+  ]
+}

@@ -1,0 +1,30 @@
+# 配套文案（视频笔记）
+
+**标题**（20 字内二选一）
+
+1. 只想看一行日志，不用开 Android Studio
+2. 看 Logcat 不用开 IDE，一条命令就行
+
+**正文**
+
+做 Android 的应该都有过这个时刻：只是想确认一行报错，却要先启动 Android Studio，
+等 IDE 加载、找到 Logcat 面板、连上设备、再筛日志——四步之后才看到那一行。
+
+如果你的需求只是「快速看一下日志」，可以试试 Quick Logcat：
+
+npx quick-logcat
+
+本地起一个 Node 服务，自动打开浏览器，日志仍然走你本机的 adb，不上传任何第三方。
+真机和模拟器随时切换，关键字、Tag、包名、级别都能过滤，暂停、清空、导出、自动重连都有。
+
+它不替代 Android Studio。要编译、断点、Profiler，还是用 IDE；
+但只是想马上看一眼日志的时候，它更轻、更直接。
+
+项目已开源，MIT License，欢迎试用、提 Issue，也欢迎点个 Star ⭐
+GitHub：github.com/lsm1103/quick_logcat
+
+前提：Node.js 18+ 与 adb。
+
+**话题**
+
+#Android开发 #安卓开发 #程序员工具 #开源项目 #效率工具 #logcat #命令行 #独立开发

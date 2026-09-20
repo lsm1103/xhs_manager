@@ -18,7 +18,7 @@ import hashlib
 import json
 import logging
 import sys
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -31,28 +31,14 @@ from xhs_manager.video_pipeline.models import (  # noqa: E402
     VideoScript,
     VideoTopic,
 )
+from xhs_manager.video_pipeline.seed import free_run_date  # noqa: E402
 from xhs_manager.video_pipeline.stages.stage3_materials import collect_materials  # noqa: E402
 from xhs_manager.video_pipeline.stages.stage4_compose import compose_html  # noqa: E402
 
 
 def _free_run_date(session) -> date:
-    """找一个还没被占用的 run_date。
-
-    `video_pipeline_runs.run_date` 上有唯一约束——每天一次自动运行的设计。
-    手动起片一天可能起好几条，所以从今天往**过去**找空位：
-    往未来找会占掉后面几天定时任务的位置，往过去找只是借用没跑过的日子。
-    """
-    d = date.today()
-    for _ in range(3650):
-        exists = (
-            session.query(VideoPipelineRun.id)
-            .filter(VideoPipelineRun.run_date == d)
-            .first()
-        )
-        if not exists:
-            return d
-        d = d - timedelta(days=1)
-    raise RuntimeError("十年内找不到空闲的 run_date")
+    """见 video_pipeline.seed.free_run_date —— 登记已有成片的脚本也要用同一套规则。"""
+    return free_run_date(session)
 
 
 def main() -> int:
