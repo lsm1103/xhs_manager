@@ -49,6 +49,9 @@ def collect_trends(
                 include_hot=settings.trend_include_hot,
             )
             saved, duped = _save_items(session, run.id, outcome.items)
+            # 一个平台采完就提交。下一个平台的抓取是几十秒的网络等待，
+            # 攥着 SQLite 的写锁进去会把 worker 心跳的续租憋死。
+            session.commit()
             total_saved += saved
             total_duped += duped
             platform_stats[platform] = {

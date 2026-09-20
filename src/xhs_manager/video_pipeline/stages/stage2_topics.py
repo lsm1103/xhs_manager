@@ -302,7 +302,9 @@ def select_topics(
         session.add(topic)
         topic_ids.append(topic.id)
 
-    session.flush()
+    # 提交而不是 flush：下面每个选题都要走一次 claude -p 生成脚本（分钟级），
+    # 写锁必须先放掉。
+    session.commit()
 
     # 5. 为每个选题生成脚本
     scripts_created = 0
@@ -316,11 +318,21 @@ def select_topics(
         except Exception as e:
             logger.error("选题「%s」脚本生成失败: %s", topic.title[:20], e)
             topic.status = "script_failed"
-
-    run.topic_count = len(topic_ids)
+        session.commit()
 
     if scripts_created == 0:
+        # 一条脚本都没生成出来，把这一轮刚插进去的选题删掉，让重跑从干净状态开始。
+        # 以前这是「整个阶段一个事务、失败自动回滚」白送的效果，但那个事务会攥着
+        # SQLite 的写锁跑完所有 claude -p 调用（分钟级），把 worker 续租憋死。
+        # 锁要早放，收尾就得自己来。
+        session.query(VideoTopic).filter(VideoTopic.id.in_(topic_ids)).delete(
+            synchronize_session=False
+        )
+        run.topic_count = 0
+        session.commit()
         raise StageError("select_topics", "所有选题的脚本生成均失败")
+
+    run.topic_count = len(topic_ids)
 
     return {
         "topics_selected": len(topic_ids),

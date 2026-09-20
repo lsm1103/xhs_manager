@@ -107,6 +107,8 @@ def compose_html(
                 status="render_ready",
             )
             session.add(composition)
+            # 下一支片子的 HTML 构建和素材软链还要跑一阵，别攥着写锁进去
+            session.commit()
             compositions_created += 1
 
             topic = session.get(VideoTopic, script.topic_id)

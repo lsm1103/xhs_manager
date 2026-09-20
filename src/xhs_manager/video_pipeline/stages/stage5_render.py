@@ -50,7 +50,10 @@ def render_videos(
         .join(VideoTopic, VideoScript.topic_id == VideoTopic.id)
         .filter(
             VideoTopic.pipeline_run_id == run.id,
-            VideoComposition.status == "render_ready",
+            # error 是上一次渲染失败留下的。失败状态现在会当场落库
+            # （不再靠整段事务回滚），重跑必须能把它们捡回来，
+            # 否则一次瞬时失败就永久卡住这支片子。
+            VideoComposition.status.in_(("render_ready", "error")),
         )
         .all()
     )
@@ -63,6 +66,7 @@ def render_videos(
     results: list[dict] = []
 
     for comp in compositions:
+        render = None
         try:
             start_time = time.monotonic()
 
@@ -79,7 +83,12 @@ def render_videos(
                 started_at=utcnow(),
             )
             session.add(render)
-            session.flush()
+            # 立刻提交，不要攥着写锁去渲染。
+            # SQLite 全库只有一把写锁，从第一条 INSERT 到 commit 之间它一直
+            # 属于这个连接；而下面一支片子要渲好几分钟，期间 worker 心跳想
+            # UPDATE work_items 只会等满 busy_timeout 然后报 database is locked。
+            # 写库只在真正写的那一瞬间持锁。
+            session.commit()
 
             # 根据 render_mode 选择渲染路径
             output_path = None
@@ -142,10 +151,15 @@ def render_videos(
 
         except Exception as e:
             logger.error("组合 %s 渲染失败: %s", comp.id, e)
-            if render:
+            # 失败有可能来自数据库本身，先把会话清干净再写失败状态
+            session.rollback()
+            if render is not None:
                 render.status = "failed"
                 render.error_detail = str(e)[:2000]
             comp.status = "error"
+
+        # 渲染跑完（成功或失败）才回填结果——又是一次短事务
+        session.commit()
 
     if renders_completed == 0:
         raise StageError("render_videos", "所有视频渲染均失败")
