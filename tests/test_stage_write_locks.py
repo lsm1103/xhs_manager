@@ -315,3 +315,176 @@ def test_fallback_card_generation_releases_the_write_lock_between_scenes(
 
     assert result["total_materials"] == 2
     _assert_lock_was_free(probe)
+
+
+# ── Stage 3：MPT 批量路径 ─────────────────────────────────────────
+#
+# 上面两条覆盖的是兜底链。MPT 装着的时候素材走的是这条，兜底链根本不进——
+# 而且它攥锁的时间最长：每个场景一次 CLI 调用（十几秒），末尾还有一整段
+# TTS（分钟级）。当初日志里真正卡死的量级在这里。
+
+
+@pytest.fixture
+def mpt_settings(tmp_path) -> VideoPipelineSettings:
+    """让 MoneyPrinterTurbo.available 为真。
+
+    available 只是 install_path/cli.py 的存在性检查（moneyprinter.py:40-42），
+    touch 一个空文件就够，不需要真装 MPT。
+    """
+    mpt = tmp_path / "mpt"
+    mpt.mkdir()
+    (mpt / "cli.py").touch()
+    return VideoPipelineSettings(
+        output_base_dir=str(tmp_path / "out"),
+        moneyprinter_path=str(mpt),
+        pixelle_path="",
+    )
+
+
+def _let_portrait_guard_pass(monkeypatch, tmp_path):
+    """放行人脸检测。
+
+    ⚠️ 这是**写锁测试**的权宜之计，不是可以抄走的模板。
+
+    _reject_portrait_materials 是肖像权红线上唯一有效的一层，它自己的文档
+    写明「不设开关」：检测器不可用时 fail-closed 拒收全部素材。这里之所以
+    要打掉它，只是因为测试用的假 mp4（几个字节）根本过不了检测，打不到
+    _save 就验不了写锁。
+
+    任何**不是**在验证写锁/事务边界的测试，都不该复制这一段。要测素材
+    筛选本身，请让真实的 portrait_guard 跑起来。
+    """
+    from xhs_manager.video_pipeline.stages import stage3_materials as m
+
+    monkeypatch.setattr(m, "_reject_portrait_materials", lambda mats: list(mats))
+
+
+def _fake_clip(tmp_path, name: str) -> str:
+    clip = tmp_path / f"{name}.mp4"
+    clip.write_bytes(b"not really a video")
+    return str(clip)
+
+
+def _stub_narration(monkeypatch, tmp_path):
+    """让整段旁白合成立即返回一条现成音轨。
+
+    build_aligned_narration 在 stage3 里是**函数内导入**，所以要打在
+    narration 模块上，打 stage3 的模块属性不生效。
+    返回真实存在的路径是为了走「合成成功」那条正路——退路会再去调
+    MoneyPrinterTurbo.generate_tts，那就绕开了末尾那条 commit。
+    """
+    track = tmp_path / "narration.mp3"
+    track.write_bytes(b"not really audio")
+    monkeypatch.setattr(
+        "xhs_manager.video_pipeline.audio.narration.build_aligned_narration",
+        lambda scenes, out_dir, settings, **kw: (track, 12.0),
+    )
+
+
+def test_material_search_releases_the_write_lock_between_scenes(
+    session_factory, mpt_settings, tmp_path, monkeypatch
+):
+    """搜第二个场景的素材时，第一条已经入库——这时别的连接必须还能写。
+
+    守 _collect_via_moneyprinter 里 _save() 的 commit。现实中两次搜索之间
+    隔着一整次 MPT CLI 调用（十几秒），攥着锁的话 worker 心跳必然超时。
+    """
+    _let_portrait_guard_pass(monkeypatch, tmp_path)
+    _stub_narration(monkeypatch, tmp_path)
+
+    run_id = _seed_script(session_factory, [
+        {"scene_id": "s01", "order": 1, "duration": 6,
+         "material_hints": ["search:blue abstract"]},
+        {"scene_id": "s02", "order": 2, "duration": 6,
+         "material_hints": ["search:green abstract"]},
+    ])
+
+    probe: dict = {}
+    calls: list = []
+
+    def fake_search(self, search_terms, **kw):
+        calls.append(search_terms)
+        if len(calls) == 2:      # 第二个场景：第一条素材此刻已经 commit 了
+            probe.update(_probe_another_connection(session_factory, run_id))
+        # 每次只给一条，避免留下余料去给别的场景补位
+        return {
+            "task_id": "t",
+            "materials": [{"path": _fake_clip(tmp_path, f"c{len(calls)}"), "size": 1}],
+        }
+
+    monkeypatch.setattr(
+        "xhs_manager.video_pipeline.integrations.moneyprinter"
+        ".MoneyPrinterTurbo.search_materials",
+        fake_search,
+    )
+
+    with session_factory() as session:
+        run = session.get(VideoPipelineRun, run_id)
+        stage3_materials.collect_materials(session, run, mpt_settings)
+        session.commit()
+
+    with session_factory() as s:
+        clips = s.query(VideoMaterial).filter(
+            VideoMaterial.material_type != "audio").count()
+    assert clips == 2
+    _assert_lock_was_free(probe)
+
+
+def test_narration_phase_releases_the_lock_before_the_fallback_loop(
+    session_factory, mpt_settings, tmp_path, monkeypatch
+):
+    """MPT 那一段收尾之后，兜底链开始之前，锁必须已经放开。
+
+    守 _collect_via_moneyprinter 末尾那条 commit（它落的是校准过的场景时长
+    和整轨旁白）。改回 flush 的话，锁会一路攥到兜底链——而兜底链要给剩下的
+    场景逐个生成卡片，又是一段长活。
+
+    第三个场景故意不给搜索词：它拿不到 MPT 素材，会落到兜底链，
+    探针就挂在那里。
+    """
+    _let_portrait_guard_pass(monkeypatch, tmp_path)
+    _stub_narration(monkeypatch, tmp_path)
+
+    run_id = _seed_script(session_factory, [
+        {"scene_id": "s01", "order": 1, "duration": 4,
+         "material_hints": ["search:blue abstract"]},
+        {"scene_id": "s02", "order": 2, "duration": 4,
+         "material_hints": ["search:green abstract"]},
+        {"scene_id": "s03", "order": 3, "duration": 4, "material_hints": []},
+    ])
+
+    calls: list = []
+
+    def fake_search(self, search_terms, **kw):
+        calls.append(search_terms)
+        return {
+            "task_id": "t",
+            "materials": [{"path": _fake_clip(tmp_path, f"c{len(calls)}"), "size": 1}],
+        }
+
+    monkeypatch.setattr(
+        "xhs_manager.video_pipeline.integrations.moneyprinter"
+        ".MoneyPrinterTurbo.search_materials",
+        fake_search,
+    )
+
+    probe: dict = {}
+
+    def fake_card(session, script_id, scene, output_dir):
+        # 此刻 MPT 那一段已经整个走完（含末尾 commit），兜底链刚开始
+        probe.update(_probe_another_connection(session_factory, run_id))
+        return VideoMaterial(
+            id=new_id(), script_id=script_id, scene_id=scene["scene_id"],
+            material_type="text_card", source_tool="fallback",
+            local_path=str(tmp_path / f"{scene['scene_id']}.html"),
+            license_type="generated", selected=True,
+        )
+
+    monkeypatch.setattr(stage3_materials, "_generate_text_card", fake_card)
+
+    with session_factory() as session:
+        run = session.get(VideoPipelineRun, run_id)
+        stage3_materials.collect_materials(session, run, mpt_settings)
+        session.commit()
+
+    _assert_lock_was_free(probe)
