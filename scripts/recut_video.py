@@ -9,6 +9,11 @@
   2. 用实测时长覆盖脚本里的标称 duration，写回库
   3. 重建该组合的 index.html（时序跟着新时长走）
   4. 重新渲染，Stage5 会按新的场景时长重新规划 BGM 乐段
+  5. 落一条 VideoRender 记录（含封面），让成片在控制台里可见
+
+第 5 步不能省：控制台判断「有没有成片」看的是 VideoRender，不是磁盘上
+有没有 video.mp4。早先这里直接调 _render_html_to_mp4 出片、不写记录，
+结果是片子渲出来了，任务台上那一行却一直停在「未渲染」，发布清单也不出。
 
 用法：
     uv run python scripts/recut_video.py <script_id> [--moods hook,explain,...]
@@ -17,22 +22,28 @@
 import argparse
 import logging
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from xhs_manager.domain import utcnow  # noqa: E402
 from xhs_manager.video_pipeline.cli import build_session_factory  # noqa: E402
 from xhs_manager.video_pipeline.audio.narration import build_aligned_narration  # noqa: E402
 from xhs_manager.video_pipeline.config import VideoPipelineSettings  # noqa: E402
 from xhs_manager.video_pipeline.models import (  # noqa: E402
     VideoComposition,
     VideoMaterial,
+    VideoRender,
     VideoScript,
 )
 from xhs_manager.video_pipeline.stages.stage4_compose import (  # noqa: E402
     _build_composition_html,
 )
-from xhs_manager.video_pipeline.stages.stage5_render import _render_html_to_mp4  # noqa: E402
+from xhs_manager.video_pipeline.stages.stage5_render import (  # noqa: E402
+    _generate_covers,
+    _render_html_to_mp4,
+)
 
 logger = logging.getLogger("recut")
 
@@ -107,19 +118,66 @@ def main() -> int:
         html = _build_composition_html(script, material_map, settings)
         Path(comp.html_path).write_text(html, encoding="utf-8")
 
-        session.flush()
+        # 渲染要跑好几分钟，这中间绝不能攥着 SQLite 的写锁：全库只有一把，
+        # 从第一条 INSERT 到 commit 之间它一直属于这个连接，worker 心跳想
+        # UPDATE work_items 就只能等满 busy_timeout 然后报 database is locked。
+        # 所以先把脚本和组合的改动落库，把锁放掉，再开渲染。
+        session.commit()
 
         # 4. 重新渲染（Stage5 内部会按新场景时长重排 BGM 乐段）
-        out = _render_html_to_mp4(comp, None, settings, scenes=scenes)
+        #
+        # comp.status 在成功之前不动：把它改成 render_ready 会让正在跑的
+        # worker 把这支片子当成待渲染任务捡走，两边同时渲同一个 comp_dir。
+        render = VideoRender(
+            composition_id=comp.id,
+            fps=settings.render_fps,
+            status="rendering",
+            started_at=utcnow(),
+        )
+        session.add(render)
+        session.commit()   # 同理：建完记录立刻放锁
+
+        started = time.monotonic()
+        try:
+            out = _render_html_to_mp4(comp, render, settings, scenes=scenes)
+        except Exception as e:
+            # 失败可能来自数据库本身，先把会话清干净再写失败状态
+            session.rollback()
+            render.status = "failed"
+            render.error_detail = str(e)[:2000]
+            comp.status = "error"
+            session.commit()
+            print(f"渲染异常: {e}")
+            return 1
+
         if not out or not out.exists():
+            render.status = "failed"
+            render.error_detail = "渲染输出文件不存在"
+            comp.status = "error"
+            session.commit()
             print("渲染失败")
             return 1
 
         from xhs_manager.video_pipeline.integrations.renderer import probe_duration
 
-        print(f"成片: {out} ({out.stat().st_size / 1024 / 1024:.1f}MB, "
-              f"{probe_duration(out):.2f}s)")
+        render.output_path = str(out)
+        render.file_size = out.stat().st_size
+        # 以成片真实时长为准：旁白比脚本短时 -shortest 会把尾巴截掉
+        render.duration = probe_duration(out) or comp.total_duration
+        render.render_time = round(time.monotonic() - started, 2)
+        render.status = "completed"
+        render.completed_at = utcnow()
+
+        covers = _generate_covers(out, comp, settings)
+        render.cover_path = covers.get("default")
+        render.covers = covers
+
+        comp.status = "rendered"
         session.commit()
+
+        print(f"成片: {out} ({render.file_size / 1024 / 1024:.1f}MB, "
+              f"{render.duration:.2f}s)")
+        print(f"render_id = {render.id}")
     finally:
         session.close()
     return 0
