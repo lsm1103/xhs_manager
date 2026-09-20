@@ -1,0 +1,188 @@
+{
+  "title": "Jev 刷屏三天，开源复刻用 BERT 把它干翻了",
+  "angle": "不站队吹也不站队骂：先把 Jev 真正的新点说清楚（一次 prefill、KV 缓存横向展开、单次前向并行打分 + 概率校准），再摆出 48 小时后开源复刻 laya 用 ModernBERT 反超的事实，落点是行业记忆长度而不是「草台班子」",
+  "why_now": "TypeSafe 2026-09-15 出 Jev 后三天内刷屏，中文圈同时出现「革命」和「不就是分类器」两种极端论断，双方都没把技术差异讲准",
+  "target_audience": "在搭 Agent、做工程选型的中文开发者，以及关注 AI 技术路线的从业者",
+  "video_type": "explainer",
+  "bgm_style": "冷静科技感，克制不煽情，收尾留一点回味",
+  "scenes": [
+    {
+      "scene_id": "s01",
+      "order": 1,
+      "duration": 7,
+      "layout": "hook",
+      "visual_desc": "深色背景，一团文字流突然冻结成几何色块",
+      "text_overlay": {
+        "main": "不会说话的模型",
+        "sub": "三天刷屏全网",
+        "animation": "pop_in"
+      },
+      "transition": "none",
+      "bgm_mood": "hook",
+      "narration": "时间线被一个叫 Jev 的模型刷屏了。它最反常的地方是，它不会说话。",
+      "material_hints": [
+        "search:abstract flowing text freezing into geometric blocks dark"
+      ]
+    },
+    {
+      "scene_id": "s02",
+      "order": 2,
+      "duration": 9,
+      "layout": "statement",
+      "visual_desc": "三个发光的槽位依次亮起，像三道选择题的答题卡",
+      "text_overlay": {
+        "main": "它只答三种题",
+        "sub": "判断题、选择题、打分题，每个答案带一个校准过的概率",
+        "animation": "slide_up"
+      },
+      "transition": "fade",
+      "bgm_mood": "explain",
+      "narration": "它不生成文本。给它一份状态，它只答三类题：判断、选择、打分，每个答案带一个校准过的概率。",
+      "material_hints": [
+        "search:three glowing slots lighting up sequentially dark abstract"
+      ]
+    },
+    {
+      "scene_id": "s03",
+      "order": 3,
+      "duration": 10,
+      "layout": "stat",
+      "visual_desc": "一道极短的光脉冲横穿画面，旁边是缓慢推进的长条",
+      "text_overlay": {
+        "main": "100 毫秒",
+        "sub": "一百万 token 四美分，官方称比前沿大模型快 40 到 200 倍",
+        "animation": "counter"
+      },
+      "transition": "fade",
+      "bgm_mood": "reveal",
+      "narration": "响应约一百毫秒，一百万 token 四美分。官方说，比前沿大模型快四十到两百倍。",
+      "material_hints": [
+        "search:short light pulse racing across dark screen speed abstract"
+      ]
+    },
+    {
+      "scene_id": "s04",
+      "order": 4,
+      "duration": 9,
+      "layout": "statement",
+      "visual_desc": "一张流程图上，大部分节点是菱形判断框，只有少数是矩形",
+      "text_overlay": {
+        "main": "为什么是现在",
+        "sub": "Agent 干的活里，一大半是判断和路由，不是写作",
+        "animation": "slide_up"
+      },
+      "transition": "fade",
+      "bgm_mood": "explain",
+      "narration": "爆火原因很朴素：Agent 真正干的活，一大半是判断和路由，不是写作。以前全在用大模型硬扛。",
+      "material_hints": [
+        "search:flowchart diamond decision nodes glowing dark abstract"
+      ]
+    },
+    {
+      "scene_id": "s05",
+      "order": 5,
+      "duration": 9,
+      "layout": "quote",
+      "visual_desc": "一条弹幕式的质疑横过画面",
+      "text_overlay": {
+        "main": "这不就是个分类器吗",
+        "sub": "BERT 和 GLiNER 时代早就有了",
+        "animation": "typewriter"
+      },
+      "transition": "fade",
+      "bgm_mood": "tension",
+      "narration": "很快有人说，这不就是分类器吗，BERT 和 GLiNER 早就有了。这话只对了一半。",
+      "material_hints": [
+        "search:scrolling comment text overlay dark screen abstract"
+      ]
+    },
+    {
+      "scene_id": "s06",
+      "order": 6,
+      "duration": 11,
+      "layout": "compare",
+      "visual_desc": "左边一根线串一个任务，右边一份上下文扇形展开成几十条并行分支",
+      "text_overlay": {
+        "main": "新的不是零件，是装配",
+        "sub": "一次一个问题 vs 一次几十个问题",
+        "animation": "slide_up"
+      },
+      "transition": "fade",
+      "bgm_mood": "explain",
+      "narration": "传统分类器一个模型扛一个任务。Jev 是上下文只算一次，键值缓存横向展开，一次前向把几十个问题全打完分。新的不是零件，是装配。",
+      "material_hints": [
+        "search:dark abstract glowing data streams splitting grid"
+      ]
+    },
+    {
+      "scene_id": "s07",
+      "order": 7,
+      "duration": 11,
+      "layout": "stat",
+      "visual_desc": "一个小体积方块反超一个大体积方块",
+      "text_overlay": {
+        "main": "7.8 倍",
+        "sub": "开源复刻 laya 拿 ModernBERT 加了个决策头，4.21 亿参数，自称多数测试比 Jev 还快这么多",
+        "animation": "counter"
+      },
+      "transition": "fade",
+      "bgm_mood": "reveal",
+      "narration": "四十八小时后，开源复刻 laya 出来了。底座就是 ModernBERT 加个决策头，四亿两千万参数，自称多数测试比 Jev 还快七点八倍。",
+      "material_hints": [
+        "search:small cube overtaking large cube dark minimal abstract"
+      ]
+    },
+    {
+      "scene_id": "s08",
+      "order": 8,
+      "duration": 10,
+      "layout": "bullets",
+      "visual_desc": "三条并行的轨道，粗细和长度各不相同",
+      "text_overlay": {
+        "main": "现在有三条路",
+        "sub": "Jev：闭源云端接口；laya：四亿参数开源，Apache 2.0；needle：一亿两千万参数，压成八兆一个二进制，跑在手表和单片机上",
+        "animation": "slide_up"
+      },
+      "transition": "fade",
+      "bgm_mood": "explain",
+      "narration": "现在有三条路。Jev 闭源云端接口。laya 四亿参数开源。needle 一亿两千万参数，压成八兆一个二进制，跑在单片机上。",
+      "material_hints": [
+        "search:three parallel tracks different widths dark abstract"
+      ]
+    },
+    {
+      "scene_id": "s09",
+      "order": 9,
+      "duration": 9,
+      "layout": "outro",
+      "visual_desc": "时间轴向回卷，末端和起点重合",
+      "text_overlay": {
+        "main": "草台的不是 Jev",
+        "sub": "是这个行业的记忆长度",
+        "animation": "pop_in"
+      },
+      "transition": "fade",
+      "bgm_mood": "closing",
+      "narration": "兜了一圈，复刻者回到了 BERT。草台的不是 Jev，是行业的记忆长度。提醒一句，它中文准确率明显低于英文。",
+      "material_hints": [
+        "search:timeline loop curving back to its origin dark abstract"
+      ]
+    }
+  ],
+  "platform_metadata": {
+    "xiaohongshu": {
+      "title": "开源复刻 48 小时反杀 Jev",
+      "desc": "一个不会说话的模型，这几天把时间线刷屏了。\n\n先说 Jev 到底是什么：它不生成文本，只回三类问题——判断题、最多 255 个选项的选择题、打分题，每个答案带一个校准过的概率。响应约 100ms，100 万 token 四美分。\n\n爆火的原因很朴素：Agent 真正在干的活里，一大半是判断和路由，不是写作。\n\n然后争议就来了，很多人说「这不就是分类器吗，BERT 和 GLiNER 早就有了」。\n这话只对了一半 👇\n\n❌ 错的那一半：传统分类器是一个模型扛一个任务。Jev 是同一份上下文只 prefill 一次，KV 缓存横向展开，一次前向就把几十个不同问题全打完分。新的不是零件，是装配方式。\n\n✅ 对的那一半更狠：48 小时后开源复刻 laya 出来了，底座就是 ModernBERT-large 加个决策头，4.21 亿参数，Apache 2.0，自称多数 benchmark 比 Jev 还快 7.8 倍，只在选项超过 50 个时落后。\n\n兜了一圈，复刻者回到了 BERT。\n\n顺带一提这个方向还有第三条轴：needle，1.21 亿参数、压成 8MB 一个二进制，直接跑在手表和单片机上。\n\n⚠️ 实测提醒：Jev 的中文准确率明显低于英文，数数和精确算术也不可靠，别拿它做强校验。\n\n所以草台的不是 Jev，是这个行业的记忆长度。\n\n你们在 Agent 里用什么做路由判断？评论区聊聊 👇",
+      "tags": [
+        "Jev",
+        "AI",
+        "大模型",
+        "Agent",
+        "BERT",
+        "开源",
+        "程序员",
+        "AI工具"
+      ]
+    }
+  }
+}
