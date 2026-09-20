@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import mimetypes
 import os
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
@@ -44,6 +45,14 @@ MEDIA_TYPES = {
 }
 
 
+# 预览组合页时额外放行的扩展名。组合页会拉 js/css/字体，
+# 缺一样就不是「看到效果」而是看到一个骨架。
+PREVIEW_SUFFIXES = MEDIA_SUFFIXES | {
+    ".js", ".mjs", ".css", ".json", ".svg", ".gif", ".ico",
+    ".woff", ".woff2", ".ttf", ".otf",
+}
+
+
 def _media_root() -> Path:
     return Path(get_video_settings().output_base_dir).resolve()
 
@@ -70,6 +79,52 @@ def _safe_media_path(raw: str) -> Path:
     if not resolved.is_relative_to(root):
         raise HTTPException(status_code=403, detail="路径超出产物目录")
     if resolved.suffix.lower() not in MEDIA_SUFFIXES:
+        raise HTTPException(status_code=403, detail=f"不支持的文件类型: {resolved.suffix}")
+    if not resolved.is_file():
+        raise HTTPException(status_code=404, detail="文件不存在")
+    return resolved
+
+
+#: 预览响应的 CSP。
+#
+# 组合页在控制台同源下渲染，而同源页面能绕过写接口那道「自定义请求头」——
+# 那道防线只挡跨源。组合页的文案是模型生成的，万一 builder 的转义漏了一处，
+# 它就能替人点下「批准并排期」。
+#
+# 本来该用 iframe sandbox 把它扔进不透明源，但去掉 allow-same-origin 之后
+# 帧直接加载不出来（ERR_BLOCKED_BY_CLIENT，整页空白），换不来能看的效果。
+# 所以改成从响应头上拦：connect-src 'none' 断掉 fetch/XHR/beacon，
+# form-action 'none' 断掉表单提交——组合页够不着任何接口了，
+# 而脚本、媒体、字体照常，画面一点不少。
+PREVIEW_CSP = {
+    "Content-Security-Policy": "; ".join([
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline'",      # 时间轴就是内联脚本
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob:",
+        "media-src 'self' data: blob:",
+        "font-src 'self' data:",
+        "connect-src 'none'",
+        "form-action 'none'",
+        "base-uri 'none'",
+        "frame-ancestors 'self'",
+    ]),
+}
+
+
+def _safe_preview_path(raw: str) -> Path:
+    """预览路由的路径收敛。和 _safe_media_path 同样的三道检查。
+
+    这里只认「相对产物目录」一种基准，不像 _safe_media_path 那样两种都试：
+    预览要的就是一段能原样拼接的层级，基准一含糊，组合页里的
+    `assets/x.mp4` 就会指到别处去。
+    """
+    root = _media_root()
+    resolved = (root / raw).resolve()
+
+    if not resolved.is_relative_to(root):
+        raise HTTPException(status_code=403, detail="路径超出产物目录")
+    if resolved.suffix.lower() not in PREVIEW_SUFFIXES:
         raise HTTPException(status_code=403, detail=f"不支持的文件类型: {resolved.suffix}")
     if not resolved.is_file():
         raise HTTPException(status_code=404, detail="文件不存在")
@@ -193,6 +248,24 @@ def create_console_router(get_session: Callable[[], Iterator[Session]]) -> APIRo
             media_type=MEDIA_TYPES.get(resolved.suffix.lower()),
             filename=resolved.name,
         )
+
+    @router.get("/api/preview/{path:path}", include_in_schema=False)
+    def api_preview(path: str) -> FileResponse:
+        """按目录树服务组合页及其素材。
+
+        为什么不能复用 /api/file：组合页里写的是 `assets/s01.mp4` 这种相对
+        引用，浏览器按当前 URL 的目录去拼。走查询参数的话它拼出来的是
+        /console/api/assets/s01.mp4，一个都拿不到——页面能打开，但是空的。
+        所以这条路由把产物目录原样映射成 URL 层级。
+
+        另外这里不给 filename：FileResponse 一旦带上它就变成
+        Content-Disposition: attachment，浏览器会下载而不是渲染。
+        """
+        resolved = _safe_preview_path(path)
+        media_type = MEDIA_TYPES.get(resolved.suffix.lower())
+        if media_type is None:
+            media_type = mimetypes.guess_type(resolved.name)[0] or "application/octet-stream"
+        return FileResponse(resolved, media_type=media_type, headers=PREVIEW_CSP)
 
     # ── 写动作 ──────────────────────────────────────────────
     # 每个都要带 WRITE_HEADER；批准还会真的把片子排进发布队列，

@@ -280,6 +280,72 @@ function renderChecklist(t) {
   </section>`;
 }
 
+/* 组合页预览。
+   用 iframe 弹窗而不是新标签页，是因为组合页是一张 1080×1920 的定尺
+   画布：新标签里只能看到左上角一块，还得自己滚。弹窗里能整体缩到看得全。
+
+   URL 带 #preview——组合页认这个 hash 才自动播；渲染器打开的是不带 hash
+   的地址，好让逐帧 seek 独占时间轴，两边不能抢。
+
+   本想用 sandbox 把组合页扔进不透明源，但那样帧根本加载不出来，弹窗里
+   只剩一片白——防住了也就没得看了。改成在预览响应上挂 CSP：
+   connect-src/form-action 都是 none，组合页够不着控制台的写接口。 */
+let previewEsc = null, previewFit = null;
+
+function closePreview() {
+  const m = document.getElementById("preview");
+  if (m) m.remove();                     // 连 iframe 一起摘掉，声音才会停
+  if (previewEsc) document.removeEventListener("keydown", previewEsc);
+  if (previewFit) removeEventListener("resize", previewFit);
+  previewEsc = previewFit = null;
+}
+
+function openPreview(url, res) {
+  closePreview();
+  const [w, h] = (res || "").split("x").map(Number);
+  const cw = w > 0 ? w : 1080, ch = h > 0 ? h : 1920;
+
+  const m = document.createElement("div");
+  m.className = "modal";
+  m.id = "preview";
+  m.innerHTML = `<div class="mbox">
+    <div class="mbar">
+      <span class="mt">组合页预览 · ${cw}×${ch}</span>
+      <a class="btn tiny" href="${esc(url)}#preview" target="_blank" rel="noopener">新窗口打开</a>
+      <button class="btn tiny" data-close>关闭</button>
+    </div>
+    <div class="mstage"><div class="mfit">
+      <iframe allow="autoplay" src="${esc(url)}#preview"></iframe>
+    </div></div>
+  </div>`;
+  document.body.appendChild(m);
+
+  const fit = m.querySelector(".mfit");
+  const frame = m.querySelector("iframe");
+  frame.style.width = cw + "px";
+  frame.style.height = ch + "px";
+
+  /* 缩放交给 JS 而不是 CSS：要按弹窗实际能给的空间算，
+     而这个空间取决于窗口尺寸，CSS 里换算不出定尺画布的比例。 */
+  const scale = () => {
+    const stage = m.querySelector(".mstage");
+    const k = Math.min(stage.clientWidth / cw, stage.clientHeight / ch, 1);
+    frame.style.transform = `scale(${k})`;
+    fit.style.width = cw * k + "px";
+    fit.style.height = ch * k + "px";
+  };
+  scale();
+  previewFit = scale;
+  addEventListener("resize", scale);
+
+  previewEsc = (e) => { if (e.key === "Escape") closePreview(); };
+  document.addEventListener("keydown", previewEsc);
+  m.addEventListener("click", (e) => {
+    // 只有点空白处和关闭按钮才关——点到画面上不该把它关掉
+    if (e.target === m || e.target.closest("[data-close]")) closePreview();
+  });
+}
+
 /* 发布审批。这一块是整个控制台唯一会对外产生后果的地方。 */
 function renderApproval(t) {
   const a = t.approval, p = t.plan;
@@ -372,7 +438,13 @@ function renderTask(t, siblings) {
       : s.state === "done" ? ["完成", "ok"]
       : s.state === "current" ? ["进行中", "run"] : ["未开始", "off"];
     const links = [];
-    if (s.html_path) links.push(`<a href="${fileUrl(s.html_path)}" target="_blank" rel="noopener">打开组合页</a>`);
+    if (s.preview_url) {
+      links.push(`<a href="${esc(s.preview_url)}#preview" data-preview="${esc(s.preview_url)}"
+        data-res="${esc(s.resolution || "")}">打开组合页</a>`);
+    } else if (s.html_path) {
+      // 组合页不在产物目录里（手工搬过的老片子），只能给一条路径
+      links.push(`<span class="dim" title="${esc(s.html_path)}">组合页不在产物目录</span>`);
+    }
     if (s.output_path) links.push(`<a href="${fileUrl(s.output_path)}" target="_blank" rel="noopener">打开成片</a>`);
     /* 重跑按钮只长在能重跑的阶段上。发布不在其中——它得走审批。
        失败的那一行给实心按钮：出错时你要找的就是它。 */
@@ -764,6 +836,7 @@ async function render() {
    缓存等于没生效。 */
 function go(next, id) {
   disarm();
+  closePreview();
   const hash = next === "task" ? `#/task/${id}` : `#/${next}`;
   if (location.hash === hash) {
     // hash 没变就不会有 hashchange，这时自己渲染
@@ -938,6 +1011,12 @@ async function generateTts() {
 }
 
 document.getElementById("main").addEventListener("click", (e) => {
+  const pv = e.target.closest("[data-preview]");
+  if (pv && !e.metaKey && !e.ctrlKey && !e.shiftKey) {   // 按住 cmd 还是开新标签
+    e.preventDefault();
+    return openPreview(pv.dataset.preview, pv.dataset.res);
+  }
+
   const cp = e.target.closest("[data-copy]");
   if (cp) { e.stopPropagation(); return copyText(cp.dataset.copy, cp); }
 
@@ -1034,6 +1113,9 @@ document.getElementById("main").addEventListener("keydown", (e) => {
 
 /* j / k 在任务之间跳，Esc 回列表——处理一串任务时不用来回点 */
 document.addEventListener("keydown", (e) => {
+  // 预览弹窗开着时按键归它：否则一个 Esc 会既关弹窗又退回列表，
+  // j/k 还会在弹窗后面偷偷换任务。
+  if (document.getElementById("preview")) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
   if (e.key === "Escape" && view === "task") return go("tasks");

@@ -283,6 +283,102 @@ def test_file_endpoint_accepts_paths_stored_relative_to_the_project_root(
     assert res.status_code == 200
 
 
+def _settings_rooted_at(root):
+    """把产物目录指到 tmp_path。其余设置保持真实的那一份——
+    读侧还会问它「小红书是不是人工模式」，塞个空壳会在别处炸。"""
+    from xhs_manager.video_pipeline.config import get_video_settings
+
+    fake = get_video_settings().model_copy(update={"output_base_dir": str(root)})
+    return lambda: fake
+
+
+@pytest.fixture
+def composition_tree(tmp_path, monkeypatch):
+    """一份最小的组合产物：index.html + 它相对引用的背景视频。"""
+    from xhs_manager.console import app as console_app
+
+    root = tmp_path / "data" / "video_pipeline"
+    comp = root / "run" / "topic" / "composition"
+    (comp / "assets").mkdir(parents=True)
+    (comp / "index.html").write_text(
+        '<video src="assets/bg.mp4"></video><script src="timeline.js"></script>',
+        encoding="utf-8",
+    )
+    (comp / "assets" / "bg.mp4").write_bytes(b"\x00\x01")
+    (comp / "timeline.js").write_text("window.__seek = () => {};", encoding="utf-8")
+    (comp / "notes.py").write_text("x = 1", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(console_app, "_media_root", lambda: root.resolve())
+    return {"root": root, "comp": comp, "rel": "run/topic/composition"}
+
+
+def test_preview_renders_the_page_instead_of_downloading_it(client, composition_tree):
+    """弹窗里要能渲染。带 filename 的响应会变成下载，那就什么都看不到。"""
+    res = client.get(f"/console/api/preview/{composition_tree['rel']}/index.html")
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("text/html")
+    assert "attachment" not in res.headers.get("content-disposition", "")
+
+
+def test_preview_resolves_the_relative_paths_the_composition_writes(
+    client, composition_tree
+):
+    """组合页里写的是 assets/bg.mp4。URL 层级对不上，页面就是空的。"""
+    rel = composition_tree["rel"]
+    assert client.get(f"/console/api/preview/{rel}/assets/bg.mp4").status_code == 200
+    # js 不在 /api/file 的白名单里，但组合页没它就不动
+    js = client.get(f"/console/api/preview/{rel}/timeline.js")
+    assert js.status_code == 200 and "javascript" in js.headers["content-type"]
+
+
+def test_preview_is_not_a_file_reader_either(client, composition_tree):
+    rel = composition_tree["rel"]
+    assert client.get(f"/console/api/preview/{rel}/notes.py").status_code == 403
+    assert client.get("/console/api/preview/../../../etc/passwd").status_code in (403, 404)
+    assert client.get(f"/console/api/preview/{rel}/missing.html").status_code == 404
+
+
+def test_the_composing_stage_carries_a_preview_url(session_factory, video_task,
+                                                    tmp_path, monkeypatch):
+    """界面靠这个 URL 开弹窗；它必须是相对产物根目录的那一段。"""
+    from xhs_manager.video_pipeline.models import VideoComposition
+
+    root = tmp_path / "data" / "video_pipeline"
+    (root / "run" / "topic" / "composition").mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(queries, "get_video_settings",
+                        _settings_rooted_at(root))
+
+    with session_factory() as s:
+        comp = s.query(VideoComposition).one()
+        comp.html_path = "data/video_pipeline/run/topic/composition/index.html"
+        s.commit()
+        stage = next(x for x in queries.get_task(s, video_task["topic"])["stages"]
+                     if x["stage"] == "composing")
+    assert stage["preview_url"] == "/console/api/preview/run/topic/composition/index.html"
+    assert stage["resolution"] == "1080x1920"
+
+
+def test_a_composition_outside_the_output_dir_gets_no_preview_url(
+    session_factory, video_task, tmp_path, monkeypatch
+):
+    """手工搬走的老片子没法预览。给个 None，界面自己说清楚，好过给条死链。"""
+    from xhs_manager.video_pipeline.models import VideoComposition
+
+    root = tmp_path / "data" / "video_pipeline"
+    root.mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(queries, "get_video_settings",
+                        _settings_rooted_at(root))
+
+    with session_factory() as s:
+        s.query(VideoComposition).one().html_path = "/somewhere/else/index.html"
+        s.commit()
+        stage = next(x for x in queries.get_task(s, video_task["topic"])["stages"]
+                     if x["stage"] == "composing")
+    assert stage["preview_url"] is None
+
+
 # ── 工具体检（P1）──────────────────────────────────────────
 
 

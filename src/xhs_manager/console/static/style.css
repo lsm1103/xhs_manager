@@ -350,3 +350,36 @@ td.empty { color: var(--dim); text-align: center; padding: 28px 14px; }
 .mark:focus { border-color: var(--acc-2); outline: none; }
 /* 收起来的行整体压暗——它还在列表里，但不该再抢注意力 */
 tbody tr.off td { opacity: .55; }
+
+/* ── 组合页预览弹窗 ────────────────────────────────────
+   组合页是 1080×1920 的定尺画布，缩放比例由 JS 按弹窗实际尺寸算，
+   这里只负责给它一个居中的舞台。 */
+.modal {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(3, 5, 10, .86);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+/* 撑满：舞台要靠 flex:1 拿到一个确定的高度，才算得出缩放比例。
+   只写 max-height 的话它会缩到内容高度，而内容初始是 0——比例就成了 0。 */
+.modal .mbox {
+  display: flex; flex-direction: column; gap: 10px;
+  width: 100%; height: 100%;
+}
+.modal .mbar { display: flex; align-items: center; gap: 8px; }
+.modal .mt {
+  font-family: var(--mono); font-size: 11px; color: var(--dim);
+  margin-right: auto;
+}
+.modal .mstage {
+  flex: 1; min-height: 0; display: flex;
+  align-items: center; justify-content: center;
+}
+/* 外层按缩放后的尺寸占位，iframe 自己保持原始像素再 scale——
+   直接缩 iframe 的话它在布局里仍按 1080×1920 算，弹窗会被撑破。 */
+.modal .mfit { position: relative; }
+.modal .mfit iframe {
+  position: absolute; top: 0; left: 0;
+  border: 1px solid var(--line); border-radius: 4px;
+  background: #000; transform-origin: top left;
+}

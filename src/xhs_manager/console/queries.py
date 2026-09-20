@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -187,6 +188,22 @@ def _video_updated(b: _VideoBundle) -> datetime | None:
     for p in b.publications:
         stamps.append(_aware(p.published_at) or _aware(p.created_at))
     return max([s for s in stamps if s], default=None)
+
+
+def _preview_url(html_path: str | None) -> str | None:
+    """组合页在预览路由下的 URL。不在产物目录里的返回 None。
+
+    必须是「相对产物根目录」的路径：组合页里写的是 assets/s01.png 这种
+    相对引用，只有 URL 保持同一层级，浏览器才拼得回原来的文件。
+    """
+    if not html_path:
+        return None
+    root = Path(get_video_settings().output_base_dir).resolve()
+    raw = Path(html_path)
+    resolved = raw.resolve() if raw.is_absolute() else (Path.cwd() / raw).resolve()
+    if not resolved.is_relative_to(root):
+        return None
+    return "/console/api/preview/" + quote(str(resolved.relative_to(root)))
 
 
 def _video_output(b: _VideoBundle) -> str:
@@ -373,7 +390,9 @@ def _sub_pipeline(session: Session, b: _VideoBundle) -> list[dict[str, Any]]:
         (f"{b.composition.total_duration:.0f}s · {len(b.composition.transition_effects)} 种转场"
          if b.composition else "未组合"),
         b.composition is not None,
-        {"html_path": b.composition.html_path if b.composition else None})
+        {"html_path": b.composition.html_path if b.composition else None,
+         "preview_url": _preview_url(b.composition.html_path) if b.composition else None,
+         "resolution": b.composition.resolution if b.composition else None})
 
     render_detail = "未渲染"
     if b.render is not None:
