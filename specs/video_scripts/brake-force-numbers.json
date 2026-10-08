@@ -1,0 +1,204 @@
+{
+  "topic": {
+    "title": "500牛、1600牛、4589牛：刹车踏板上的数字别直接比",
+    "angle": "把风波里反复出现的四个力值逐个还原成“它是什么身份”，并换算成公斤力",
+    "why_now": "多个踏板力数字同时刷屏，口径混在一起被拿来比大小",
+    "target_audience": "被数字绕晕的吃瓜用户与车主",
+    "video_type": "data_viz"
+  },
+  "bgm_style": "明快克制的科技感，BPM 105 左右",
+  "scenes": [
+    {
+      "scene_id": "s01",
+      "order": 1,
+      "duration": 9,
+      "layout": "hook",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "三个数字",
+        "sub": "说的是一回事吗？",
+        "animation": "pop_in"
+      },
+      "transition": "none",
+      "narration": "500牛、1600牛、4589牛，这几天刹车踏板上的三个数字满屏飞。它们说的，是一回事吗？",
+      "material_hints": [
+        "search:car brake disc wheel closeup"
+      ],
+      "bgm_mood": "hook",
+      "theme": "carbon_gold"
+    },
+    {
+      "scene_id": "s02",
+      "order": 2,
+      "duration": 13,
+      "layout": "stat",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "500 牛",
+        "sub": "约 51 公斤力 · 国标测试踏板力上限",
+        "animation": "counter"
+      },
+      "transition": "iris",
+      "narration": "先说五百牛。国标里，测试制动时的踏板力是六十五到五百牛。五百牛约等于五十一公斤力。这是测试用的力度范围，不是踏板的强度门槛。",
+      "material_hints": [
+        "search:car interior steering wheel"
+      ],
+      "bgm_mood": "explain"
+    },
+    {
+      "scene_id": "s03",
+      "order": 3,
+      "duration": 13,
+      "layout": "stat",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "1000 牛",
+        "sub": "约 102 公斤力 · 防抱死试验里的上限",
+        "animation": "counter"
+      },
+      "transition": "wipe_down",
+      "narration": "再说一千牛。标准里我能找到的最大踏板力数字，出现在防抱死试验里：全力制动还不够触发防抱死时，允许加到一千牛，约一百零二公斤力。",
+      "material_hints": [
+        "search:car dashboard warning lights"
+      ],
+      "bgm_mood": "explain"
+    },
+    {
+      "scene_id": "s04",
+      "order": 4,
+      "duration": 12,
+      "layout": "stat",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "1600 牛",
+        "sub": "约 163 公斤力 · 报道中的断裂读数",
+        "animation": "counter"
+      },
+      "transition": "wipe_diagonal",
+      "narration": "然后是一千六百牛上下，这是报道里踏板支架断裂时的读数，有一千五百八十和一千六百一十二两种说法，约一百六十三公斤力。",
+      "material_hints": [
+        "search:red brake lights traffic night"
+      ],
+      "bgm_mood": "tension"
+    },
+    {
+      "scene_id": "s05",
+      "order": 5,
+      "duration": 13,
+      "layout": "stat",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "4589 牛",
+        "sub": "约 468 公斤力 · 画面读数，口径待查",
+        "animation": "counter"
+      },
+      "transition": "cross_zoom",
+      "narration": "最后是4589牛，约四百六十八公斤力，是视频画面里出现过的读数。它是峰值，是另一个时刻，还是读数识别有误，说法不一，没有官方解释。",
+      "material_hints": [
+        "search:highway road night traffic"
+      ],
+      "bgm_mood": "tension"
+    },
+    {
+      "scene_id": "s06",
+      "order": 6,
+      "duration": 16,
+      "layout": "cards",
+      "visual_desc": "四张卡片：四个数字各自的身份",
+      "text_overlay": {
+        "main": "四个数字，四种身份",
+        "sub": "500牛：测试条件；1000牛：防抱死试验上限；1600牛上下：报道的断裂读数；4589牛：画面读数，口径待查",
+        "animation": "slide_up"
+      },
+      "transition": "split_v",
+      "narration": "放在一起看：五百牛，是测试条件；一千牛，是防抱死试验的上限；一千六上下，是报道里的断裂读数；4589，是画面里的读数，口径还没解释清。身份不同，不能直接比大小。",
+      "material_hints": [
+        "search:documents desk magnifying glass"
+      ],
+      "bgm_mood": "reveal"
+    },
+    {
+      "scene_id": "s07",
+      "order": 7,
+      "duration": 11,
+      "layout": "timeline",
+      "visual_desc": "三个问题依次点亮",
+      "text_overlay": {
+        "main": "看到数字先问三件事",
+        "sub": "测的是什么；在哪个时刻读到的；是谁测的",
+        "animation": "slide_up"
+      },
+      "transition": "slide_up",
+      "narration": "所以看到任何数字，先问三件事：它测的是什么，是在哪个时刻读到的，是谁测的。口径对不上的数字，比大小没有意义。",
+      "material_hints": [
+        "search:laptop screen search website"
+      ],
+      "bgm_mood": "uplift"
+    },
+    {
+      "scene_id": "s08",
+      "order": 8,
+      "duration": 6,
+      "layout": "outro",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "数字不骗人",
+        "sub": "口径会",
+        "animation": "pop_in"
+      },
+      "transition": "flash",
+      "narration": "数字不会骗人，但口径会。下次再刷到类似的数字，记得先问口径。",
+      "material_hints": [
+        "search:empty road sunrise highway"
+      ],
+      "bgm_mood": "closing"
+    }
+  ],
+  "platform_metadata": {
+    "xiaohongshu": {
+      "title": "500N、1600N、4589N别直接比",
+      "desc": "刹车踏板风波里的四个数字，身份完全不同：\n· 500牛（约51公斤力）：国标 GB 21670—2025 里，测试制动时踏板力范围 65~500 N 的上限，是测试条件。\n· 1000牛（约102公斤力）：标准里我能找到的最大踏板力数字，出现在防抱死试验——全力制动仍不够触发防抱死时允许加到 1000 N。\n· 1600牛上下（约163公斤力）：报道中踏板支架断裂时的读数，有1580、1612两种说法。\n· 4589牛（约468公斤力）：视频画面里出现过的读数，是峰值、另一时刻还是识别有误，说法不一，没有官方解释。\n\n换算：1公斤力≈9.8牛。看数字先问：测的是什么、哪个时刻、谁测的。\n\n以上信息据公开报道与标准原文整理，截至 2026-10-08，相关官方结论尚未发布；不构成对任何品牌或车型的评价。",
+      "tags": [
+        "刹车踏板",
+        "踏板力",
+        "国标",
+        "汽车科普",
+        "尊界V800",
+        "数据解读",
+        "汽车安全"
+      ]
+    },
+    "douyin": {
+      "title": "500牛、1600牛、4589牛，到底是什么？换算成公斤力，再看它们是不是一回事",
+      "desc": "500牛是国标测试踏板力上限；1000牛是防抱死试验上限；1600牛上下是报道里的断裂读数；4589牛口径待查。",
+      "tags": [
+        "刹车踏板",
+        "踏板力",
+        "国标",
+        "汽车科普",
+        "尊界V800"
+      ]
+    },
+    "bilibili": {
+      "title": "刹车踏板上的四个数字，身份完全不同｜500N / 1000N / 1600N / 4589N 逐个还原",
+      "desc": "把风波里的四个力值逐个还原成“它是什么”，并换算成公斤力。\n\n以上信息据公开报道与标准原文整理，截至 2026-10-08，相关官方结论尚未发布；不构成对任何品牌或车型的评价。",
+      "tags": [
+        "刹车踏板",
+        "踏板力",
+        "国标",
+        "GB21670",
+        "汽车科普",
+        "尊界V800",
+        "数据解读",
+        "汽车安全"
+      ]
+    },
+    "twitter": {
+      "text": "刹车踏板上的数字别直接比：\n500N 国标测试踏板力上限\n1000N 防抱死试验上限\n1600N上下 报道的断裂读数\n4589N 画面读数，口径待查\n1公斤力≈9.8牛。",
+      "hashtags": [
+        "刹车踏板",
+        "汽车科普"
+      ]
+    }
+  }
+}

@@ -1,0 +1,185 @@
+{
+  "topic": {
+    "title": "刹车突然踩不下去？记住这4步",
+    "angle": "借刹车热点的搜索热度，给一份不针对任何车型的通用自救流程，长尾可收藏",
+    "why_now": "刹车踏板风波让“刹车失灵怎么办”成为高搜索意图问题",
+    "target_audience": "所有开车的人与家人",
+    "video_type": "explainer"
+  },
+  "bgm_style": "紧凑但不过度紧张，BPM 100 左右",
+  "scenes": [
+    {
+      "scene_id": "s01",
+      "order": 1,
+      "duration": 8,
+      "layout": "hook",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "刹车突然失灵？",
+        "sub": "记住这四步",
+        "animation": "pop_in"
+      },
+      "transition": "none",
+      "narration": "开车时，刹车踏板突然踩不下去，或者踩下去没反应，你只有几秒钟。记住这四步。",
+      "material_hints": [
+        "search:car dashboard warning lights"
+      ],
+      "bgm_mood": "hook",
+      "theme": "newsroom"
+    },
+    {
+      "scene_id": "s02",
+      "order": 2,
+      "duration": 10,
+      "layout": "chapter",
+      "visual_desc": "第一步章节过场",
+      "text_overlay": {
+        "main": "第一步：不熄火，开双闪",
+        "sub": "松油门，握稳方向盘",
+        "animation": "pop_in"
+      },
+      "transition": "iris",
+      "narration": "第一步，不要熄火。松开油门，打开双闪，握稳方向盘。熄火可能让转向和制动助力一起消失，更难控制。",
+      "material_hints": [
+        "search:hazard lights blinking road"
+      ],
+      "bgm_mood": "tension"
+    },
+    {
+      "scene_id": "s03",
+      "order": 3,
+      "duration": 18,
+      "layout": "cards",
+      "visual_desc": "三种踏板反馈各一张卡",
+      "text_overlay": {
+        "main": "第二步：连踩，再看反馈",
+        "sub": "踏板变软：连踩，有时能重新建立压力；踏板变硬：助力出了问题，用更大力气踩住别松；脚下没有反馈：直接做第三步",
+        "animation": "slide_up"
+      },
+      "transition": "slide_up",
+      "narration": "第二步，连续快速踩几下踏板。如果踏板变软、行程变深，连踩有时能重新建立压力；如果踏板变硬踩不动，是助力出了问题，用更大力气踩住别松；如果脚下根本没有踏板的反馈，直接做第三步。",
+      "material_hints": [
+        "search:car interior steering wheel"
+      ],
+      "bgm_mood": "tension"
+    },
+    {
+      "scene_id": "s04",
+      "order": 4,
+      "duration": 14,
+      "layout": "checklist",
+      "visual_desc": "三个该做，一个不该做",
+      "text_overlay": {
+        "main": "第三步：借动力系统减速",
+        "sub": "✓ 手动挡：逐级降挡；✓ 自动挡：拨到低速挡；✓ 电动车和混动车：能量回收调到最大；✗ 不要挂空挡，也不要挂P挡",
+        "animation": "slide_up"
+      },
+      "transition": "wipe_diagonal",
+      "narration": "第三步，借发动机或电机帮忙减速。手动挡逐级降挡；自动挡把挡位拨到低速挡；电动车和混动车，把能量回收调到最大。注意，不要挂空挡，也不要挂P挡。",
+      "material_hints": [
+        "search:car brake disc wheel closeup"
+      ],
+      "bgm_mood": "explain"
+    },
+    {
+      "scene_id": "s05",
+      "order": 5,
+      "duration": 21,
+      "layout": "timeline",
+      "visual_desc": "第四步三个动作依次点亮",
+      "text_overlay": {
+        "main": "第四步：拉手刹，找地方停",
+        "sub": "拉手刹：电子手刹持续拉起，机械手刹慢慢拉；同时鸣笛，往路边或避险车道靠；实在不行，用车身侧面轻轻蹭护栏减速",
+        "animation": "slide_up"
+      },
+      "transition": "split_h",
+      "narration": "第四步，拉手刹，找地方停。国标要求，驻车制动在行驶时也要能起制动作用。电子手刹，行驶中持续拉起开关；机械手刹要慢慢拉，别一把拉死，避免甩尾。同时鸣笛，往路边、避险车道靠；实在不行，用车身侧面轻轻蹭护栏减速。",
+      "material_hints": [
+        "search:guardrail mountain road curve"
+      ],
+      "bgm_mood": "reveal"
+    },
+    {
+      "scene_id": "s06",
+      "order": 6,
+      "duration": 10,
+      "layout": "bullets",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "平时的信号别拖",
+        "sub": "踏板变软；行程变长；异响；故障灯亮；召回通知",
+        "animation": "slide_up"
+      },
+      "transition": "blinds",
+      "narration": "平时多留意：踏板变软、行程变长、有异响、故障灯亮，别拖，马上去检修。收到召回通知，也别忽略。",
+      "material_hints": [
+        "search:mechanic hands wrench engine"
+      ],
+      "bgm_mood": "uplift"
+    },
+    {
+      "scene_id": "s07",
+      "order": 7,
+      "duration": 11,
+      "layout": "outro",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "收藏，转给开车的人",
+        "sub": "以说明书为准",
+        "animation": "pop_in"
+      },
+      "transition": "flash",
+      "narration": "以上是通用常识，不针对任何车型，具体操作以你的车辆说明书和交管部门提醒为准。收藏起来，也转给家里开车的人。",
+      "material_hints": [
+        "search:empty road sunrise highway"
+      ],
+      "bgm_mood": "closing"
+    }
+  ],
+  "platform_metadata": {
+    "xiaohongshu": {
+      "title": "刹车突然踩不下去？记住这4步",
+      "desc": "通用自救流程（不针对任何车型）：\n① 不熄火，松油门，开双闪，握稳方向盘。\n② 连续快速踩几下：变软/行程变深，连踩有时能重新建立压力；变硬踩不动是助力问题，用更大力气踩住别松；脚下没有反馈就直接做第③步。\n③ 借动力系统减速：手动挡逐级降挡，自动挡拨到低速挡，电动/混动调大能量回收；不要挂空挡和P挡。\n④ 拉手刹找地方停：电子手刹行驶中持续拉起开关，机械手刹慢拉防甩尾；鸣笛，往路边/避险车道靠，不得已用车身侧面轻蹭护栏。\n\n平时：踏板变软、行程变长、异响、故障灯亮，及时检修；收到召回通知别忽略。\n具体操作以车辆说明书和交管部门提醒为准。",
+      "tags": [
+        "刹车失灵",
+        "行车安全",
+        "自救",
+        "新手司机",
+        "汽车科普",
+        "驾驶技巧",
+        "收藏"
+      ]
+    },
+    "douyin": {
+      "title": "刹车突然踩不下去？四步自救，收藏起来也转给开车的人",
+      "desc": "不熄火开双闪；连踩看反馈；降挡或加大能量回收；拉手刹找地方停。通用常识，以说明书为准。",
+      "tags": [
+        "刹车失灵",
+        "行车安全",
+        "自救",
+        "汽车科普",
+        "驾驶技巧"
+      ]
+    },
+    "bilibili": {
+      "title": "刹车突然失灵怎么办？通用四步自救流程（不针对任何车型）",
+      "desc": "通用常识，不针对任何车型，具体操作以车辆说明书和交管部门提醒为准。\n\n① 不熄火，松油门，开双闪\n② 连踩，按踏板反馈判断\n③ 降挡/加大能量回收，别挂空挡和P挡\n④ 拉手刹，往路边或避险车道靠",
+      "tags": [
+        "刹车失灵",
+        "行车安全",
+        "自救",
+        "汽车科普",
+        "驾驶技巧",
+        "新手司机",
+        "收藏"
+      ]
+    },
+    "twitter": {
+      "text": "刹车突然踩不下去？通用四步：不熄火开双闪；连踩看反馈；降挡或加大能量回收；拉手刹找地方停。以说明书为准。",
+      "hashtags": [
+        "行车安全",
+        "自救"
+      ]
+    }
+  }
+}

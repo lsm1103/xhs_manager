@@ -1,0 +1,187 @@
+{
+  "topic": {
+    "title": "尊界V800刹车风波：能确认的只有这几件事",
+    "angle": "不站队，只做事实核查：有出处 / 还在吵 / 查不到来源，三类分清",
+    "why_now": "10月8日懂车帝披露测试、江淮回应在关注与调查，两边舆论都在带节奏，缺一份分清事实与传言的梳理",
+    "target_audience": "被刷屏的车主、潜在购车者和吃瓜用户",
+    "video_type": "commentary"
+  },
+  "bgm_style": "克制、低压的悬疑感，BPM 90 左右",
+  "scenes": [
+    {
+      "scene_id": "s01",
+      "order": 1,
+      "duration": 11,
+      "layout": "hook",
+      "visual_desc": "夜间车流尾灯，叠大字钩子",
+      "text_overlay": {
+        "main": "先别站队",
+        "sub": "刹车风波，哪些是真的？",
+        "animation": "pop_in"
+      },
+      "transition": "none",
+      "narration": "尊界V800刹车踏板支架断了？先别急着站队。这条只讲一件事：哪些有出处，哪些还在吵，哪些根本查不到来源。",
+      "material_hints": [
+        "search:red brake lights traffic night"
+      ],
+      "bgm_mood": "hook",
+      "theme": "newsroom"
+    },
+    {
+      "scene_id": "s02",
+      "order": 2,
+      "duration": 16,
+      "layout": "chapter",
+      "visual_desc": "章节过场，圆形展开进入",
+      "text_overlay": {
+        "main": "第一类：有出处的",
+        "sub": "懂车帝发布实测结果",
+        "animation": "pop_in"
+      },
+      "transition": "iris",
+      "narration": "第一类，有出处的。据懂车帝披露，三台尊界V800在一百公里每小时到零的紧急制动测试中，刹车踏板支架都出现断裂。这是懂车帝发布的结果，目前还不是监管部门的结论。",
+      "material_hints": [
+        "search:highway road night traffic"
+      ],
+      "bgm_mood": "tension"
+    },
+    {
+      "scene_id": "s03",
+      "order": 3,
+      "duration": 12,
+      "layout": "checklist",
+      "visual_desc": "清单：两条有出处，一条未发布",
+      "text_overlay": {
+        "main": "有出处的三件事",
+        "sub": "✓ 懂车帝发布实测结果；✓ 江淮方面：正在关注，多方测试；? 最终结论：尚未发布",
+        "animation": "slide_up"
+      },
+      "transition": "slide_up",
+      "narration": "十月八日，据媒体报道，江淮方面人士表示，这件事正在关注，也在做多方测试，有结果会发官方说明。到现在，没有最终结论。",
+      "material_hints": [
+        "search:documents desk magnifying glass"
+      ],
+      "bgm_mood": "explain"
+    },
+    {
+      "scene_id": "s04",
+      "order": 4,
+      "duration": 15,
+      "layout": "checklist",
+      "visual_desc": "三个口径不一的读数，全部标问号",
+      "text_overlay": {
+        "main": "第二类：还在吵的",
+        "sub": "? 1580牛；? 1612牛；? 4589牛",
+        "animation": "slide_up"
+      },
+      "transition": "wipe_diagonal",
+      "narration": "第二类，还在吵的。先是数字：断裂时的踏板力，有的报道写1580牛，有的写1612牛，画面里还出现过4589牛的读数。口径不统一，目前没有官方解释。",
+      "material_hints": [
+        "search:car dashboard warning lights"
+      ],
+      "bgm_mood": "tension"
+    },
+    {
+      "scene_id": "s05",
+      "order": 5,
+      "duration": 14,
+      "layout": "compare",
+      "visual_desc": "左右对开进入对比",
+      "text_overlay": {
+        "main": "同一件事，两种说法",
+        "sub": "极限暴力测试 vs 安全余量不足",
+        "animation": "pop_in"
+      },
+      "transition": "split_h",
+      "narration": "再是测试方式：有人说这是极限的暴力测试，有人说三台全断，说明安全余量不够。这两种说法，现在都只是观点，我目前没有查到完整的公开数据。",
+      "material_hints": [
+        "search:car brake disc wheel closeup"
+      ],
+      "bgm_mood": "tension"
+    },
+    {
+      "scene_id": "s06",
+      "order": 6,
+      "duration": 17,
+      "layout": "cards",
+      "visual_desc": "两张卡片：说法 + 为什么不能当结论",
+      "text_overlay": {
+        "main": "第三类：查不到来源的",
+        "sub": "另买三台新车封存：出自网友转述；支架具体材料：官方没有确认",
+        "animation": "slide_up"
+      },
+      "transition": "blinds",
+      "narration": "第三类，查不到来源的。比如，懂车帝另外买了三台新车封存，这条出自网友转述，我没找到可靠来源。比如支架到底是什么材料，社交平台上说法很多，官方没有确认。这类，先别转发。",
+      "material_hints": [
+        "search:laptop screen search website"
+      ],
+      "bgm_mood": "reveal"
+    },
+    {
+      "scene_id": "s07",
+      "order": 7,
+      "duration": 10,
+      "layout": "outro",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "等官方结论",
+        "sub": "你最想弄清哪一点？",
+        "animation": "pop_in"
+      },
+      "transition": "flash",
+      "narration": "结论没出来之前，立场先放一放。等江淮给出正式说明，我再接着讲。你最想先弄清哪个问题，评论区告诉我。",
+      "material_hints": [
+        "search:empty road sunrise highway"
+      ],
+      "bgm_mood": "closing"
+    }
+  ],
+  "platform_metadata": {
+    "xiaohongshu": {
+      "title": "尊界刹车风波：先分清这3类信息",
+      "desc": "尊界V800刹车踏板支架风波刷屏，立场战比事实跑得快。\n\n这条只做一件事：把信息分成三类。\n① 有出处的：懂车帝发布实测结果；江淮方面人士回应在关注、多方测试，有结果会发官方说明。\n② 还在吵的：断裂时踏板力的读数口径不一（报道里有1580牛、1612牛，画面里出现过4589牛）；测试是否过于极限，也只是观点。\n③ 查不到来源的：另买三台新车封存的说法、支架具体材料的说法，目前没找到可靠出处，先别转发。\n\n以上信息据公开报道与标准原文整理，截至 2026-10-08，相关官方结论尚未发布；不构成对任何品牌或车型的评价。",
+      "tags": [
+        "尊界V800",
+        "刹车踏板",
+        "汽车安全",
+        "事实核查",
+        "懂车帝",
+        "江淮汽车",
+        "购车避坑",
+        "汽车科普"
+      ]
+    },
+    "douyin": {
+      "title": "尊界V800刹车风波：有出处的、还在吵的、查不到来源的，我帮你分开了",
+      "desc": "不站队，只分类：懂车帝发布的结果、江淮的回应、口径不一的数字，以及查不到来源的传言。截至10月8日官方结论未出。",
+      "tags": [
+        "尊界V800",
+        "刹车踏板",
+        "懂车帝",
+        "汽车安全",
+        "事实核查"
+      ]
+    },
+    "bilibili": {
+      "title": "尊界V800刹车风波｜不站队的事实核查：有出处的、还在吵的、查不到来源的",
+      "desc": "懂车帝发布三台尊界V800紧急制动踏板支架断裂的实测结果后，舆论两极。本期只做信息分类，不下结论。\n\n以上信息据公开报道与标准原文整理，截至 2026-10-08，相关官方结论尚未发布；不构成对任何品牌或车型的评价。",
+      "tags": [
+        "尊界V800",
+        "刹车踏板",
+        "懂车帝",
+        "江淮汽车",
+        "汽车安全",
+        "事实核查",
+        "汽车科普",
+        "热点解读"
+      ]
+    },
+    "twitter": {
+      "text": "尊界V800刹车风波，不站队的事实核查：\n① 有出处：懂车帝发布结果；江淮方面称在关注、多方测试\n② 还在吵：踏板力读数口径不一\n③ 查不到来源：封存新车、支架材料等说法\n截至10月8日官方结论未出。",
+      "hashtags": [
+        "尊界V800",
+        "事实核查"
+      ]
+    }
+  }
+}

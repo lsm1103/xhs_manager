@@ -1,0 +1,341 @@
+{
+  "topic": {
+    "title": "网上说国标要求踏板扛2000牛？我翻了79页原文",
+    "angle": "用 GB 21670-2025 原文和页码戳破一个流传的数字：全文没有“2000牛保持5秒”，踏板力是测试条件而非强度门槛",
+    "why_now": "尊界V800踏板风波中，“国标要求2000牛保持5秒”被反复引用，而原文查不到",
+    "target_audience": "被风波刷屏、想自己核对依据的车主与汽车爱好者",
+    "video_type": "explainer"
+  },
+  "bgm_style": "克制的科技感，BPM 100 左右",
+  "scenes": [
+    {
+      "scene_id": "s01",
+      "order": 1,
+      "duration": 10,
+      "layout": "hook",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "2000牛保持5秒？",
+        "sub": "国标里真有这条吗",
+        "animation": "pop_in"
+      },
+      "transition": "none",
+      "narration": "网上有一种说法：国标要求刹车踏板支架承受两千牛，保持五秒不断。我把这份国标，七十九页原文翻了一遍。",
+      "material_hints": [
+        "search:documents desk magnifying glass"
+      ],
+      "bgm_mood": "hook",
+      "theme": "ocean_glass"
+    },
+    {
+      "scene_id": "s02",
+      "order": 2,
+      "duration": 13,
+      "layout": "screenshot",
+      "visual_desc": "标准封面整页，依次框出标题与实施日期",
+      "text_overlay": {
+        "main": "这就是那份国标",
+        "sub": "",
+        "animation": "slide_up"
+      },
+      "transition": "iris",
+      "narration": "这份标准是GB 二一六七〇，二〇二五年版，《乘用车制动系统技术要求及试验方法》。二〇二五年五月发布，二〇二六年一月一日起实施。",
+      "material_hints": [
+        "local:videos/zunjie-v800/assets/gb21670_p01.png"
+      ],
+      "bgm_mood": "explain",
+      "focus": [
+        {
+          "at": 2.0,
+          "rect": [
+            210,
+            797,
+            1139,
+            96
+          ],
+          "label": "乘用车制动系统技术要求及试验方法",
+          "note": "GB 21670—2025，代替 2008 年版"
+        },
+        {
+          "at": 6.5,
+          "rect": [
+            1120,
+            1770,
+            270,
+            46
+          ],
+          "label": "2026-01-01 实施",
+          "note": "2025-05-30 发布"
+        }
+      ]
+    },
+    {
+      "scene_id": "s03",
+      "order": 3,
+      "duration": 7,
+      "layout": "stat",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "0 处",
+        "sub": "全文检索：「2000牛」「保持5秒」",
+        "animation": "counter"
+      },
+      "transition": "cross_zoom",
+      "narration": "我在全文里搜了两千牛，搜了保持五秒。在这份标准里，一处都没有找到。",
+      "material_hints": [
+        "search:laptop screen search website"
+      ],
+      "bgm_mood": "reveal"
+    },
+    {
+      "scene_id": "s04",
+      "order": 4,
+      "duration": 19,
+      "layout": "screenshot",
+      "visual_desc": "表3整页，框出踏板力一行和制动距离一行",
+      "text_overlay": {
+        "main": "踏板力，写在这里",
+        "sub": "",
+        "animation": "slide_up"
+      },
+      "transition": "slide_up",
+      "narration": "标准里真正写了踏板力的，是这张表。测试制动时，加在踏板上的力，是六十五到五百牛。这是测试时用多大的力，不是踏板最多能扛多大的力。在这个力度下，一百公里每小时刹停，制动距离要求不超过七十米。",
+      "material_hints": [
+        "local:videos/zunjie-v800/assets/gb21670_p28.png"
+      ],
+      "bgm_mood": "explain",
+      "focus": [
+        {
+          "at": 3.0,
+          "rect": [
+            547,
+            1028,
+            764,
+            43
+          ],
+          "label": "F/N：65~500",
+          "note": "测试制动时，加在踏板上的力的范围"
+        },
+        {
+          "at": 12.0,
+          "rect": [
+            547,
+            937,
+            764,
+            44
+          ],
+          "label": "100 km/h：S ≤ 0.1v + 0.0060v²",
+          "note": "代入 v=100，制动距离不超过 70 米"
+        }
+      ]
+    },
+    {
+      "scene_id": "s05",
+      "order": 5,
+      "duration": 18,
+      "layout": "screenshot",
+      "visual_desc": "第5.2.2条j款所在页，框出整段要求",
+      "text_overlay": {
+        "main": "踏板支架，怎么规定",
+        "sub": "",
+        "animation": "slide_up"
+      },
+      "transition": "wipe_diagonal",
+      "narration": "那踏板支架呢？标准只有定性的要求：踏板及其支架，如果被视为不易失效的零部件，应当用金属材料，或者与金属材料性能相当的材料制造，正常工作时不应产生明显变形。这一句，没有给任何力值。",
+      "material_hints": [
+        "local:videos/zunjie-v800/assets/gb21670_p17.png"
+      ],
+      "bgm_mood": "tension",
+      "focus": [
+        {
+          "at": 3.0,
+          "rect": [
+            268,
+            236,
+            1062,
+            128
+          ],
+          "label": "5.2.2 j) 踏板及其支架",
+          "note": "金属或性能相当的材料；正常工作不应明显变形；没有力值"
+        }
+      ]
+    },
+    {
+      "scene_id": "s06",
+      "order": 6,
+      "duration": 13,
+      "layout": "screenshot",
+      "visual_desc": "第7.4.2.2条所在页",
+      "text_overlay": {
+        "main": "检测时怎么查",
+        "sub": "",
+        "animation": "slide_up"
+      },
+      "transition": "split_h",
+      "narration": "检测时怎么查？第七点四点二点二条：看制造商的设计文件，确认踏板及其支架，是否具有足够的强度。足够，是多少？原文没有写数字。",
+      "material_hints": [
+        "local:videos/zunjie-v800/assets/gb21670_p39.png"
+      ],
+      "bgm_mood": "explain",
+      "focus": [
+        {
+          "at": 4.0,
+          "rect": [
+            172,
+            634,
+            1152,
+            115
+          ],
+          "label": "7.4.2.2 检查设计文件",
+          "note": "确认踏板及支架“具有足够的强度”；原文没有数字"
+        }
+      ]
+    },
+    {
+      "scene_id": "s07",
+      "order": 7,
+      "duration": 19,
+      "layout": "screenshot",
+      "visual_desc": "第9章实施条款所在页",
+      "text_overlay": {
+        "main": "什么时候开始适用",
+        "sub": "",
+        "animation": "slide_up"
+      },
+      "transition": "blinds",
+      "narration": "再看适用时间。新申请型式批准的车型，多数条款从实施之日起执行；已经获得批准的车型，从实施之日起第十三个月开始执行。某一款车适用哪个阶段，要看它的型式批准情况，我没有查到，所以不下结论。",
+      "material_hints": [
+        "local:videos/zunjie-v800/assets/gb21670_p57.png"
+      ],
+      "bgm_mood": "explain",
+      "focus": [
+        {
+          "at": 3.0,
+          "rect": [
+            172,
+            1732,
+            1155,
+            76
+          ],
+          "label": "新申请型式批准的车型",
+          "note": "多数条款自实施之日起执行"
+        },
+        {
+          "at": 9.0,
+          "rect": [
+            215,
+            1800,
+            830,
+            52
+          ],
+          "label": "已获得型式批准的车型",
+          "note": "自实施之日起第 13 个月开始执行"
+        }
+      ]
+    },
+    {
+      "scene_id": "s08",
+      "order": 8,
+      "duration": 15,
+      "layout": "checklist",
+      "visual_desc": "三件能确认的事，全部打勾",
+      "text_overlay": {
+        "main": "我能确认的三件事",
+        "sub": "✓ 原文没有「2000牛保持5秒」；✓ 65~500牛是测试时的踏板力；✓ 支架强度只有定性要求",
+        "animation": "slide_up"
+      },
+      "transition": "bounce",
+      "narration": "所以我能确认的只有三件事。一，这份国标里没有两千牛保持五秒。二，六十五到五百牛，是测试时的踏板力。三，踏板支架的强度，标准只有定性要求，没有给力值。",
+      "material_hints": [
+        "search:car interior steering wheel"
+      ],
+      "bgm_mood": "reveal"
+    },
+    {
+      "scene_id": "s09",
+      "order": 9,
+      "duration": 13,
+      "layout": "statement",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "不站队",
+        "sub": "这份国标证明不了合格，也证明不了不合格",
+        "animation": "highlight"
+      },
+      "transition": "split_v",
+      "narration": "这不等于尊界合格，也不等于不合格。那个说法，可能出自别的标准、企业标准，或者转述时弄错了。我没有找到出处，所以不替它背书。",
+      "material_hints": [
+        "search:highway road night traffic"
+      ],
+      "bgm_mood": "tension"
+    },
+    {
+      "scene_id": "s10",
+      "order": 10,
+      "duration": 8,
+      "layout": "outro",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "原文可查",
+        "sub": "找到出处的，评论区见",
+        "animation": "pop_in"
+      },
+      "transition": "flash",
+      "narration": "原文页码都在画面里，你可以自己对。如果你找到了那个说法的出处，欢迎评论区发给我。",
+      "material_hints": [
+        "search:empty road sunrise highway"
+      ],
+      "bgm_mood": "closing"
+    }
+  ],
+  "platform_metadata": {
+    "xiaohongshu": {
+      "title": "翻遍国标79页，没找到2000牛",
+      "desc": "尊界V800风波里，有人说“国标要求踏板支架承受2000牛保持5秒”。\n\n我把 GB 21670—2025《乘用车制动系统技术要求及试验方法》原文翻了一遍：\n· 全文检索“2000牛”“保持5秒”，没有匹配。\n· 表3：测试制动时的踏板力是 65~500 N，这是测试条件，不是强度门槛；100km/h 制动距离要求 ≤ 70 米。\n· 5.2.2 j)：踏板及支架若被视为不易失效零部件，应用金属或性能相当的材料，正常工作不应明显变形——只有定性要求，没有力值。\n· 7.4.2.2：检查设计文件，确认“具有足够的强度”，同样没有数字。\n· 2026-01-01 实施；已获批车型自实施起第13个月执行，某车适用哪个阶段需看其型式批准情况，我没查到，不下结论。\n\n这不能证明任何车型合格或不合格。传言的出处如果你找到了，评论区发我。\n\n以上信息据公开报道与标准原文整理，截至 2026-10-08，相关官方结论尚未发布；不构成对任何品牌或车型的评价。",
+      "tags": [
+        "国标",
+        "GB21670",
+        "刹车踏板",
+        "尊界V800",
+        "汽车安全",
+        "辟谣",
+        "汽车科普",
+        "标准解读"
+      ]
+    },
+    "douyin": {
+      "title": "网上说国标要求踏板支架承受2000牛保持5秒？我把GB 21670—2025原文翻了一遍",
+      "desc": "全文检索没有“2000牛保持5秒”；表3的65~500N是测试踏板力，不是强度门槛；支架强度只有定性要求。原文页码都在画面里。",
+      "tags": [
+        "国标",
+        "刹车踏板",
+        "尊界V800",
+        "辟谣",
+        "汽车科普"
+      ]
+    },
+    "bilibili": {
+      "title": "翻遍国标79页，没找到“2000牛保持5秒”｜GB 21670—2025 原文解读",
+      "desc": "本期逐页对照 GB 21670—2025 原文，核对流传的“踏板支架2000牛保持5秒”说法。\n\n以上信息据公开报道与标准原文整理，截至 2026-10-08，相关官方结论尚未发布；不构成对任何品牌或车型的评价。",
+      "tags": [
+        "国标",
+        "GB21670",
+        "刹车踏板",
+        "尊界V800",
+        "汽车安全",
+        "辟谣",
+        "汽车科普",
+        "标准解读",
+        "懂车帝",
+        "热点解读"
+      ]
+    },
+    "twitter": {
+      "text": "网上说国标要求踏板支架承受2000牛保持5秒？我翻了 GB 21670—2025 全文：没有这条。表3的65~500N是测试踏板力，不是强度门槛；支架强度只有定性要求。",
+      "hashtags": [
+        "GB21670",
+        "尊界V800"
+      ]
+    }
+  }
+}

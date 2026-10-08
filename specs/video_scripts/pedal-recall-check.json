@@ -1,0 +1,203 @@
+{
+  "topic": {
+    "title": "刹车踏板也会召回？1分钟查你的车有没有召回",
+    "angle": "以9月18日比亚迪秦/唐踏板限位垫召回为例，把“召回”讲成可操作的自查流程，只引用官方公告",
+    "why_now": "刹车踏板风波带动对踏板安全的关注，同时有近期官方召回可作事实锚点",
+    "target_audience": "车主、二手车买家",
+    "video_type": "explainer"
+  },
+  "bgm_style": "平稳实用，BPM 100 左右",
+  "scenes": [
+    {
+      "scene_id": "s01",
+      "order": 1,
+      "duration": 5,
+      "layout": "hook",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "你的车在名单里吗",
+        "sub": "一分钟查清",
+        "animation": "pop_in"
+      },
+      "transition": "none",
+      "narration": "你的车，在不在召回名单里？一分钟，就能查清。",
+      "material_hints": [
+        "search:car dashboard warning lights"
+      ],
+      "bgm_mood": "hook",
+      "theme": "sunset_pop"
+    },
+    {
+      "scene_id": "s02",
+      "order": 2,
+      "duration": 9,
+      "layout": "stat",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "18.3 万辆",
+        "sub": "比亚迪 秦、唐系列 · 9月18日 · 市场监管总局发布",
+        "animation": "counter"
+      },
+      "transition": "iris",
+      "narration": "九月十八日，市场监管总局发布召回信息：比亚迪两家公司，共召回秦、唐系列十八万三千多辆。",
+      "material_hints": [
+        "search:highway road night traffic"
+      ],
+      "bgm_mood": "reveal"
+    },
+    {
+      "scene_id": "s03",
+      "order": 3,
+      "duration": 16,
+      "layout": "cards",
+      "visual_desc": "三张卡片：原因、后果、官方说明",
+      "text_overlay": {
+        "main": "这次召回说了什么",
+        "sub": "原因：制动踏板限位垫材料批次性异常；可能后果：长期使用后开裂，极端时整体脱落；官方说明：不直接影响制动功能，但可能使制动灯常亮",
+        "animation": "slide_up"
+      },
+      "transition": "wipe_up",
+      "narration": "原因是制动踏板限位垫材料批次性异常。长期使用后可能开裂，极端情况下会整体脱落。官方说明指出，这不会直接影响制动功能，但可能让制动灯一直亮着，干扰后车判断。",
+      "material_hints": [
+        "search:red brake lights traffic night"
+      ],
+      "bgm_mood": "explain"
+    },
+    {
+      "scene_id": "s04",
+      "order": 4,
+      "duration": 8,
+      "layout": "checklist",
+      "visual_desc": "处理方式两条对勾",
+      "text_overlay": {
+        "main": "处理方式",
+        "sub": "✓ 授权经销商免费更换改良后的限位垫；✓ 已经更换过的车无需重复处理",
+        "animation": "slide_up"
+      },
+      "transition": "slide_up",
+      "narration": "处理方式是：授权经销商免费更换改良后的限位垫。已经更换过的车，不用重复处理。",
+      "material_hints": [
+        "search:mechanic hands wrench engine"
+      ],
+      "bgm_mood": "uplift"
+    },
+    {
+      "scene_id": "s05",
+      "order": 5,
+      "duration": 9,
+      "layout": "statement",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "收到召回通知，别拖",
+        "sub": "召回 = 厂家公开通知，免费修复",
+        "animation": "slide_up"
+      },
+      "transition": "flip_x",
+      "narration": "召回是什么？是发现安全隐患后，厂家公开通知车主，免费修复。收到召回通知，不是坏事，别拖。",
+      "material_hints": [
+        "search:documents desk magnifying glass"
+      ],
+      "bgm_mood": "explain"
+    },
+    {
+      "scene_id": "s06",
+      "order": 6,
+      "duration": 21,
+      "layout": "timeline",
+      "visual_desc": "三种查法依次点亮",
+      "text_overlay": {
+        "main": "三种查法",
+        "sub": "市场监管总局召回网站按车型查；品牌App或客服电话报车架号；到授权店让他们帮你查",
+        "animation": "slide_up"
+      },
+      "transition": "blinds",
+      "narration": "怎么查，三种办法。一，去市场监管总局缺陷产品管理中心的召回网站，按品牌和车型查。二，用品牌官方App或客服电话，报车架号核对。三，直接到授权店，让他们帮你查。车架号，也叫VIN码，在行驶证和前挡风玻璃左下角。",
+      "material_hints": [
+        "search:laptop screen search website"
+      ],
+      "bgm_mood": "reveal"
+    },
+    {
+      "scene_id": "s07",
+      "order": 7,
+      "duration": 6,
+      "layout": "statement",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "买二手车，先查车架号",
+        "sub": "有没有未处理的召回",
+        "animation": "slide_up"
+      },
+      "transition": "split_h",
+      "narration": "买二手车之前，也先用车架号查一遍：有没有未处理的召回。",
+      "material_hints": [
+        "search:car interior steering wheel"
+      ],
+      "bgm_mood": "explain"
+    },
+    {
+      "scene_id": "s08",
+      "order": 8,
+      "duration": 5,
+      "layout": "outro",
+      "visual_desc": "文字卡叠在素材背景上",
+      "text_overlay": {
+        "main": "查一次，不到一分钟",
+        "sub": "转给家里开车的人",
+        "animation": "pop_in"
+      },
+      "transition": "flash",
+      "narration": "查一次，花不了一分钟。把这条转给家里开车的人。",
+      "material_hints": [
+        "search:empty road sunrise highway"
+      ],
+      "bgm_mood": "closing"
+    }
+  ],
+  "platform_metadata": {
+    "xiaohongshu": {
+      "title": "1分钟查你的车有没有召回",
+      "desc": "9月18日，市场监管总局发布召回信息：比亚迪两家公司共召回秦、唐系列183211辆，原因是制动踏板限位垫材料批次性异常，长期使用后可能开裂、极端情况下脱落；官方说明不直接影响制动功能，但可能使制动灯常亮、干扰后车判断。处理方式：授权经销商免费更换。\n\n三种自查办法：\n① 市场监管总局缺陷产品管理中心的召回网站，按品牌和车型查；\n② 品牌官方App或客服电话，报车架号（VIN）核对；\n③ 到授权店让他们帮你查。\n车架号在行驶证和前挡风玻璃左下角。买二手车前也先查一遍。\n\n以上据官方公告与公开报道整理，具体以官方网站为准。",
+      "tags": [
+        "汽车召回",
+        "召回查询",
+        "车主必看",
+        "二手车",
+        "行车安全",
+        "刹车踏板",
+        "汽车科普"
+      ]
+    },
+    "douyin": {
+      "title": "你的车在不在召回名单里？1分钟自查指南（含比亚迪秦唐18.3万辆召回案例）",
+      "desc": "9月18日比亚迪秦、唐系列召回183211辆，原因是制动踏板限位垫材料批次性异常。三种查法，一分钟自查。",
+      "tags": [
+        "汽车召回",
+        "召回查询",
+        "车主必看",
+        "二手车",
+        "行车安全"
+      ]
+    },
+    "bilibili": {
+      "title": "1分钟查你的车有没有召回｜以比亚迪秦唐踏板限位垫召回为例",
+      "desc": "只引用官方公告与公开报道。三种查法：召回网站、品牌App/客服、授权店；买二手车先查车架号。\n\n以上据官方公告与公开报道整理，具体以官方网站为准。",
+      "tags": [
+        "汽车召回",
+        "召回查询",
+        "车主必看",
+        "二手车",
+        "行车安全",
+        "刹车踏板",
+        "汽车科普"
+      ]
+    },
+    "twitter": {
+      "text": "你的车在不在召回名单里？9月18日市场监管总局发布：比亚迪秦、唐系列召回183211辆（踏板限位垫）。三种查法：官网、品牌App/客服、授权店；车架号在行驶证和前挡风玻璃左下角。",
+      "hashtags": [
+        "汽车召回",
+        "行车安全"
+      ]
+    }
+  }
+}
