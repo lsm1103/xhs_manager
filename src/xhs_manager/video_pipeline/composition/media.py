@@ -12,8 +12,13 @@ from pathlib import Path
 VIDEO_SUFFIXES = (".mp4", ".webm", ".mov", ".m4v")
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".avif")
 
-# 转场时长（秒）。glitch 短促才有冲击力，其余统一 0.6。
-TRANSITION_DURATION = {"glitch": 0.4, "none": 0.0}
+# 转场时长（秒）。glitch / flash 短促才有冲击力；iris / blinds / bounce 有一段
+# 运动过程，给长一点；其余统一 0.6。
+TRANSITION_DURATION = {
+    "glitch": 0.4, "flash": 0.45,
+    "iris": 0.7, "blinds": 0.7, "bounce": 0.7,
+    "none": 0.0,
+}
 DEFAULT_TRANSITION_DURATION = 0.6
 
 

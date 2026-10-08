@@ -22,6 +22,10 @@ LAYOUTS = (
     "scroll",     # 长截图滚动：网页/文档整页在视窗里缓缓上移
     "terminal",   # 终端：命令逐字敲出来，输出随后出现
     "outro",      # 收尾：行动号召
+    "timeline",   # 时间线 / 步骤：竖线串起编号节点，逐个点亮
+    "cards",      # 并排卡片：「标题：说明」，2-4 张
+    "checklist",  # 清单：✓ 已确认 / ✗ 不成立 / ? 未证实
+    "chapter",    # 章节过场：超大编号 + 标题
 )
 
 # 一条字幕最多多少字。超过就断句——竖屏一行放不下太多字。
@@ -108,6 +112,9 @@ class PlannedScene:
     compare: tuple[str, str] | None = None
     stat_value: str = ""
     stat_unit: str = ""
+    cards: list[tuple[str, str]] = field(default_factory=list)       # (标题, 说明)
+    checks: list[tuple[str, str]] = field(default_factory=list)      # (ok|bad|unknown, 文字)
+    chapter_index: str = ""
     focus: list[FocusSpec] = field(default_factory=list)
     window: str = ""                       # 画成浏览器/窗口标题栏的那行字，空则不画
     scroll: ScrollSpec | None = None
@@ -328,6 +335,46 @@ def _split_bullets(sub: str) -> list[str]:
     return [p.strip() for p in _BULLET_SEP.split(sub or "") if p.strip()]
 
 
+_CARD_SPLIT = re.compile(r"[：:]")
+
+# 清单行首的记号 → 语义。认几种常见写法，因为作者键盘上敲得出来的不一样。
+_CHECK_MARKS = {
+    "✓": "ok", "✔": "ok", "√": "ok",
+    "✗": "bad", "✘": "bad", "×": "bad",
+    "?": "unknown", "？": "unknown",
+}
+
+
+def _split_cards(sub: str, main: str) -> list[tuple[str, str]]:
+    """「标题：说明」逐条拆开。没有冒号的整条当标题。"""
+    cards = []
+    for item in _split_bullets(sub) or _split_bullets(main):
+        parts = _CARD_SPLIT.split(item, 1)
+        cards.append((parts[0].strip(), parts[1].strip() if len(parts) > 1 else ""))
+    return [c for c in cards if c[0]]
+
+
+def _split_checks(sub: str, main: str) -> list[tuple[str, str]]:
+    """清单行首的 ✓ / ✗ / ? 决定图标；没有记号默认当 ✓。"""
+    checks = []
+    for item in _split_bullets(sub) or _split_bullets(main):
+        kind = _CHECK_MARKS.get(item[:1])
+        text = item[1:].strip() if kind else item
+        if text:
+            checks.append((kind or "ok", text))
+    return checks
+
+
+def _split_chapter(main: str, order: int) -> tuple[str, str]:
+    """「第一类：有出处的」→ ("第一类", "有出处的")。没有冒号就用场景序号当编号。"""
+    for sep in ("：", ":"):
+        if sep in main:
+            index, title = (x.strip() for x in main.split(sep, 1))
+            if index and title:
+                return index, title
+    return f"{order:02d}", main
+
+
 def _split_compare(main: str, sub: str) -> tuple[tuple[str, str], str] | None:
     """拆出对比双方，并告诉调用方它是从 main 还是 sub 里拆出来的。
 
@@ -495,6 +542,20 @@ def plan_timeline(scenes: list[dict[str, Any]]) -> Timeline:
             ps.focus = _plan_focus(scene.get("focus"), cursor, duration)
         elif layout == "terminal":
             ps.terminal = _plan_terminal(scene.get("terminal"), main)
+        elif layout == "timeline":
+            ps.bullets = _split_bullets(sub) or _split_bullets(main)
+            if not ps.bullets:              # 没有节点就退回普通陈述
+                ps.layout = "statement"
+        elif layout == "cards":
+            ps.cards = _split_cards(sub, main)
+            if not ps.cards:
+                ps.layout = "statement"
+        elif layout == "checklist":
+            ps.checks = _split_checks(sub, main)
+            if not ps.checks:
+                ps.layout = "statement"
+        elif layout == "chapter":
+            ps.chapter_index, ps.text_main = _split_chapter(main, ps.order)
         elif layout == "stat":
             ps.stat_value, ps.stat_unit = _split_stat(main)
             # stat 版面的巨号字是给数字用的。硬塞一整句中文进去会撑破版心，

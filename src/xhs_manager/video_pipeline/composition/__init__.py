@@ -13,7 +13,12 @@ from xhs_manager.video_pipeline.composition.cover import (
     build_cover_html,
     fit_title_size,
 )
-from xhs_manager.video_pipeline.composition.theme import THEMES, Theme, resolve_theme
+from xhs_manager.video_pipeline.composition.theme import (
+    THEMES,
+    Theme,
+    resolve_theme,
+    theme_for_scenes,
+)
 from xhs_manager.video_pipeline.composition.timeline import (
     CaptionCue,
     PlannedScene,
@@ -43,5 +48,6 @@ __all__ = [
     "plan_timeline",
     "resolve_theme",
     "split_caption_text",
+    "theme_for_scenes",
     "transition_duration",
 ]

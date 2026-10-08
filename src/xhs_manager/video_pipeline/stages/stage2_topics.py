@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from xhs_manager.domain import new_id, utcnow
 from xhs_manager.video_pipeline.config import VideoPipelineSettings
-from xhs_manager.video_pipeline.domain import StageError, VideoType
+from xhs_manager.video_pipeline.domain import StageError, Transition, VideoType
 from xhs_manager.video_pipeline.integrations.llm_client import call_structured
 from xhs_manager.video_pipeline.models import (
     VideoPipelineRun,
@@ -118,11 +118,7 @@ SCRIPT_GENERATION_SCHEMA: dict[str, Any] = {
                     },
                     "transition": {
                         "type": "string",
-                        "enum": [
-                            "fade", "slide_left", "slide_right",
-                            "zoom_in", "zoom_out", "glitch",
-                            "blur", "wipe", "flip", "none",
-                        ],
+                        "enum": [t.value for t in Transition],
                     },
                     "narration": {"type": "string", "description": "旁白文本"},
                     "bgm_mood": {

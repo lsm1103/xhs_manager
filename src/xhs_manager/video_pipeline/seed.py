@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from xhs_manager.domain import new_id
 from xhs_manager.video_pipeline.composition.timeline import LAYOUTS
-from xhs_manager.video_pipeline.domain import VideoType
+from xhs_manager.video_pipeline.domain import Transition, VideoType
 from xhs_manager.video_pipeline.models import (
     VideoPipelineRun,
     VideoScript,
@@ -162,6 +162,8 @@ def load_script_file(path: str | Path) -> dict[str, Any]:
         scene.setdefault("material_hints", [])
         _validate_hints(i, scene)
         _validate_layout(i, scene)
+        _validate_transition(i, scene)
+        _validate_theme(i, scene)
         _validate_focus(i, scene)
         _validate_scroll(i, scene)
         _validate_terminal(i, scene)
@@ -207,6 +209,40 @@ def _validate_layout(i: int, scene: dict[str, Any]) -> None:
     if layout not in LAYOUTS:
         raise ValueError(
             f"scenes[{i}] 的 layout 「{layout}」不认识，可选：{', '.join(LAYOUTS)}"
+        )
+
+
+def _validate_transition(i: int, scene: dict[str, Any]) -> None:
+    """转场名拼错要当场报错。
+
+    CSS 里没有对应 `.x-<名字>` 规则的转场不会报任何错，只是没有动画——
+    新场景直接硬切上来。手写脚本里拼错一个字母，要渲染完整片才看得出来。
+    """
+    name = scene.get("transition")
+    if name is None:
+        return
+    valid = [t.value for t in Transition]
+    if name not in valid:
+        raise ValueError(
+            f"scenes[{i}] 的 transition 「{name}」不认识，可选：{', '.join(valid)}"
+        )
+
+
+def _validate_theme(i: int, scene: dict[str, Any]) -> None:
+    """主题名拼错要当场报错。
+
+    resolve_theme 对未知名字的兜底是回落到默认主题——渲染不该因为一个名字就断，
+    这对全局配置是对的；但脚本里特意写了 theme 却被悄悄换回默认色，
+    要渲染完才发现整片色调不是想要的那套。
+    """
+    name = scene.get("theme")
+    if name is None:
+        return
+    from xhs_manager.video_pipeline.composition.theme import THEMES
+
+    if name not in THEMES:
+        raise ValueError(
+            f"scenes[{i}] 的 theme 「{name}」不认识，可选：{', '.join(THEMES)}"
         )
 
 

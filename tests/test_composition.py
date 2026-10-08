@@ -764,3 +764,186 @@ def test_scene_without_media_falls_back_to_the_theme_backdrop():
     assert '<div class="scene-media"></div>' in html
     assert 'class="still' not in html
     assert 'class="backdrop"' in html      # 主题的渐变底纹仍在
+
+
+# ── 转场 ──────────────────────────────────────────────────────────
+
+
+def _css_without_comments() -> str:
+    return re.sub(r"/\*.*?\*/", "", CSS_PATH.read_text(encoding="utf-8"), flags=re.S)
+
+
+def test_every_declared_transition_has_a_css_rule_and_keyframes():
+    """枚举里有、CSS 里没有的转场不会报任何错——只是新场景直接硬切上来。
+
+    所以这里把两边对齐：每个 Transition 成员（除 none）都必须有 `.x-<名>` 规则，
+    规则引用的 @keyframes 也必须存在。
+    """
+    from xhs_manager.video_pipeline.domain import Transition
+
+    css = _css_without_comments()
+    missing = []
+    for t in Transition:
+        if t is Transition.NONE:
+            continue
+        cls = ".x-" + t.value.replace("_", "-")
+        m = re.search(re.escape(cls) + r"\s*\{[^}]*?animation-name:\s*(\w+)", css)
+        if not m:
+            missing.append(f"{cls}（没有规则）")
+        elif f"@keyframes {m.group(1)}" not in css:
+            missing.append(f"{cls}（缺 @keyframes {m.group(1)}）")
+    assert not missing, missing
+
+
+def test_new_transitions_get_their_own_durations_where_it_matters():
+    assert transition_duration("flash") < transition_duration("fade")
+    assert transition_duration("iris") > transition_duration("fade")
+    assert transition_duration("slide_up") == transition_duration("fade")
+
+
+def test_stage2_schema_transition_enum_follows_the_domain_enum():
+    """Stage2 给 LLM 的可选转场必须和枚举同步，加转场不该要改两处。"""
+    from xhs_manager.video_pipeline.domain import Transition
+    from xhs_manager.video_pipeline.stages import stage2_topics
+
+    schema = stage2_topics.SCRIPT_GENERATION_SCHEMA
+    enum = schema["properties"]["scenes"]["items"]["properties"]["transition"]["enum"]
+    assert enum == [t.value for t in Transition]
+
+
+def test_blinds_registers_the_animatable_custom_property():
+    """--bw 不用 @property 注册成 <percentage>，关键帧就没法插值，百叶窗会直接跳变。"""
+    css = _css_without_comments()
+    assert re.search(r"@property\s+--bw\s*\{[^}]*<percentage>", css)
+
+
+def test_load_script_file_rejects_unknown_transition(tmp_path):
+    from xhs_manager.video_pipeline.seed import load_script_file
+
+    with pytest.raises(ValueError, match="transition"):
+        load_script_file(_write(tmp_path, {"scenes": [_scene(transition="slide_upp")]}))
+
+
+# ── 新版面 ────────────────────────────────────────────────────────
+
+
+def _plan(layout, main="标题", sub="", **extra):
+    tl = plan_timeline([_scene(
+        layout=layout, text_overlay={"main": main, "sub": sub, "animation": "pop_in"},
+        **extra,
+    )])
+    return tl.scenes[0]
+
+
+def test_new_layouts_are_registered():
+    from xhs_manager.video_pipeline.composition.timeline import LAYOUTS
+
+    for name in ("timeline", "cards", "checklist", "chapter"):
+        assert name in LAYOUTS
+
+
+def test_cards_split_title_and_description_on_the_first_colon():
+    s = _plan("cards", sub="有出处：懂车帝发布：附链接；还在吵：口径不一")
+    assert s.cards == [("有出处", "懂车帝发布：附链接"), ("还在吵", "口径不一")]
+
+
+def test_checklist_marks_decide_the_icon_and_default_to_ok():
+    s = _plan("checklist", sub="✓ 已确认；? 未证实；✗ 不成立；没有记号")
+    assert [k for k, _ in s.checks] == ["ok", "unknown", "bad", "ok"]
+    assert s.checks[3][1] == "没有记号"
+
+
+def test_chapter_uses_the_colon_to_split_index_from_title():
+    assert _plan("chapter", main="第一类：有出处的").chapter_index == "第一类"
+    assert _plan("chapter", main="第一类：有出处的").text_main == "有出处的"
+    # 没有冒号就用场景序号当编号
+    s = _plan("chapter", main="只有标题", order=3)
+    assert (s.chapter_index, s.text_main) == ("03", "只有标题")
+
+
+@pytest.mark.parametrize("layout", ["timeline", "cards", "checklist"])
+def test_list_layouts_without_items_fall_back_to_statement(layout):
+    """标题和副标题都没有可列的条目，就退回普通陈述，而不是渲染出一个空壳。
+
+    （sub 为空时 main 会被当作条目，和 bullets 一致，所以这里 main 也得是空的。）
+    """
+    assert _plan(layout, main="", sub="").layout == "statement"
+
+
+def test_new_layouts_render_their_markup():
+    def render(layout, **kw):
+        html, _ = build_composition_html(
+            [_scene(layout=layout, **kw)], media_lookup=lambda sid: None,
+        )
+        return html
+
+    html = render("timeline", text_overlay={"main": "步骤", "sub": "甲；乙；丙", "animation": "none"})
+    assert html.count('class="tl-item m') == 3 and 'tl-fill m m-grow-y' in html
+
+    html = render("cards", text_overlay={"main": "分类", "sub": "A：a；B：b；C：c；D：d", "animation": "none"})
+    assert html.count('class="card m') == 4 and "card-grid n4" in html
+
+    html = render("checklist", text_overlay={"main": "核对", "sub": "✓ 对；✗ 错；? 疑", "animation": "none"})
+    assert all(k in html for k in ("ck-ok", "ck-bad", "ck-unknown")) and "<svg" in html
+
+    html = render("chapter", text_overlay={"main": "第二类：还在吵的", "sub": "副标题", "animation": "none"})
+    assert "chapter-index" in html and "第二类" in html
+
+
+def test_new_layouts_keep_every_animated_element_paired_with_the_m_base_class():
+    """新版面里所有带 m-* 修饰类的元素也必须带 .m，否则会退回墙钟驱动。"""
+    scenes = [
+        _scene(scene_id=f"s{i}", order=i, layout=layout,
+               text_overlay={"main": "第一类：甲", "sub": "✓ 甲：a；? 乙：b", "animation": "pop_in"})
+        for i, layout in enumerate(("timeline", "cards", "checklist", "chapter"), 1)
+    ]
+    html, _ = build_composition_html(scenes, media_lookup=lambda sid: None)
+    bad = [
+        c for c in re.findall(r'class="([^"]*)"', html)
+        if any(x.startswith(("m-", "x-")) for x in c.split()) and "m" not in c.split()
+    ]
+    assert not bad, bad
+
+
+# ── 左上角品牌条已移除 ────────────────────────────────────────────
+
+
+def test_video_shell_has_no_brand_bar_but_keeps_the_chapter_counter():
+    html, _ = build_composition_html([_scene()], media_lookup=lambda sid: None)
+    assert 'class="brand"' not in html and "brand-dot" not in html
+    assert 'id="chapter"' in html
+
+
+# ── 主题 ──────────────────────────────────────────────────────────
+
+
+def test_every_theme_builds_a_complete_stylesheet():
+    """每套主题都要能把 base.css 的全部占位符填满（用的是 substitute，少一个就炸）。"""
+    from xhs_manager.video_pipeline.composition.styles import build_css
+
+    for name, theme in THEMES.items():
+        css = build_css(theme, 1080, 1920)
+        assert "${" not in css, name
+        assert theme.accent in css, name
+
+
+def test_themes_have_distinct_accent_pairs():
+    pairs = [(t.accent, t.accent_2) for t in THEMES.values()]
+    assert len(pairs) == len(set(pairs))
+
+
+def test_theme_for_scenes_prefers_the_script_over_the_global_default():
+    from xhs_manager.video_pipeline.composition.theme import theme_for_scenes
+
+    assert theme_for_scenes([{}, {"theme": "newsroom"}], "tech_night") == "newsroom"
+    assert theme_for_scenes([{}], "tech_night") == "tech_night"
+    assert theme_for_scenes([], None) is None
+
+
+def test_load_script_file_rejects_unknown_theme(tmp_path):
+    from xhs_manager.video_pipeline.seed import load_script_file
+
+    with pytest.raises(ValueError, match="theme"):
+        load_script_file(_write(tmp_path, {"scenes": [_scene(theme="neon_pink")]}))
+    # 合法的主题名放行
+    load_script_file(_write(tmp_path, {"scenes": [_scene(theme="newsroom")]}))

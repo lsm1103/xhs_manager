@@ -208,7 +208,12 @@ hook / bullets / compare 这类版面把素材当**全幅底图**。Pexels 那�
 │  ├─ blur-transition（模糊过渡）                       │
 │  ├─ wipe（擦除）                                     │
 │  ├─ flip（翻转）                                     │
-│  └─ morph（形变过渡）                                │
+│  ├─ slide-up / slide-down（上下滑动）                │
+│  ├─ wipe-down / wipe-up / wipe-diagonal（擦除）      │
+│  ├─ iris（圆形展开）/ split-h / split-v（对开）      │
+│  ├─ blinds（百叶窗）/ cross-zoom（推近模糊）         │
+│  ├─ spin / flash / bounce / flip-x                   │
+│  └─ morph（形变过渡，未实现）                        │
 │                                                      │
 │  文字动画库：                                         │
 │  ├─ typewriter（打字机效果）                          │
@@ -227,13 +232,48 @@ hook / bullets / compare 这类版面把素材当**全幅底图**。Pexels 那�
   这是逐帧截图渲染能正确出片的前提——CSS 动画默认走墙钟，
   而两帧之间的真实耗时不确定，不锁住就会渲染出「动画瞬间结束」的画面。
 - **版面模板**（`layouts.py`）：hook / statement / stat / quote / bullets /
-  compare / screenshot / scroll / terminal / outro，按内容特征自动推断，
-  也可由脚本显式指定 `layout`。
-- **贯穿外壳**（`builder.py`）：品牌条、章节角标、分段进度条、字幕带、
-  水印、颗粒 + 暗角；按平台 UI 留安全区。
-- **主题**（`theme.py`）：tech_night / warm_paper / electric，颜色字阶集中一处。
+  compare / screenshot / scroll / terminal / outro，加上 timeline / cards /
+  checklist / chapter，按内容特征自动推断，也可由脚本显式指定 `layout`。
+  后四个只能显式指定（没有可靠的启发式），文本约定见下文「列表型版面」。
+- **贯穿外壳**（`builder.py`）：章节角标、分段进度条、字幕带、
+  水印、颗粒 + 暗角；按平台 UI 留安全区。左上角不再画品牌条。
+- **主题**（`theme.py`）：tech_night / warm_paper / electric / carbon_gold /
+  newsroom / ocean_glass / sunset_pop / mono_ink，颜色字阶集中一处。
+  全局默认由 `XHS_VIDEO_COMPOSITION_THEME` 指定；单个脚本可在**第一个带 `theme`
+  键的场景**上覆盖，全片生效（`theme_for_scenes`）。
 - **样式**：`assets/base.css`，占位符在 build 时替换后内联进产物。
 - 输出 HTML 存储在 `{output_base_dir}/{run_id}/{script_id}/composition/index.html`
+
+#### 列表型版面：`timeline` / `cards` / `checklist` / `chapter`
+
+四个版面都只认文字，条目写在 `text_overlay.sub` 里，用 `；`（或 `|`）分隔：
+
+| 版面 | `sub` 的写法 | 呈现 |
+|---|---|---|
+| `timeline` | `不熄火；连踩看反馈；降挡；拉手刹` | 竖线从上往下长出来，编号节点逐个点亮 |
+| `cards` | `有出处：懂车帝发布；还在吵：口径不一` | 每条按**第一个冒号**拆成标题 + 说明；4 张排 2×2，其余竖叠 |
+| `checklist` | `✓ 已确认；? 未证实；✗ 不成立` | 行首记号决定图标（✓✔√ / ✗✘× / ?？），无记号当 ✓；颜色固定不随主题变 |
+| `chapter` | `main` 写 `第一类：有出处的` | 冒号前是超大描边编号，后面是标题；无冒号则用场景序号 |
+
+- 图标用内联 SVG，不依赖字体里有没有 ✓ ✗ 的字形——缺字时会掉到备用字体，
+  逐帧渲染的结果就取决于这台机器装了什么字体。
+- `timeline` / `cards` / `checklist` 没有任何可列条目时（`main`、`sub` 都空）退回 `statement`，
+  不渲染空壳。`sub` 为空时 `main` 当作条目，和 `bullets` 一致。
+
+#### 转场
+
+转场是纯 CSS：场景元素带 `x-<名字>`（下划线换成连字符），关键帧由 `--s`（场景起点）
+和 `--d`（转场时长）驱动，新场景叠在上一个场景之上过渡。新增一个转场要改三处：
+`base.css` 的 `.x-*` 规则 + `@keyframes`、`domain.Transition` 枚举、
+（需要不同时长时）`media.TRANSITION_DURATION`。Stage2 给 LLM 的可选值由枚举派生，不用另改。
+测试会检查「枚举里有的转场 CSS 里必须有」。
+
+- `clip-path` 类（wipe / wipe_down / wipe_up / wipe_diagonal / iris / split_h / split_v）
+  终点必须**完全盖满**画面。`iris` 的 `circle()` 半径百分比以 `√((w²+h²)/2)` 为基准，
+  1080×1920 要 75% 才盖住四角。
+- `blinds` 用 `mask` 里的重复渐变，`--bw` 必须用 `@property` 注册成 `<percentage>`，
+  否则它只是字符串，关键帧无法插值，会直接跳变。
+- 手写脚本里转场名、主题名拼错会在 `seed.load_script_file` 当场报错。
 
 **预览**：`python -m xhs_manager.video_pipeline.composition.preview`，
 不跑流水线就能看版面；浏览器打开加 `#preview` 才自动播放。

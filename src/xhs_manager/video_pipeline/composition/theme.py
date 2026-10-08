@@ -88,8 +88,72 @@ ELECTRIC = Theme(
     accent_ink="#07030f",
 )
 
+# 黑金：汽车、金融、高端消费
+CARBON_GOLD = Theme(
+    name="carbon_gold",
+    bg="#0a0908",
+    bg_alt="#17130c",
+    ink="#fffdf6",
+    ink_muted="rgba(255,253,246,0.74)",
+    accent="#e9c46a",
+    accent_2="#f4a261",
+    accent_ink="#0a0908",
+)
+
+# 新闻红：热点、事实核查、时事
+NEWSROOM = Theme(
+    name="newsroom",
+    bg="#060b18",
+    bg_alt="#0e1a33",
+    ink="#ffffff",
+    ink_muted="rgba(255,255,255,0.74)",
+    accent="#ff4d5e",
+    accent_2="#ffb020",
+    accent_ink="#ffffff",
+)
+
+# 深海青：科普、健康、环保
+OCEAN_GLASS = Theme(
+    name="ocean_glass",
+    bg="#03141a",
+    bg_alt="#072a35",
+    ink="#ffffff",
+    ink_muted="rgba(255,255,255,0.72)",
+    accent="#2dd4bf",
+    accent_2="#38bdf8",
+    accent_ink="#03141a",
+)
+
+# 日落橙粉：生活方式、情绪、种草
+SUNSET_POP = Theme(
+    name="sunset_pop",
+    bg="#12060d",
+    bg_alt="#2a0f1e",
+    ink="#ffffff",
+    ink_muted="rgba(255,255,255,0.74)",
+    accent="#ff7a59",
+    accent_2="#ff3d81",
+    accent_ink="#12060d",
+)
+
+# 黑白极简：纯观点、文字为主
+MONO_INK = Theme(
+    name="mono_ink",
+    bg="#050505",
+    bg_alt="#121212",
+    ink="#ffffff",
+    ink_muted="rgba(255,255,255,0.70)",
+    accent="#ffffff",
+    accent_2="#9ca3af",
+    accent_ink="#050505",
+)
+
 THEMES: dict[str, Theme] = {
-    t.name: t for t in (TECH_NIGHT, WARM_PAPER, ELECTRIC)
+    t.name: t
+    for t in (
+        TECH_NIGHT, WARM_PAPER, ELECTRIC,
+        CARBON_GOLD, NEWSROOM, OCEAN_GLASS, SUNSET_POP, MONO_INK,
+    )
 }
 
 DEFAULT_THEME = TECH_NIGHT
@@ -100,3 +164,17 @@ def resolve_theme(name: str | None) -> Theme:
     if not name:
         return DEFAULT_THEME
     return THEMES.get(name.strip().lower(), DEFAULT_THEME)
+
+
+def theme_for_scenes(scenes: list[dict], default: str | None = None) -> str | None:
+    """脚本自己指定的主题优先，没有就用全局默认。
+
+    主题是整片一个，不是逐场景换色——所以约定写在**第一个带 theme 的场景**上，
+    全片生效。场景是脚本里唯一不受 schema 约束的自由 JSON，借它的一个可选键，
+    比为这件事加一列再写迁移轻得多。
+    """
+    for sc in scenes:
+        name = sc.get("theme")
+        if name:
+            return str(name)
+    return default

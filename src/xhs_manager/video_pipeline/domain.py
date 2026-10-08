@@ -126,6 +126,20 @@ class Transition(str, Enum):
     BLUR = "blur"
     WIPE = "wipe"
     FLIP = "flip"
+    SLIDE_UP = "slide_up"
+    SLIDE_DOWN = "slide_down"
+    WIPE_DOWN = "wipe_down"
+    WIPE_UP = "wipe_up"
+    WIPE_DIAGONAL = "wipe_diagonal"
+    IRIS = "iris"                  # 圆形从中心展开
+    SPLIT_H = "split_h"            # 左右对开
+    SPLIT_V = "split_v"            # 上下对开
+    BLINDS = "blinds"              # 百叶窗
+    CROSS_ZOOM = "cross_zoom"      # 推近 + 模糊
+    SPIN = "spin"
+    FLASH = "flash"                # 闪白
+    BOUNCE = "bounce"              # 落下回弹
+    FLIP_X = "flip_x"              # 绕横轴翻入
     NONE = "none"
 
 

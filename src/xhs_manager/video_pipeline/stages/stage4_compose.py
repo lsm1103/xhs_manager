@@ -17,6 +17,7 @@ from xhs_manager.video_pipeline.composition import (
     build_composition_html,
     classify_media,
 )
+from xhs_manager.video_pipeline.composition.theme import theme_for_scenes
 from xhs_manager.video_pipeline.config import VideoPipelineSettings
 from xhs_manager.video_pipeline.domain import StageError
 from xhs_manager.video_pipeline.models import (
@@ -162,8 +163,7 @@ def _build_composition_html(
         width=width,
         height=height,
         fps=settings.render_fps,
-        theme=settings.composition_theme,
-        brand=settings.brand_name,
+        theme=theme_for_scenes(list(script.scenes), settings.composition_theme),
         handle=settings.brand_handle,
     )
     return html

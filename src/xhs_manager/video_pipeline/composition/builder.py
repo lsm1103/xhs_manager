@@ -105,11 +105,10 @@ def _captions_html(tl: Timeline) -> str:
     return f'<div class="captions">{"".join(cues)}</div>'
 
 
-def _shell_html(tl: Timeline, brand: str, handle: str) -> str:
+def _shell_html(tl: Timeline, handle: str) -> str:
     return f"""\
   <div class="shell">
     <div class="shell-top">
-      <div class="brand"><span class="brand-dot"></span>{escape(brand)}</div>
       <div class="chapter" id="chapter"></div>
     </div>
 {_progress_html(tl)}
@@ -199,7 +198,6 @@ def build_composition_html(
     height: int = 1920,
     fps: int = 30,
     theme: Theme | str | None = None,
-    brand: str = "AI 工作流实验员",
     handle: str = "@ai-workflow-lab",
 ) -> tuple[str, Timeline]:
     """把 Stage2 的场景列表编译成完整 HTML。返回 (html, timeline)。"""
@@ -227,7 +225,7 @@ def build_composition_html(
   <div class="scenes">
 {chr(10).join(scene_blocks)}
   </div>
-{_shell_html(tl, brand, handle)}
+{_shell_html(tl, handle)}
 </div>
 <script>
 {_SEEK_JS}</script>

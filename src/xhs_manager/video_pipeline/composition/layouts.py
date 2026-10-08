@@ -394,6 +394,103 @@ def _outro(s: PlannedScene) -> str:
     return "\n".join(parts)
 
 
+
+def _stagger(duration: float, n: int, lo: float = 0.2, hi: float = 0.55) -> float:
+    """逐条入场的间隔。按剩余时长自适应：条目多时不会挤到最后才出完。"""
+    return min(hi, max(lo, (duration * 0.6) / max(1, n)))
+
+
+def _timeline(s: PlannedScene) -> str:
+    """时间线：一条竖线从上往下长出来，编号节点随之逐个点亮。"""
+    t0 = s.start
+    head = _text_node(s.text_main, s.animation, "title", t0 + 0.1, 0.6)
+    n = max(1, len(s.bullets))
+    step = _stagger(s.duration, n)
+
+    items = []
+    for i, b in enumerate(s.bullets):
+        at = t0 + 0.5 + i * step
+        items.append(
+            f'<div class="tl-item m m-slide-up" style="--s:{at:.3f};--d:0.5">'
+            f'<span class="tl-dot">{i + 1}</span>'
+            f'<span class="tl-text">{escape(b)}</span>'
+            f"</div>"
+        )
+    fill = (
+        f'<span class="tl-fill m m-grow-y m-linear" '
+        f'style="--s:{t0 + 0.5:.3f};--d:{step * n + 0.3:.3f}"></span>'
+    )
+    return (
+        head
+        + f'\n<div class="tl-list"><div class="tl-track">{fill}</div>{"".join(items)}</div>'
+    )
+
+
+def _cards(s: PlannedScene) -> str:
+    """并排卡片：每张「标题 + 说明」。4 张排 2×2，其余竖着叠。"""
+    t0 = s.start
+    head = (
+        _text_node(s.text_main, s.animation, "title", t0 + 0.1, 0.6)
+        if s.text_main else ""
+    )
+    step = _stagger(s.duration, len(s.cards), lo=0.18, hi=0.45)
+
+    cards = []
+    for i, (title, desc) in enumerate(s.cards):
+        at = t0 + 0.45 + i * step
+        body = f'<div class="card-desc">{escape(desc)}</div>' if desc else ""
+        cards.append(
+            f'<div class="card m m-pop-in" style="--s:{at:.3f};--d:0.5">'
+            f'<div class="card-title">{escape(title)}</div>{body}</div>'
+        )
+    cols = min(len(cards), 4)
+    grid = f'<div class="card-grid n{cols}">{"".join(cards)}</div>'
+    return (head + "\n" + grid) if head else grid
+
+
+# 清单图标用内联 SVG：字体里不一定有 ✓ ✗ 的字形，缺字时会掉到备用字体，
+# 逐帧渲染的结果就取决于这台机器装了什么字体。
+_CHECK_ICONS = {
+    "ok": '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    "bad": '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    "unknown": '<svg viewBox="0 0 24 24"><path d="M9.2 9a3 3 0 1 1 4.6 2.5c-1 .7-1.8 1.2-1.8 2.5"/><circle cx="12" cy="17.6" r="0.6"/></svg>',
+}
+
+
+def _checklist(s: PlannedScene) -> str:
+    """清单：✓ 已确认 / ✗ 不成立 / ? 未证实，三种语义各有固定颜色。"""
+    t0 = s.start
+    head = _text_node(s.text_main, s.animation, "title", t0 + 0.1, 0.6)
+    step = _stagger(s.duration, len(s.checks), lo=0.18, hi=0.5)
+
+    rows = []
+    for i, (kind, text) in enumerate(s.checks):
+        at = t0 + 0.5 + i * step
+        rows.append(
+            f'<div class="ck-row m m-slide-up" style="--s:{at:.3f};--d:0.5">'
+            f'<span class="ck-icon ck-{kind}">{_CHECK_ICONS[kind]}</span>'
+            f'<span class="ck-text">{escape(text)}</span>'
+            f"</div>"
+        )
+    return head + f'\n<div class="ck-list">{"".join(rows)}</div>'
+
+
+def _chapter(s: PlannedScene) -> str:
+    """章节过场：超大的编号描边字压住上半屏，标题在下。"""
+    t0 = s.start
+    parts = [
+        f'<div class="chapter-index m m-pop-in" style="--s:{t0:.3f};--d:0.7">'
+        f"{escape(s.chapter_index)}</div>",
+        _text_node(s.text_main, s.animation, "display", t0 + 0.3, 0.7),
+    ]
+    if s.text_sub:
+        parts.append(
+            f'<div class="body m m-slide-up" style="--s:{t0 + 0.7:.3f};--d:0.6">'
+            f"{escape(s.text_sub)}</div>"
+        )
+    return "\n".join(parts)
+
+
 _RENDERERS = {
     "hook": _hook,
     "statement": _statement,
@@ -403,6 +500,10 @@ _RENDERERS = {
     "compare": _compare,
     "terminal": _terminal,
     "outro": _outro,
+    "timeline": _timeline,
+    "cards": _cards,
+    "checklist": _checklist,
+    "chapter": _chapter,
 }
 
 # 需要素材本身参与排版的版面。其余版面只认文字，签名保持单参数。
