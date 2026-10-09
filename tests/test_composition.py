@@ -912,6 +912,9 @@ def test_video_shell_has_no_brand_bar_but_keeps_the_chapter_counter():
     html, _ = build_composition_html([_scene()], media_lookup=lambda sid: None)
     assert 'class="brand"' not in html and "brand-dot" not in html
     assert 'id="chapter"' in html
+    # 样式表里也不能留着 .brand：builder 不再输出它，留规则就是死代码，
+    # 哪天有人又把元素加回来，它还会悄悄把元素隐藏掉。
+    assert ".brand" not in CSS_PATH.read_text(encoding="utf-8")
 
 
 # ── 主题 ──────────────────────────────────────────────────────────

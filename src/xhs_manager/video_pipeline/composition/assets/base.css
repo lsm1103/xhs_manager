@@ -749,10 +749,6 @@ body {
   top: 54px; left: var(--safe-left); right: var(--safe-right);
   display: flex; align-items: center; justify-content: flex-end;
 }
-/* 左上角品牌条已移除。旧版 builder 仍会输出 .brand（已在运行的 worker 持有旧代码），
-   这里隐藏而不是删规则，免得它在左上角以无样式文字露出来。
-   worker 重启过之后这条兼容规则可以一并删掉。 */
-.brand { display: none; }
 .chapter {
   font-size: 26px; font-weight: 700;
   color: rgba(255,255,255,0.78);
